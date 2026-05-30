@@ -1,0 +1,70 @@
+---
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const shopHref = `${prefix}/shop`;
+const homeHref = prefix || '/';
+
+const items = [
+  { num: '01', word: 'Everything', href: shopHref },
+  { num: '02', word: 'Orchardcraft', href: `${homeHref}#orchardcraft` },
+  { num: '03', word: 'Journal', href: `${homeHref}#journal` },
+  { num: '04', word: 'About', href: `${homeHref}#about` },
+];
+---
+<div class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <button class="nav-drawer__scrim" aria-label="Close menu" type="button"></button>
+  <div class="nav-drawer__panel" role="dialog" aria-label="Main navigation">
+    <button class="nav-drawer__close" aria-label="Close menu" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="4" y1="4" x2="20" y2="20"/><line x1="20" y1="4" x2="4" y2="20"/></svg>
+      <span>Close</span>
+    </button>
+
+    <nav class="nav-drawer__nav">
+      <ol class="nav-drawer__list">
+        {items.map((i) => (
+          <li>
+            <a href={i.href}>
+              <span class="nav-num">{i.num}</span>
+              <span class="nav-word">{i.word}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+
+    <div class="nav-drawer__foot">
+      <a href="#">Account</a>
+      <a href="#">Book a home trial</a>
+      <span class="nav-drawer__sig">{marketConfig.countryName} · {marketConfig.currency} {marketConfig.currencySymbol}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const drawer = document.getElementById('navDrawer');
+    const openBtn = document.querySelector('.hdr-menu-btn') as HTMLButtonElement | null;
+    if (!drawer || !openBtn) return;
+    const closeBtn = drawer.querySelector('.nav-drawer__close') as HTMLButtonElement | null;
+    const scrim = drawer.querySelector('.nav-drawer__scrim') as HTMLButtonElement | null;
+
+    function open() {
+      drawer!.classList.add('is-open');
+      drawer!.setAttribute('aria-hidden', 'false');
+      openBtn!.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      drawer!.classList.remove('is-open');
+      drawer!.setAttribute('aria-hidden', 'true');
+      openBtn!.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+    openBtn.addEventListener('click', open);
+    closeBtn?.addEventListener('click', close);
+    scrim?.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && drawer.classList.contains('is-open')) close();
+    });
+  })();
+</script>

@@ -1,0 +1,23 @@
+---
+import type { Product } from '~/types/shopify';
+import ProductCard from './ProductCard.astro';
+
+interface Props {
+  products: Product[];
+}
+
+const { products } = Astro.props;
+---
+<section class="product-row">
+  <div class="pr-inner">
+    <div class="pr-arrow pr-arrow--left">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+    <div class="pr-grid">
+      {products.map((p) => <ProductCard product={p} />)}
+    </div>
+    <div class="pr-arrow pr-arrow--right">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+</section>

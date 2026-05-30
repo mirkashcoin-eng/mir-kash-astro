@@ -1,0 +1,120 @@
+---
+const { marketConfig } = Astro.locals;
+---
+<footer class="site-footer">
+
+  <div class="footer-info">
+    <div class="fi-mark" aria-hidden="true">
+      <img src="/mir-kash-monogram.png" alt="Mir Kash" />
+    </div>
+
+    <h3 class="fi-heading">The Mir Kash <em>promise</em></h3>
+
+    <div class="fi-cols">
+      <div class="fi-col">
+        <p class="fi-label">Note from Founder</p>
+        <p class="fi-val">Made slowly.<br />Worn forever. Hurts nothing.</p>
+      </div>
+      <div class="fi-col">
+        <p class="fi-label">Order it. Live with it.</p>
+        <p class="fi-val">14 days to decide.<br />No question returns.</p>
+      </div>
+      <div class="fi-col">
+        <p class="fi-label">Built to Last</p>
+        <p class="fi-val">3-year warranty</p>
+      </div>
+    </div>
+
+    <form class="fi-news" onsubmit="event.preventDefault();">
+      <span class="fi-news__icon" aria-hidden="true">
+        <svg width="22" height="16" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.4">
+          <rect x="1" y="1" width="22" height="16" rx="0" />
+          <polyline points="1 2 12 11 23 2" />
+        </svg>
+      </span>
+      <input class="fi-news__input" type="email" placeholder="Letters from the atelier — once a season, never more" required />
+      <button class="fi-news__submit" type="submit">Subscribe</button>
+    </form>
+  </div>
+
+  <div class="footer-acc">
+    <details class="fa-col" open>
+      <summary>
+        <span>Mir Kash</span>
+        <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <ul>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">About Mir Kash</a></li>
+        <li><a href="#">Founder Story</a></li>
+        <li><a href="#">Materials</a></li>
+        <li><a href="#">Work with Us</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </details>
+    <details class="fa-col" open>
+      <summary>
+        <span>Shop</span>
+        <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <ul>
+        <li><a href="#">Book a home demo</a></li>
+        <li><a href="#">FAQ</a></li>
+        <li><a href="#">Shipping &amp; Returns</a></li>
+        <li><a href="#">Track Order</a></li>
+        <li><a href="#">Bulk Gifting</a></li>
+      </ul>
+    </details>
+    <details class="fa-col" open>
+      <summary>
+        <span>Legal</span>
+        <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <ul>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Sitemap</a></li>
+        <li><a href="#">Accessibility</a></li>
+      </ul>
+    </details>
+    <details class="fa-col" open>
+      <summary>
+        <span>Social</span>
+        <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <ul>
+        <li><a href="#">Instagram</a></li>
+        <li><a href="#">Pinterest</a></li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="fb-copy">© MIR KASH 2026</div>
+    <span class="fb-mono">m·k</span>
+    <div class="fb-meta">
+      <a href="#">Country: {marketConfig.countryName} ({marketConfig.currency} {marketConfig.currencySymbol}) <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg></a>
+      <a href="#">Language: english <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg></a>
+    </div>
+  </div>
+
+</footer>
+
+<script>
+  (function () {
+    const cols = document.querySelectorAll('.fa-col');
+    if (!cols.length) return;
+    let syncing = false;
+    cols.forEach((d) => {
+      d.addEventListener('toggle', () => {
+        if (syncing) return;
+        syncing = true;
+        const target = (d as HTMLDetailsElement).open;
+        cols.forEach((o) => {
+          if ((o as HTMLDetailsElement).open !== target) (o as HTMLDetailsElement).open = target;
+        });
+        syncing = false;
+      });
+    });
+  })();
+</script>

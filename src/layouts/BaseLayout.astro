@@ -1,0 +1,74 @@
+---
+import { SITE_ORIGIN, absoluteUrl, listMarkets } from '~/lib/markets';
+import GeoBanner from '~/components/GeoBanner.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  path: string;
+  fontsHref?: string;
+}
+
+const { title, description = 'Mir Kash — luxury vegan handbags. Made slowly. Worn forever. Hurts nothing.', path, fontsHref } = Astro.props;
+const { market, marketConfig } = Astro.locals;
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, s-maxage=60, stale-while-revalidate=300',
+);
+
+const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path) || '/');
+
+const defaultFonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Italiana&display=swap';
+const fontsUrl = fontsHref ?? defaultFonts;
+
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Mir Kash',
+  url: SITE_ORIGIN,
+  logo: SITE_ORIGIN + '/mir-kash-logo.webp',
+  slogan: 'Made slowly. Worn forever. Hurts nothing.',
+};
+---
+<!DOCTYPE html>
+<html lang={marketConfig.locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    {listMarkets().map((m) => (
+      <link
+        rel="alternate"
+        hreflang={m.hreflang}
+        href={absoluteUrl(m.urlPrefix + (path === '/' ? '' : path) || '/')}
+      />
+    ))}
+    <link rel="alternate" hreflang="x-default" href={absoluteUrl(path === '/' ? '/' : path)} />
+
+    <meta property="og:locale" content={marketConfig.locale} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href={fontsUrl} rel="stylesheet" />
+
+    <link rel="stylesheet" href="/styles.css" />
+
+    <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
+
+    <script define:vars={{ market }}>
+      window.__MARKET__ = market;
+    </script>
+  </head>
+  <body data-market={market}>
+    <GeoBanner />
+    <slot />
+  </body>
+</html>

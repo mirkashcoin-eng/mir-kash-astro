@@ -1,0 +1,29 @@
+---
+const items = [
+  'Handmade vegan bags',
+  'Made slowly, worn forever',
+  'Apple leather from Italy',
+  'Ships worldwide',
+  'Cruelty-free always',
+];
+---
+<div class="brand-ticker" aria-label="Announcements">
+  <div class="brand-ticker__track">
+    <div class="brand-ticker__seq">
+      {items.map((t) => (
+        <>
+          <span>{t}</span><span class="tick-dot">·</span>
+        </>
+      ))}
+      <span><em>New:</em> GIGI — June 10</span><span class="tick-dot">·</span>
+    </div>
+    <div class="brand-ticker__seq" aria-hidden="true">
+      {items.map((t) => (
+        <>
+          <span>{t}</span><span class="tick-dot">·</span>
+        </>
+      ))}
+      <span><em>New:</em> GIGI — June 10</span><span class="tick-dot">·</span>
+    </div>
+  </div>
+</div>

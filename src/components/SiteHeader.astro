@@ -1,0 +1,45 @@
+---
+import MarketSwitcher from './MarketSwitcher.astro';
+const { marketConfig } = Astro.locals;
+const homeHref = marketConfig.urlPrefix || '/';
+---
+<div class="page-header hdr--solid">
+  <header class="site-header site-header--minimal">
+    <div class="hdr-wrap">
+
+      <button class="hdr-menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="navDrawer" type="button">
+        <span class="hdr-menu-btn__bars" aria-hidden="true">
+          <span></span><span></span>
+        </span>
+        <span class="hdr-menu-btn__label">Menu</span>
+      </button>
+
+      <a href={homeHref} class="logo">
+        <img src="/mir-kash-logo.webp" alt="Mir Kash" />
+      </a>
+
+      <div class="hdr-right">
+        <MarketSwitcher />
+        <button class="hdr-icon-btn hdr-bag" aria-label="Bag" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          <span class="hdr-bag__count">0</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+</div>
+
+<script>
+  (function () {
+    const hdr = document.querySelector('.page-header.hdr--solid');
+    if (!hdr) return;
+    const threshold = 80;
+    function update() {
+      if (window.scrollY > threshold) hdr!.classList.add('is-scrolled');
+      else hdr!.classList.remove('is-scrolled');
+    }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })();
+</script>

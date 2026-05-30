@@ -1,0 +1,36 @@
+---
+import type { Product } from '~/types/shopify';
+import { formatMoney } from '~/lib/markets';
+import { shopifyImage } from '~/lib/shopifyImage';
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+const { marketConfig } = Astro.locals;
+const price = formatMoney(product.priceRange.minVariantPrice, marketConfig.locale);
+const href = `${marketConfig.urlPrefix}/products/${product.handle}`;
+const imgSrc = product.featuredImage?.url ? shopifyImage(product.featuredImage.url, 600) : '';
+const imgAlt = product.featuredImage?.altText ?? product.title;
+---
+<a class="pr-card" href={href}>
+  <div class="pr-img">
+    {imgSrc && <img src={imgSrc} alt={imgAlt} loading="lazy" />}
+  </div>
+  <div class="pr-meta">
+    <p class="pr-name">{product.title.toUpperCase()}</p>
+    <p class="pr-price">{price}</p>
+  </div>
+</a>
+
+<style is:global>
+  a.pr-card { display: block; color: inherit; text-decoration: none; }
+  a.pr-card .pr-img { position: relative; overflow: hidden; }
+  a.pr-card .pr-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+</style>
