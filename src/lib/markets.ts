@@ -14,6 +14,14 @@ export const MARKET_COOKIE = 'mirkash-market';
 export const MARKET_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 export const DEFAULT_MARKET: Market = 'global';
 
+function getEnv(key: string): string {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key] as string;
+  }
+  const meta = import.meta.env as Record<string, string | undefined>;
+  return meta[key] ?? '';
+}
+
 export const MARKETS: Record<Market, MarketConfig> = {
   global: {
     market: 'global',
@@ -25,8 +33,8 @@ export const MARKETS: Record<Market, MarketConfig> = {
     countryName: 'Global',
     flag: '🌍',
     label: 'Global (USD)',
-    shopifyDomain: import.meta.env.SHOPIFY_GLOBAL_DOMAIN ?? '',
-    shopifyToken: import.meta.env.SHOPIFY_GLOBAL_TOKEN ?? '',
+    shopifyDomain: getEnv('SHOPIFY_GLOBAL_DOMAIN'),
+    shopifyToken: getEnv('SHOPIFY_GLOBAL_TOKEN'),
   },
   india: {
     market: 'india',
@@ -38,8 +46,8 @@ export const MARKETS: Record<Market, MarketConfig> = {
     countryName: 'India',
     flag: '🇮🇳',
     label: 'India (₹)',
-    shopifyDomain: import.meta.env.SHOPIFY_IN_DOMAIN ?? '',
-    shopifyToken: import.meta.env.SHOPIFY_IN_TOKEN ?? '',
+    shopifyDomain: getEnv('SHOPIFY_IN_DOMAIN'),
+    shopifyToken: getEnv('SHOPIFY_IN_TOKEN'),
   },
 };
 
