@@ -1,6 +1,5 @@
 ---
 import { SITE_ORIGIN, absoluteUrl, listMarkets } from '~/lib/markets';
-import GeoBanner from '~/components/GeoBanner.astro';
 
 interface Props {
   title: string;
@@ -68,7 +67,6 @@ const orgJsonLd = {
     </script>
   </head>
   <body data-market={market}>
-    <GeoBanner />
     <slot />
   </body>
 </html>

@@ -1,4 +1,4 @@
-export type Market = 'global' | 'india';
+export type Market = 'india' | 'us';
 
 export interface MarketConfig {
   market: Market;

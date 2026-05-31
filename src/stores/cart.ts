@@ -26,12 +26,12 @@ export const cartIdByMarket = map<Record<Market, string | null>>({
 });
 
 export const cartDataByMarket = map<Record<Market, CartData | null>>({
-  global: null,
   india: null,
+  us: null,
 });
 
 export const drawerOpen = atom(false);
-export const activeMarket = atom<Market>('global');
+export const activeMarket = atom<Market>('india');
 
 export function openDrawer() {
   drawerOpen.set(true);
