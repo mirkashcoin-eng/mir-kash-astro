@@ -1,7 +1,6 @@
 ---
 import {
   COUNTRIES,
-  MARKETS,
   MARKET_COOKIE,
   MARKET_COOKIE_MAX_AGE,
   MARKET_DEFAULT_COUNTRY,
@@ -19,14 +18,14 @@ const current =
   (cookieCode ? getCountryByCode(cookieCode) : undefined) ??
   getCountryByCode(MARKET_DEFAULT_COUNTRY[market])!;
 
-const currencySymbol = MARKETS[current.market].currencySymbol;
+const currencySymbol = current.currency;
 
 const options = COUNTRIES.map((c) => ({
   code: c.code,
   name: c.name,
   flag: c.flag,
   market: c.market,
-  symbol: MARKETS[c.market].currencySymbol,
+  symbol: c.currency,
   href: getAlternateUrl(pathname, c.market),
   active: c.code === current.code,
 }));

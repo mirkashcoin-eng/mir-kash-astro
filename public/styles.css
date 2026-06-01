@@ -568,7 +568,7 @@ img { display: block; max-width: 100%; }
 /* Directory: flat columns on desktop */
 .footer-acc {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   padding: clamp(20px, 2.5vw, 32px) var(--gutter);
   gap: 32px;
   border-bottom: 1px solid var(--rule);
@@ -608,6 +608,25 @@ img { display: block; max-width: 100%; }
   transition: opacity .2s;
 }
 .fa-col ul li a:hover { opacity: .55; }
+
+/* Locations column — address blocks (not links) */
+.fa-loc__city {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.fa-loc__addr {
+  display: block;
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-mid);
+  max-width: 30ch;
+}
 
 .fa-follow__label {
   font-family: var(--font);
