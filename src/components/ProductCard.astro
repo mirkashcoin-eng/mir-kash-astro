@@ -13,10 +13,19 @@ const price = formatMoney(product.priceRange.minVariantPrice, marketConfig.local
 const href = `${marketConfig.urlPrefix}/products/${product.handle}`;
 const imgSrc = product.featuredImage?.url ? shopifyImage(product.featuredImage.url, 600) : '';
 const imgAlt = product.featuredImage?.altText ?? product.title;
+
+const featuredUrl = product.featuredImage?.url;
+const altNode =
+  product.images?.edges?.find((e) => e.node.url !== featuredUrl)?.node ??
+  product.images?.edges?.[1]?.node ??
+  null;
+const hoverSrc = altNode ? shopifyImage(altNode.url, 600) : '';
+const hoverAlt = altNode?.altText ?? product.title;
 ---
 <a class="pr-card" href={href}>
   <div class="pr-img">
-    {imgSrc && <img src={imgSrc} alt={imgAlt} loading="lazy" />}
+    {imgSrc && <img class="pr-img__primary" src={imgSrc} alt={imgAlt} loading="lazy" />}
+    {hoverSrc && <img class="pr-img__alt" src={hoverSrc} alt={hoverAlt} loading="lazy" aria-hidden="true" />}
   </div>
   <div class="pr-meta">
     <p class="pr-name">{product.title.toUpperCase()}</p>
@@ -32,5 +41,16 @@ const imgAlt = product.featuredImage?.altText ?? product.title;
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+  /* Hover image-swap: alt image stacked over primary, fades in on hover */
+  a.pr-card .pr-img__alt {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .4s ease;
+  }
+  a.pr-card:hover .pr-img__alt { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    a.pr-card .pr-img__alt { transition: none; }
   }
 </style>

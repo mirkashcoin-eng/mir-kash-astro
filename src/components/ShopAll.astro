@@ -39,6 +39,13 @@ const lightProducts = products.map((p) => ({
     : null,
   image: p.featuredImage ? shopifyImage(p.featuredImage.url, 600) : null,
   imageAlt: p.featuredImage?.altText ?? p.title,
+  hoverImage: (() => {
+    const node =
+      p.images?.edges?.find((e) => e.node.url !== p.featuredImage?.url)?.node ??
+      p.images?.edges?.[1]?.node ??
+      null;
+    return node ? shopifyImage(node.url, 600) : null;
+  })(),
 }));
 ---
 <BrandTicker />
@@ -101,7 +108,9 @@ const lightProducts = products.map((p) => ({
     const primaryStyle = p.image
       ? `background:url('${p.image}') center/cover no-repeat, ${placeholderPrimary};`
       : `background:${placeholderPrimary};`;
-    const altStyle = `background:${placeholderAlt};`;
+    const altStyle = p.hoverImage
+      ? `background:url('${p.hoverImage}') center/cover no-repeat, ${placeholderAlt};`
+      : `background:${placeholderAlt};`;
     const placeholderText = p.image ? '' : `<span class="shop-card__placeholder-mono">${p.name.toLowerCase()}</span>`;
 
     card.innerHTML = `
