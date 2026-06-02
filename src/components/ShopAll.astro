@@ -238,28 +238,6 @@ const lightProducts = products.map((p) => ({
   }
 </script>
 
-<script>
-  (function () {
-    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-    const dot = document.createElement('div');
-    dot.className = 'cursor-dot';
-    document.body.appendChild(dot);
-    let mx = 0, my = 0, cx = 0, cy = 0;
-    let active = false;
-    window.addEventListener('mousemove', (e) => {
-      mx = e.clientX; my = e.clientY;
-      if (!active) { active = true; dot.classList.add('is-active'); }
-    });
-    window.addEventListener('mouseleave', () => { active = false; dot.classList.remove('is-active'); });
-    (function tick() {
-      cx += (mx - cx) * 0.35;
-      cy += (my - cy) * 0.35;
-      dot.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
-      requestAnimationFrame(tick);
-    })();
-  })();
-</script>
-
 <style is:global>
   /* ══════════════════════════════════════
      SHOP V2 — brand-aligned redesign
@@ -568,25 +546,6 @@ const lightProducts = products.map((p) => ({
     to   { transform: translateX(-50%); }
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    body { cursor: none; }
-    a, button, [role="button"], summary, .cat-tile, .shop-card { cursor: none; }
-    input, textarea, [contenteditable] { cursor: text; }
-
-    .cursor-dot {
-      position: fixed;
-      top: 0; left: 0;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--cherry);
-      pointer-events: none;
-      z-index: 9999;
-      margin: -4px 0 0 -4px;
-      transition: opacity .15s;
-      opacity: 0;
-    }
-    .cursor-dot.is-active { opacity: 1; }
-  }
 
   .page-header.hdr--solid { background: var(--paper); }
 
@@ -1025,7 +984,7 @@ const lightProducts = products.map((p) => ({
     color: var(--ink);
   }
   .shop-card__price {
-    font-size: 11px;
+    font-size: 16px;
     color: var(--ink-mid);
     white-space: nowrap;
     font-weight: 400;

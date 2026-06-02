@@ -345,7 +345,7 @@ img { display: block; max-width: 100%; }
 }
 
 .pr-price {
-  font-size: 22px;
+  font-size: 16px;
   font-style: normal;
   letter-spacing: 0;
   color: var(--ink-mid);
