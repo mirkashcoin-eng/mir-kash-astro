@@ -11,6 +11,9 @@
   padding: 0;
 }
 
+/* Brand uses upright type only — never italic (incl. default <em>/<i>) */
+em, i { font-style: normal; }
+
 :root {
   /* Color */
   --white:    #ffffff;
@@ -342,7 +345,7 @@ img { display: block; max-width: 100%; }
 }
 
 .pr-price {
-  font-size: 16px;
+  font-size: 20px;
   font-style: normal;
   letter-spacing: 0;
   color: var(--ink-mid);

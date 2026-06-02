@@ -298,8 +298,13 @@ const lightProducts = products.map((p) => ({
   .site-header--minimal .hdr-right {
     display: flex;
     justify-self: end;
+    grid-column: 3;
     align-items: center;
     gap: 14px;
+  }
+  .site-header--minimal .logo {
+    justify-self: center;
+    grid-column: 2;
   }
   .site-header--minimal .logo img { height: 22px; }
 
