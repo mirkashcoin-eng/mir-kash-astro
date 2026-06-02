@@ -47,7 +47,10 @@ if (needsFallback) {
 
   <section class="hero">
     <div class="hero-img">
-      <img src="/banner-image.jpeg" alt="Hero" />
+      <picture>
+        <source media="(max-width: 768px)" srcset="/banner-image-mobile.jpeg" />
+        <img src="/banner-image.jpeg" alt="Hero" />
+      </picture>
     </div>
   </section>
 
