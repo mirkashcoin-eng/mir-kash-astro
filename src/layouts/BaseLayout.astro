@@ -18,7 +18,7 @@ Astro.response.headers.set(
 
 const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path) || '/');
 
-const defaultFonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Italiana&display=swap';
+const defaultFonts = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Italiana&display=swap';
 const fontsUrl = fontsHref ?? defaultFonts;
 
 const orgJsonLd = {
