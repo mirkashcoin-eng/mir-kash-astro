@@ -1,6 +1,14 @@
 ---
 const { marketConfig } = Astro.locals;
-const homeHref = marketConfig.urlPrefix || '/';
+const prefix = marketConfig.urlPrefix;
+const homeHref = prefix || '/';
+
+const navItems = [
+  { word: 'Shop All',  href: `${prefix}/shop` },
+  { word: 'Materials', href: `${homeHref}#orchardcraft` },
+  { word: 'Journal',   href: `${homeHref}#journal` },
+  { word: 'About',     href: `${homeHref}#about` },
+];
 ---
 <div class="page-header hdr--solid">
   <header class="site-header site-header--minimal">
@@ -24,6 +32,14 @@ const homeHref = marketConfig.urlPrefix || '/';
         </button>
       </div>
 
+    </div>
+
+    <div class="hdr-nav-row">
+      <nav class="main-nav">
+        {navItems.map((i) => (
+          <a href={i.href}>{i.word}</a>
+        ))}
+      </nav>
     </div>
   </header>
 </div>

@@ -304,7 +304,7 @@ const lightProducts = products.map((p) => ({
   .site-header--minimal .logo img { height: 22px; }
 
   .hdr-menu-btn {
-    display: inline-flex;
+    display: none; /* desktop: tabs row replaces the hamburger; shown on mobile */
     align-items: center;
     gap: 12px;
     justify-self: start;
@@ -350,7 +350,7 @@ const lightProducts = products.map((p) => ({
   .hdr-icon-btn:hover { color: var(--cherry); }
   .hdr-bag__count {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 14px;
     letter-spacing: 0;
@@ -440,7 +440,7 @@ const lightProducts = products.map((p) => ({
   }
   .nav-num {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 13px;
     color: var(--ink-mid);
@@ -453,13 +453,13 @@ const lightProducts = products.map((p) => ({
     letter-spacing: 0;
   }
   .nav-word em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
   }
   .nav-sub {
     grid-column: 2 / 3;
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -485,7 +485,7 @@ const lightProducts = products.map((p) => ({
   .nav-drawer__foot a:hover { color: var(--cherry); }
   .nav-drawer__sig {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 13px;
     color: var(--ink-mid);
@@ -511,7 +511,7 @@ const lightProducts = products.map((p) => ({
     }
     .site-header--minimal .logo img { height: 18px; }
     .hdr-menu-btn__label { display: none; }
-    .hdr-menu-btn { gap: 0; }
+    .hdr-menu-btn { display: inline-flex; gap: 0; }
     .hdr-icon-btn .hdr-bag__count { font-size: 13px; }
     .site-header--minimal .hdr-right { gap: 8px; }
   }
@@ -594,14 +594,14 @@ const lightProducts = products.map((p) => ({
   .shop-tag-strip__line {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(20px, 2.2vw, 30px);
     line-height: 1.25;
     letter-spacing: 0.005em;
     color: var(--depth);
   }
   .shop-tag-strip__line em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
     font-weight: 400;
   }
@@ -640,13 +640,13 @@ const lightProducts = products.map((p) => ({
     color: var(--depth);
   }
   .shop-title__h1 .amp {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
     font-weight: 400;
   }
   .shop-title__sub {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: clamp(15px, 1.3vw, 19px);
     color: var(--ink-mid);
@@ -688,7 +688,7 @@ const lightProducts = products.map((p) => ({
     color: var(--depth);
   }
   .cat-row__title .accent {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
   }
   .cat-row__hint {
@@ -727,7 +727,7 @@ const lightProducts = products.map((p) => ({
     top: clamp(10px, 1.2vw, 14px);
     left: clamp(10px, 1.2vw, 14px);
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: clamp(15px, 1.2vw, 19px);
     color: rgba(255,255,255,0.88);
@@ -740,7 +740,7 @@ const lightProducts = products.map((p) => ({
     bottom: clamp(12px, 1.4vw, 18px);
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(18px, 1.8vw, 26px);
     color: #fff;
     text-align: center;
@@ -931,7 +931,7 @@ const lightProducts = products.map((p) => ({
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 13px;
     color: rgba(20,20,20,0.18);
@@ -1029,7 +1029,7 @@ const lightProducts = products.map((p) => ({
   }
   .shop-card__material {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -1087,14 +1087,14 @@ const lightProducts = products.map((p) => ({
   .shop-story__h2 {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(36px, 4.6vw, 64px);
     line-height: 1.02;
     letter-spacing: -0.005em;
     color: #fff;
   }
   .shop-story__h2 em {
-    font-style: italic;
+    font-style: normal;
     color: var(--earth);
   }
   .shop-story__body {
@@ -1129,7 +1129,7 @@ const lightProducts = products.map((p) => ({
   .hdr--solid .ann-bar { letter-spacing: var(--tr-caps); }
   .ann-center .ann-serif {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 12.5px;
     letter-spacing: 0;
@@ -1157,7 +1157,7 @@ const lightProducts = products.map((p) => ({
   }
   .main-nav .nav-bridal {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 14px;
     letter-spacing: 0;
@@ -1174,7 +1174,7 @@ const lightProducts = products.map((p) => ({
   .foot-brandline__line {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(28px, 3.6vw, 54px);
     line-height: 1.1;
     letter-spacing: -0.005em;
@@ -1183,7 +1183,7 @@ const lightProducts = products.map((p) => ({
     margin: 0 auto;
   }
   .foot-brandline__line em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
     font-weight: 400;
   }
@@ -1191,7 +1191,7 @@ const lightProducts = products.map((p) => ({
     display: inline-block;
     margin-top: 22px;
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -1200,7 +1200,7 @@ const lightProducts = products.map((p) => ({
   .site-footer .fi-heading {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(22px, 2.2vw, 32px);
     letter-spacing: 0;
     text-transform: none;
@@ -1208,12 +1208,12 @@ const lightProducts = products.map((p) => ({
     margin-top: 12px;
   }
   .site-footer .fi-heading em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
   }
   .site-footer .fi-val {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: clamp(16px, 1.3vw, 20px);
     letter-spacing: 0;
@@ -1229,14 +1229,14 @@ const lightProducts = products.map((p) => ({
   .site-footer .fi-news { border-bottom-color: var(--depth); }
   .site-footer .fi-news__input {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 16px;
     letter-spacing: 0;
   }
   .site-footer .fi-news__input::placeholder {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     color: var(--ink-mid);
     letter-spacing: 0;
     text-transform: none;
@@ -1268,7 +1268,7 @@ const lightProducts = products.map((p) => ({
     top: 50%;
     transform: translate(-50%, -50%);
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);

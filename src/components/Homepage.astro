@@ -196,6 +196,9 @@ if (needsFallback) {
   .page-header.hdr--solid:not(.is-scrolled) .hdr-menu-btn__bars span {
     background: #fff;
   }
+  /* Top tabs sit over the hero before scroll — keep them legible */
+  .page-header.hdr--solid:not(.is-scrolled) .main-nav a { color: #fff; }
+  .page-header.hdr--solid:not(.is-scrolled) .hdr-nav-row { border-top-color: rgba(255,255,255,0.22); }
   .page-header.hdr--solid:not(.is-scrolled) .logo img {
     filter: none;
   }
@@ -231,7 +234,7 @@ if (needsFallback) {
   }
 
   .hdr-menu-btn {
-    display: inline-flex;
+    display: none; /* desktop: tabs row replaces the hamburger; shown on mobile */
     align-items: center;
     gap: 12px;
     justify-self: start;
@@ -277,7 +280,7 @@ if (needsFallback) {
   .hdr-icon-btn:hover { color: var(--cherry); }
   .hdr-bag__count {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 14px;
     letter-spacing: 0;
@@ -370,7 +373,7 @@ if (needsFallback) {
   }
   .nav-num {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 400;
     font-size: 13px;
     color: var(--ink-mid);
@@ -383,7 +386,7 @@ if (needsFallback) {
     letter-spacing: 0;
   }
   .nav-word em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
   }
   .nav-drawer__foot {
@@ -405,7 +408,7 @@ if (needsFallback) {
   .nav-drawer__foot a:hover { color: var(--cherry); }
   .nav-drawer__sig {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 13px;
     color: var(--ink-mid);
@@ -437,7 +440,7 @@ if (needsFallback) {
   }
   .pr-price {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -486,7 +489,7 @@ if (needsFallback) {
   }
   .trust-strip__sub {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 13px;
     color: var(--ink-mid);
@@ -516,7 +519,7 @@ if (needsFallback) {
   }
   .manifesto-band__body em {
     font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
+    font-style: normal;
     color: #f5e8e0;
     font-weight: 400;
   }
@@ -574,7 +577,7 @@ if (needsFallback) {
   .manifesto__body {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(26px, 3.2vw, 46px);
     line-height: 1.25;
     letter-spacing: -0.005em;
@@ -584,7 +587,7 @@ if (needsFallback) {
     text-wrap: pretty;
   }
   .manifesto__body em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
     font-weight: 400;
   }
@@ -611,7 +614,7 @@ if (needsFallback) {
     display: block;
     margin-top: clamp(28px, 3vw, 44px);
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -636,7 +639,7 @@ if (needsFallback) {
   .foot-brandline__line {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(28px, 3.6vw, 54px);
     line-height: 1.1;
     letter-spacing: -0.005em;
@@ -645,7 +648,7 @@ if (needsFallback) {
     margin: 0 auto;
   }
   .foot-brandline__line em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
     font-weight: 400;
   }
@@ -653,7 +656,7 @@ if (needsFallback) {
     display: inline-block;
     margin-top: 22px;
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -664,7 +667,7 @@ if (needsFallback) {
   .site-footer .fi-heading {
     font-family: var(--serif);
     font-weight: 300;
-    font-style: italic;
+    font-style: normal;
     font-size: clamp(22px, 2.2vw, 32px);
     letter-spacing: 0;
     text-transform: none;
@@ -672,13 +675,13 @@ if (needsFallback) {
     margin-top: 12px;
   }
   .site-footer .fi-heading em {
-    font-style: italic;
+    font-style: normal;
     color: var(--cherry);
   }
 
   .site-footer .fi-val {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: clamp(16px, 1.3vw, 20px);
     letter-spacing: 0;
@@ -694,14 +697,14 @@ if (needsFallback) {
   .site-footer .fi-news { border-bottom-color: var(--depth); }
   .site-footer .fi-news__input {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 16px;
     letter-spacing: 0;
   }
   .site-footer .fi-news__input::placeholder {
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     color: var(--ink-mid);
     letter-spacing: 0;
     text-transform: none;
@@ -735,7 +738,7 @@ if (needsFallback) {
     top: 50%;
     transform: translate(-50%, -50%);
     font-family: var(--serif);
-    font-style: italic;
+    font-style: normal;
     font-weight: 300;
     font-size: 14px;
     color: var(--ink-mid);
@@ -755,7 +758,7 @@ if (needsFallback) {
     .site-header--minimal .logo { justify-self: center; }
     .site-header--minimal .logo img { height: 18px; }
     .hdr-menu-btn__label { display: none; }
-    .hdr-menu-btn { gap: 0; }
+    .hdr-menu-btn { display: inline-flex; gap: 0; }
     .site-header--minimal .hdr-right { gap: 8px; }
 
     .hero {
