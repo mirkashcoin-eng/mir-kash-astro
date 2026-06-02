@@ -337,7 +337,7 @@ img { display: block; max-width: 100%; }
 }
 
 .pr-name {
-  font-size: 12px;
+  font-size: 13.5px;
   letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   font-weight: 500;
