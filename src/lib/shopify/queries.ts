@@ -1,8 +1,16 @@
 import { runQuery } from './client';
-import { IMAGE_FRAGMENT, MONEY_FRAGMENT, PRODUCT_FRAGMENT, COLLECTION_FRAGMENT } from './fragments';
+import {
+  IMAGE_FRAGMENT,
+  MONEY_FRAGMENT,
+  PRODUCT_FRAGMENT,
+  PRODUCT_PAGE_FRAGMENT,
+  COLLECTION_FRAGMENT,
+} from './fragments';
 import type { Market } from '~/types/market';
 import type {
   Product,
+  ProductDetail,
+  ProductByHandleResponse,
   CollectionByHandleResponse,
   ProductsResponse,
 } from '~/types/shopify';
@@ -58,4 +66,23 @@ export async function getAllProducts(market: Market, first = 48): Promise<Produc
   const data = await runQuery<ProductsResponse>(market, GET_ALL_PRODUCTS, { first });
   if (!data?.products) return [];
   return data.products.edges.map((e) => e.node);
+}
+
+const GET_PRODUCT_BY_HANDLE = /* GraphQL */ `
+  ${IMAGE_FRAGMENT}
+  ${MONEY_FRAGMENT}
+  ${PRODUCT_PAGE_FRAGMENT}
+  query ProductByHandle($handle: String!) {
+    product(handle: $handle) {
+      ...ProductPageFields
+    }
+  }
+`;
+
+export async function getProductByHandle(
+  market: Market,
+  handle: string,
+): Promise<ProductDetail | null> {
+  const data = await runQuery<ProductByHandleResponse>(market, GET_PRODUCT_BY_HANDLE, { handle });
+  return data?.product ?? null;
 }

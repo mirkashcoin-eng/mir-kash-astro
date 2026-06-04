@@ -1,0 +1,13 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ProductPage from '~/components/ProductPage.astro';
+import { getProductByHandle } from '~/lib/shopify/queries';
+
+const { market, marketConfig } = Astro.locals;
+const handle = Astro.params.handle as string;
+const product = await getProductByHandle(market, handle);
+if (!product) return Astro.redirect(`${marketConfig.urlPrefix}/shop`);
+---
+<BaseLayout title={`${product.title} — Mir Kash`} description={product.description} path={`/products/${handle}`}>
+  <ProductPage product={product} />
+</BaseLayout>

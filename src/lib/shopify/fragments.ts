@@ -61,3 +61,75 @@ export const COLLECTION_FRAGMENT = /* GraphQL */ `
     image { ...ImageFields }
   }
 `;
+
+// Richer single-product fragment for the PDP: full image set, options, html body.
+export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
+  fragment ProductPageFields on Product {
+    id
+    handle
+    title
+    description
+    descriptionHtml
+    availableForSale
+    vendor
+    productType
+    tags
+    options { name values }
+    featuredImage { ...ImageFields }
+    images(first: 10) {
+      edges { node { ...ImageFields } }
+    }
+    variants(first: 100) {
+      edges {
+        node {
+          id
+          title
+          availableForSale
+          price { ...MoneyFields }
+          compareAtPrice { ...MoneyFields }
+          selectedOptions { name value }
+          image { ...ImageFields }
+        }
+      }
+    }
+    priceRange {
+      minVariantPrice { ...MoneyFields }
+      maxVariantPrice { ...MoneyFields }
+    }
+    compareAtPriceRange {
+      minVariantPrice { ...MoneyFields }
+      maxVariantPrice { ...MoneyFields }
+    }
+  }
+`;
+
+// Cart shape used by the cart page + API endpoints.
+export const CART_FRAGMENT = /* GraphQL */ `
+  fragment CartFields on Cart {
+    id
+    checkoutUrl
+    totalQuantity
+    cost {
+      subtotalAmount { ...MoneyFields }
+      totalAmount { ...MoneyFields }
+    }
+    lines(first: 100) {
+      edges {
+        node {
+          id
+          quantity
+          cost { totalAmount { ...MoneyFields } }
+          merchandise {
+            ... on ProductVariant {
+              id
+              title
+              price { ...MoneyFields }
+              image { ...ImageFields }
+              product { title handle }
+            }
+          }
+        }
+      }
+    }
+  }
+`;

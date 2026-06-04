@@ -1,7 +1,11 @@
 ---
-const { marketConfig } = Astro.locals;
+import { getCartCount } from '~/lib/cart-session';
+
+const { market, marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 const homeHref = prefix || '/';
+const cartHref = `${prefix}/cart`;
+const cartCount = getCartCount(Astro.cookies, market);
 
 const navItems = [
   { word: 'Shop All',  href: `${prefix}/shop` },
@@ -26,10 +30,10 @@ const navItems = [
       </a>
 
       <div class="hdr-right">
-        <button class="hdr-icon-btn hdr-bag" aria-label="Bag" type="button">
+        <a class="hdr-icon-btn hdr-bag" href={cartHref} aria-label="Bag">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-          <span class="hdr-bag__count">0</span>
-        </button>
+          <span class="hdr-bag__count">{cartCount}</span>
+        </a>
       </div>
 
     </div>
@@ -55,5 +59,20 @@ const navItems = [
     }
     update();
     window.addEventListener('scroll', update, { passive: true });
+  })();
+</script>
+
+<script>
+  // Refresh the bag badge from the live cart (pages may be CDN-cached).
+  (async function () {
+    const el = document.querySelector('.hdr-bag__count');
+    if (!el) return;
+    try {
+      const market = (window as any).__MARKET__ || 'india';
+      const res = await fetch(`/api/cart?market=${market}`);
+      if (!res.ok) return;
+      const cart = await res.json();
+      el.textContent = String(cart.totalQuantity ?? 0);
+    } catch {}
   })();
 </script>

@@ -61,3 +61,64 @@ export interface CollectionByHandleResponse {
 export interface ProductsResponse {
   products: ProductsConnection;
 }
+
+export interface ProductOption {
+  name: string;
+  values: string[];
+}
+
+// Richer product returned by getProductByHandle (PDP).
+export interface ProductDetail extends Product {
+  descriptionHtml: string;
+  options: ProductOption[];
+}
+
+export interface ProductByHandleResponse {
+  product: ProductDetail | null;
+}
+
+// ─── Cart ───────────────────────────────────────────────────────────────────
+
+export interface ShopifyCartLine {
+  id: string;
+  quantity: number;
+  cost: { totalAmount: Money };
+  merchandise: {
+    id: string;
+    title: string;
+    price: Money;
+    image: ShopifyImage | null;
+    product: { title: string; handle: string };
+  };
+}
+
+export interface ShopifyCart {
+  id: string;
+  checkoutUrl: string;
+  totalQuantity: number;
+  cost: { subtotalAmount: Money; totalAmount: Money };
+  lines: { edges: Array<{ node: ShopifyCartLine }> };
+}
+
+// Normalized cart used across the app (page, endpoints, header).
+export interface CartLineView {
+  id: string;
+  merchandiseId: string;
+  quantity: number;
+  title: string;
+  variantTitle: string;
+  handle: string;
+  price: number;
+  lineTotal: number;
+  image: string | null;
+}
+
+export interface CartView {
+  id: string;
+  checkoutUrl: string;
+  totalQuantity: number;
+  subtotal: number;
+  total: number;
+  currency: string;
+  lines: CartLineView[];
+}
