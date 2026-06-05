@@ -14,21 +14,23 @@ const EMPTY = {
   lines: [] as unknown[],
 };
 
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
+
 export const GET: APIRoute = async ({ url, cookies }) => {
   const market = resolveMarket(url.searchParams.get('market'));
   const cartId = getCartId(cookies, market);
 
   if (!cartId) {
-    return Response.json(EMPTY);
+    return Response.json(EMPTY, { headers: NO_STORE });
   }
 
   const cart = await getCart(market, cartId);
   if (!cart) {
     // Stored cart no longer valid — clear it so we start fresh next add.
     clearCart(cookies, market);
-    return Response.json(EMPTY);
+    return Response.json(EMPTY, { headers: NO_STORE });
   }
 
   persistCart(cookies, market, cart);
-  return Response.json(cart);
+  return Response.json(cart, { headers: NO_STORE });
 };

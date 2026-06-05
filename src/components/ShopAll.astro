@@ -91,6 +91,27 @@ const lightProducts = products.map((p) => ({
 <script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix }}>
   const grid = document.getElementById('shopGrid');
 
+  // Favorites (heart) — persisted in localStorage by product handle
+  const FAV_KEY = 'mk_favorites';
+  const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+  let favToastTimer;
+  function favToast(msg) {
+    let t = document.getElementById('favToast');
+    if (!t) { t = document.createElement('div'); t.id = 'favToast'; t.className = 'fav-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('is-shown');
+    clearTimeout(favToastTimer);
+    favToastTimer = setTimeout(() => t.classList.remove('is-shown'), 1800);
+  }
+  function toggleFav(handle) {
+    const favs = getFavs();
+    const i = favs.indexOf(handle);
+    const added = i < 0;
+    if (added) favs.push(handle); else favs.splice(i, 1);
+    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+    return added;
+  }
+
   function renderCard(p) {
     const card = document.createElement('a');
     card.className = 'shop-card';
@@ -120,7 +141,7 @@ const lightProducts = products.map((p) => ({
         </div>
         <div class="shop-card__img shop-card__img--alt" style="${altStyle}"></div>
         ${badgeHtml}
-        <button class="shop-card__wish" aria-label="Save ${p.name}" type="button">
+        <button class="shop-card__wish" data-handle="${p.handle}" aria-label="Save ${p.name}" type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
@@ -134,10 +155,13 @@ const lightProducts = products.map((p) => ({
     `;
 
     const wish = card.querySelector('.shop-card__wish');
+    if (getFavs().includes(p.handle)) wish.classList.add('is-saved');
     wish.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      wish.classList.toggle('is-saved');
+      const added = toggleFav(p.handle);
+      wish.classList.toggle('is-saved', added);
+      favToast(added ? 'Added to favorites' : 'Removed from favorites');
     });
 
     const qa = card.querySelector('.shop-card__quick-add');

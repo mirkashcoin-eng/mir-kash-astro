@@ -14,6 +14,18 @@
 /* Brand uses upright type only — never italic (incl. UA-default italic tags) */
 em, i, cite, var, dfn, address, blockquote { font-style: normal; }
 
+/* Favorites toast (shared) */
+.fav-toast {
+  position: fixed; left: 50%; bottom: 24px;
+  transform: translateX(-50%) translateY(8px);
+  background: #141414; color: #fff;
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 11px 20px; border-radius: 2px;
+  opacity: 0; pointer-events: none; z-index: 400;
+  transition: opacity .25s, transform .25s;
+}
+.fav-toast.is-shown { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 :root {
   /* Color */
   --white:    #ffffff;

@@ -148,7 +148,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
         <button class="btn-atc btn-buy" id="buyNowBtn">Buy Now</button>
         <div class="btn-atc-wrap">
           <button class="btn-atc btn-add" id="atcBtn">Add to Cart</button>
-          <button class="btn-wish" aria-label="Add to wishlist">
+          <button class="btn-wish" data-handle={product.handle} aria-label="Add to favorites" aria-pressed="false">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           </button>
         </div>
@@ -387,6 +387,45 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   document.querySelectorAll('.acc-item .acc-btn').forEach((btn) => {
     btn.addEventListener('click', () => btn.closest('.acc-item').classList.toggle('is-open'));
   });
+
+  // Keep the header bag badge in sync with the live cart
+  (async function () {
+    const els = document.querySelectorAll('.bag-count');
+    if (!els.length) return;
+    try {
+      const res = await fetch('/api/cart?market=' + market);
+      if (!res.ok) return;
+      const cart = await res.json();
+      els.forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
+    } catch {}
+  })();
+
+  // Favorites (heart) — persisted in localStorage by product handle
+  const FAV_KEY = 'mk_favorites';
+  const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+  let favToastTimer;
+  function favToast(msg) {
+    let t = document.getElementById('favToast');
+    if (!t) { t = document.createElement('div'); t.id = 'favToast'; t.className = 'fav-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('is-shown');
+    clearTimeout(favToastTimer);
+    favToastTimer = setTimeout(() => t.classList.remove('is-shown'), 1800);
+  }
+  document.querySelectorAll('.btn-wish[data-handle]').forEach((btn) => {
+    const handle = btn.dataset.handle;
+    if (getFavs().includes(handle)) { btn.classList.add('is-saved'); btn.setAttribute('aria-pressed', 'true'); }
+    btn.addEventListener('click', () => {
+      const favs = getFavs();
+      const i = favs.indexOf(handle);
+      const added = i < 0;
+      if (added) favs.push(handle); else favs.splice(i, 1);
+      localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+      btn.classList.toggle('is-saved', added);
+      btn.setAttribute('aria-pressed', String(added));
+      favToast(added ? 'Added to favorites' : 'Removed from favorites');
+    });
+  });
 </script>
 
 <style is:global>
@@ -463,8 +502,12 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .btn-add { background: #fff; color: var(--depth); }
   .btn-add:hover:not(:disabled) { background: var(--depth); color: #fff; }
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
-  .btn-wish { width: 50px; flex: 0 0 50px; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; color: var(--depth); transition: color .2s, border-color .2s; }
+  .btn-wish { width: 50px; flex: 0 0 50px; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; color: var(--depth); background: #fff; transition: color .2s, border-color .2s; }
   .btn-wish:hover { color: var(--cherry); border-color: var(--cherry); }
+  .btn-wish.is-saved { color: var(--cherry); border-color: var(--cherry); }
+  .btn-wish.is-saved svg { fill: var(--cherry); }
+  .fav-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(8px); background: var(--depth); color: #fff; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 11px 20px; border-radius: 2px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 400; }
+  .fav-toast.is-shown { opacity: 1; transform: translateX(-50%) translateY(0); }
   .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
 
   .acc-btn { width: 100%; padding: 14px 0; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 500; letter-spacing: .03em; border-bottom: 1px solid var(--rule); text-align: left; transition: color .2s; }
