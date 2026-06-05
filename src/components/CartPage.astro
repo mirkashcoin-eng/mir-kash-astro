@@ -38,35 +38,22 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
 
 <header class="hdr">
   <div class="hdr__wrap">
-    <div class="hdr__left">
-      <button class="hdr__btn" id="menuBtn" aria-label="Open menu">
-        <span class="bars"><span></span><span></span></span>
-        <span class="hdr-label">Menu</span>
-      </button>
-    </div>
+    <div class="hdr__left" aria-hidden="true"></div>
     <a href={homeHref} class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
     <div class="hdr__right">
-      <a class="hdr__btn" href={cartHref} aria-label="Bag">
+      <a class="hdr__btn hdr__bag" href={cartHref} aria-label="Bag">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
         <span class="bag-count">{count}</span>
       </a>
     </div>
   </div>
+  <nav class="hdr__nav" aria-label="Primary">
+    <a href={shopHref}>Shop All</a>
+    <a href={`${homeHref}#orchardcraft`}>Materials</a>
+    <a href={`${homeHref}#journal`}>Journal</a>
+    <a href={`${homeHref}#about`}>About</a>
+  </nav>
 </header>
-
-<div class="drawer" id="drawer">
-  <button class="drawer__scrim" id="drawerScrim" aria-label="Close menu"></button>
-  <div class="drawer__panel">
-    <button class="drawer__close" id="drawerClose">Close <span aria-hidden="true">✕</span></button>
-    <ul class="drawer__list">
-      <li><a href={shopHref}><span class="d-num">i.</span><span class="d-word">Shop All</span></a></li>
-      <li><a href={`${homeHref}#orchardcraft`}><span class="d-num">ii.</span><span class="d-word">Materials</span></a></li>
-      <li><a href={`${homeHref}#journal`}><span class="d-num">iii.</span><span class="d-word">Journal</span></a></li>
-      <li><a href={`${homeHref}#about`}><span class="d-num">iv.</span><span class="d-word">About</span></a></li>
-    </ul>
-    <div class="drawer__foot"><a href={cartHref}>Bag</a><a href="#">Account</a></div>
-  </div>
-</div>
 
 <main class="cart-page" data-market={market}>
   <h1 class="cart-page__title">Your Bag <span class="cart-page__count">({count})</span></h1>
@@ -176,11 +163,6 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
     }
   });
 
-  // Drawer
-  const drawer = document.getElementById('drawer');
-  document.getElementById('menuBtn')?.addEventListener('click', () => drawer.classList.add('is-open'));
-  document.getElementById('drawerClose')?.addEventListener('click', () => drawer.classList.remove('is-open'));
-  document.getElementById('drawerScrim')?.addEventListener('click', () => drawer.classList.remove('is-open'));
 </script>
 
 <style is:global>
@@ -199,18 +181,20 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
   .ticker__seq .dot { opacity: .55; }
   @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-  .hdr { position: sticky; top: var(--ticker-h); z-index: 100; height: var(--hdr-h); background: #fff; border-bottom: 1px solid var(--rule); }
-  .hdr__wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 100%; padding: 0 var(--gutter, clamp(20px,4vw,56px)); }
-  .hdr__logo { justify-self: center; }
+  .hdr { position: sticky; top: var(--ticker-h); z-index: 100; background: #fff; border-bottom: 1px solid var(--rule); }
+  .hdr__wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: var(--hdr-h); padding: 0 var(--gutter, clamp(20px,4vw,56px)); }
+  .hdr__logo { justify-self: center; grid-column: 2; }
   .hdr__logo img { height: 20px; filter: invert(1); }
+  .hdr__nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 28px; padding: 0 var(--gutter, clamp(20px,4vw,56px)) 12px; }
+  .hdr__nav a { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--depth); transition: opacity .2s; }
+  .hdr__nav a:hover { opacity: .55; }
   .hdr__left { display: flex; align-items: center; }
   .hdr__right { justify-self: end; display: flex; align-items: center; gap: 10px; }
-  .hdr__btn { display: inline-flex; align-items: center; gap: 9px; padding: 6px 0; color: var(--depth); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 500; transition: opacity .2s; }
+  .hdr__btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; color: var(--depth); font-size: 11px; letter-spacing: .08em; font-weight: 500; transition: opacity .2s; }
   .hdr__btn:hover { opacity: .55; }
+  .hdr__right { grid-column: 3; }
+  .hdr__left { grid-column: 1; }
   .bag-count { font-size: 12px; }
-  .bars { display: flex; flex-direction: column; gap: 5px; width: 20px; }
-  .bars span { display: block; height: 1px; background: currentColor; }
-  .bars span:last-child { width: 65%; }
 
   /* ── CART PAGE ── */
   .cart-page { max-width: 1100px; margin: 0 auto; min-height: 52vh; padding: clamp(40px, 6vw, 72px) var(--gutter, clamp(20px,4vw,56px)) clamp(56px, 8vw, 96px); transition: opacity .2s; }
@@ -237,7 +221,7 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
   .cart-item:first-child .cart-item__remove { top: 0; }
   .cart-item__remove:hover { color: var(--cherry); }
 
-  .cart-summary-box { position: sticky; top: calc(var(--ticker-h) + var(--hdr-h) + 20px); border: 1px solid var(--rule); padding: clamp(20px, 2.4vw, 28px); }
+  .cart-summary-box { position: sticky; top: calc(var(--ticker-h) + var(--hdr-h) + 62px); border: 1px solid var(--rule); padding: clamp(20px, 2.4vw, 28px); }
   .cart-summary__row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; }
   .cart-summary__label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: var(--mid); }
   .cart-summary__val { font-family: var(--serif); font-weight: 400; font-size: 15px; color: var(--depth); }
