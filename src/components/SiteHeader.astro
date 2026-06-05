@@ -63,16 +63,23 @@ const navItems = [
 </script>
 
 <script>
-  // Refresh the bag badge from the live cart (pages may be CDN-cached).
-  (async function () {
+  // Keep the bag badge in sync with the live cart. Pages are CDN-cached (and may be
+  // restored from the browser's back-forward cache), so refresh on load, on pageshow
+  // (covers bfcache back-navigation), and when the tab regains focus.
+  (function () {
     const el = document.querySelector('.hdr-bag__count');
     if (!el) return;
-    try {
-      const market = (window as any).__MARKET__ || 'india';
-      const res = await fetch(`/api/cart?market=${market}`);
-      if (!res.ok) return;
-      const cart = await res.json();
-      el.textContent = String(cart.totalQuantity ?? 0);
-    } catch {}
+    async function refresh() {
+      try {
+        const market = (window as any).__MARKET__ || 'india';
+        const res = await fetch(`/api/cart?market=${market}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const cart = await res.json();
+        el!.textContent = String(cart.totalQuantity ?? 0);
+      } catch {}
+    }
+    refresh();
+    window.addEventListener('pageshow', refresh);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   })();
 </script>
