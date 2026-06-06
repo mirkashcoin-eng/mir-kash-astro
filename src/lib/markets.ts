@@ -69,6 +69,21 @@ const GLOBAL_ROWS: Row[] = [
   ['CO', 'Colombia', 'COP', 'COL$', '🇨🇴'],
   ['NG', 'Nigeria', 'NGN', '₦', '🇳🇬'],
   ['KE', 'Kenya', 'KES', 'KSh', '🇰🇪'],
+  // ── Rest of the Eurozone (€) ────────────────────────────────────────────────
+  ['AT', 'Austria', 'EUR', '€', '🇦🇹'],
+  ['BE', 'Belgium', 'EUR', '€', '🇧🇪'],
+  ['PT', 'Portugal', 'EUR', '€', '🇵🇹'],
+  ['GR', 'Greece', 'EUR', '€', '🇬🇷'],
+  ['FI', 'Finland', 'EUR', '€', '🇫🇮'],
+  ['LU', 'Luxembourg', 'EUR', '€', '🇱🇺'],
+  ['SK', 'Slovakia', 'EUR', '€', '🇸🇰'],
+  ['SI', 'Slovenia', 'EUR', '€', '🇸🇮'],
+  ['EE', 'Estonia', 'EUR', '€', '🇪🇪'],
+  ['LV', 'Latvia', 'EUR', '€', '🇱🇻'],
+  ['LT', 'Lithuania', 'EUR', '€', '🇱🇹'],
+  ['CY', 'Cyprus', 'EUR', '€', '🇨🇾'],
+  ['MT', 'Malta', 'EUR', '€', '🇲🇹'],
+  ['HR', 'Croatia', 'EUR', '€', '🇭🇷'],
 ];
 
 export const INDIA_MARKET: MarketConfig = {
