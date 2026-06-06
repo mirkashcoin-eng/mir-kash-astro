@@ -71,8 +71,8 @@ const navItems = [
     if (!el) return;
     async function refresh() {
       try {
-        const market = (window as any).__MARKET__ || 'india';
-        const res = await fetch(`/api/cart?market=${market}`, { cache: 'no-store' });
+        const store = (window as any).__MARKET__ || 'india';
+        const res = await fetch(`/api/cart?store=${store}`, { cache: 'no-store' });
         if (!res.ok) return;
         const cart = await res.json();
         el!.textContent = String(cart.totalQuantity ?? 0);

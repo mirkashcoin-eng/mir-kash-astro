@@ -256,7 +256,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
 <SiteFooter />
 
 <script type="application/json" id="pdpData" set:html={JSON.stringify(clientData)}></script>
-<script define:vars={{ firstVariantId, market, cartHref }}>
+<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref }}>
   const data = JSON.parse(document.getElementById('pdpData').textContent || '{}');
   const variants = data.variants || [];
   const colorName = data.colorName;
@@ -335,7 +335,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
       const res = await fetch('/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchandiseId: state.variantId, quantity: 1, market }),
+        body: JSON.stringify({ merchandiseId: state.variantId, quantity: 1, store, countryCode }),
       });
       if (!res.ok) throw new Error('add failed');
       const cart = await res.json();
@@ -394,7 +394,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     if (!els.length) return;
     async function refresh() {
       try {
-        const res = await fetch('/api/cart?market=' + market, { cache: 'no-store' });
+        const res = await fetch('/api/cart?store=' + store, { cache: 'no-store' });
         if (!res.ok) return;
         const cart = await res.json();
         els.forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });

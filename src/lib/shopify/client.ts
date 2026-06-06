@@ -1,13 +1,13 @@
 import { createStorefrontApiClient, type StorefrontApiClient } from '@shopify/storefront-api-client';
-import { MARKETS } from '~/lib/markets';
-import type { Market } from '~/types/market';
+import { STORE_CREDS } from '~/lib/markets';
+import type { Store } from '~/types/market';
 
 const API_VERSION = '2025-01';
 
 const clientCache = new Map<string, StorefrontApiClient>();
 
-export function getClient(market: Market): StorefrontApiClient | null {
-  const cfg = MARKETS[market];
+export function getClient(store: Store): StorefrontApiClient | null {
+  const cfg = STORE_CREDS[store];
   if (!cfg.shopifyDomain || !cfg.shopifyToken) return null;
 
   const key = `${cfg.shopifyDomain}::${cfg.shopifyToken}`;
@@ -23,26 +23,30 @@ export function getClient(market: Market): StorefrontApiClient | null {
   return client;
 }
 
+// Pass `country` only for queries that declare @inContext(country/language).
 export async function runQuery<T>(
-  market: Market,
+  store: Store,
   query: string,
   variables: Record<string, unknown> = {},
+  country?: string,
 ): Promise<T | null> {
-  const client = getClient(market);
+  const client = getClient(store);
   if (!client) {
-    console.warn(`[shopify] No credentials for market="${market}" — returning null.`);
+    console.warn(`[shopify] No credentials for store="${store}" — returning null.`);
     return null;
   }
 
+  const vars = country ? { ...variables, country, language: 'EN' } : variables;
+
   try {
-    const { data, errors } = await client.request<T>(query, { variables });
+    const { data, errors } = await client.request<T>(query, { variables: vars });
     if (errors) {
-      console.error(`[shopify] GraphQL errors for market="${market}":`, errors);
+      console.error(`[shopify] GraphQL errors for store="${store}":`, errors);
       return null;
     }
     return data ?? null;
   } catch (err) {
-    console.error(`[shopify] Request failed for market="${market}":`, err);
+    console.error(`[shopify] Request failed for store="${store}":`, err);
     return null;
   }
 }

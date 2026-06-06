@@ -6,7 +6,7 @@ import {
   PRODUCT_PAGE_FRAGMENT,
   COLLECTION_FRAGMENT,
 } from './fragments';
-import type { Market } from '~/types/market';
+import type { Store } from '~/types/market';
 import type {
   Product,
   ProductDetail,
@@ -20,7 +20,8 @@ const GET_PRODUCTS_BY_COLLECTION = /* GraphQL */ `
   ${MONEY_FRAGMENT}
   ${PRODUCT_FRAGMENT}
   ${COLLECTION_FRAGMENT}
-  query ProductsByCollection($handle: String!, $first: Int!) {
+  query ProductsByCollection($handle: String!, $first: Int!, $country: CountryCode!, $language: LanguageCode!)
+  @inContext(country: $country, language: $language) {
     collection(handle: $handle) {
       ...CollectionFields
       products(first: $first) {
@@ -38,7 +39,8 @@ const GET_ALL_PRODUCTS = /* GraphQL */ `
   ${IMAGE_FRAGMENT}
   ${MONEY_FRAGMENT}
   ${PRODUCT_FRAGMENT}
-  query AllProducts($first: Int!, $after: String) {
+  query AllProducts($first: Int!, $after: String, $country: CountryCode!, $language: LanguageCode!)
+  @inContext(country: $country, language: $language) {
     products(first: $first, after: $after) {
       edges {
         node { ...ProductFields }
@@ -49,40 +51,50 @@ const GET_ALL_PRODUCTS = /* GraphQL */ `
   }
 `;
 
-export async function getProductsByCollection(
-  market: Market,
-  handle: string,
-  first = 4,
-): Promise<Product[]> {
-  const data = await runQuery<CollectionByHandleResponse>(market, GET_PRODUCTS_BY_COLLECTION, {
-    handle,
-    first,
-  });
-  if (!data?.collection) return [];
-  return data.collection.products.edges.map((e) => e.node);
-}
-
-export async function getAllProducts(market: Market, first = 48): Promise<Product[]> {
-  const data = await runQuery<ProductsResponse>(market, GET_ALL_PRODUCTS, { first });
-  if (!data?.products) return [];
-  return data.products.edges.map((e) => e.node);
-}
-
 const GET_PRODUCT_BY_HANDLE = /* GraphQL */ `
   ${IMAGE_FRAGMENT}
   ${MONEY_FRAGMENT}
   ${PRODUCT_PAGE_FRAGMENT}
-  query ProductByHandle($handle: String!) {
+  query ProductByHandle($handle: String!, $country: CountryCode!, $language: LanguageCode!)
+  @inContext(country: $country, language: $language) {
     product(handle: $handle) {
       ...ProductPageFields
     }
   }
 `;
 
+export async function getProductsByCollection(
+  store: Store,
+  country: string,
+  handle: string,
+  first = 4,
+): Promise<Product[]> {
+  const data = await runQuery<CollectionByHandleResponse>(
+    store,
+    GET_PRODUCTS_BY_COLLECTION,
+    { handle, first },
+    country,
+  );
+  if (!data?.collection) return [];
+  return data.collection.products.edges.map((e) => e.node);
+}
+
+export async function getAllProducts(store: Store, country: string, first = 48): Promise<Product[]> {
+  const data = await runQuery<ProductsResponse>(store, GET_ALL_PRODUCTS, { first }, country);
+  if (!data?.products) return [];
+  return data.products.edges.map((e) => e.node);
+}
+
 export async function getProductByHandle(
-  market: Market,
+  store: Store,
+  country: string,
   handle: string,
 ): Promise<ProductDetail | null> {
-  const data = await runQuery<ProductByHandleResponse>(market, GET_PRODUCT_BY_HANDLE, { handle });
+  const data = await runQuery<ProductByHandleResponse>(
+    store,
+    GET_PRODUCT_BY_HANDLE,
+    { handle },
+    country,
+  );
   return data?.product ?? null;
 }

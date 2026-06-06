@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
 import { updateLine } from '~/lib/shopify/cart';
-import { resolveMarket, getCartId, persistCart } from '~/lib/cart-session';
+import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { lineId?: string; quantity?: number; market?: string };
+  let body: { lineId?: string; quantity?: number; store?: string };
   try {
     body = await request.json();
   } catch {
@@ -18,21 +18,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'lineId required' }), { status: 400 });
   }
 
-  const market = resolveMarket(body.market);
-  const cartId = getCartId(cookies, market);
+  const store = resolveStore(body.store);
+  const cartId = getCartId(cookies, store);
   if (!cartId) {
     return new Response(JSON.stringify({ error: 'No cart' }), { status: 404 });
   }
 
-  // quantity 0 removes the line (Shopify cartLinesUpdate behaviour).
-  const cart = await updateLine(market, cartId, lineId, quantity);
+  const cart = await updateLine(store, cartId, lineId, quantity);
   if (!cart) {
     return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
   }
 
-  persistCart(cookies, market, cart);
+  persistCart(cookies, store, cart);
   return new Response(JSON.stringify(cart), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },
   });
 };

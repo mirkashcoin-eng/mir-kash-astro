@@ -1,6 +1,6 @@
 import { runQuery } from './client';
 import { IMAGE_FRAGMENT, MONEY_FRAGMENT, CART_FRAGMENT } from './fragments';
-import type { Market } from '~/types/market';
+import type { Store } from '~/types/market';
 import type { ShopifyCart, CartView } from '~/types/shopify';
 
 const FRAGMENTS = `${IMAGE_FRAGMENT}${MONEY_FRAGMENT}${CART_FRAGMENT}`;
@@ -14,8 +14,8 @@ const CART_QUERY = /* GraphQL */ `
 
 const CART_CREATE = /* GraphQL */ `
   ${FRAGMENTS}
-  mutation CartCreate($lines: [CartLineInput!]) {
-    cartCreate(input: { lines: $lines }) {
+  mutation CartCreate($lines: [CartLineInput!], $country: CountryCode) {
+    cartCreate(input: { lines: $lines, buyerIdentity: { countryCode: $country } }) {
       cart { ...CartFields }
       userErrors { field message }
     }
@@ -80,25 +80,29 @@ interface CartMutationResult {
   userErrors: Array<{ field: string[] | null; message: string }>;
 }
 
-export async function getCart(market: Market, cartId: string): Promise<CartView | null> {
-  const data = await runQuery<{ cart: ShopifyCart | null }>(market, CART_QUERY, { id: cartId });
+export async function getCart(store: Store, cartId: string): Promise<CartView | null> {
+  const data = await runQuery<{ cart: ShopifyCart | null }>(store, CART_QUERY, { id: cartId });
   return normalize(data?.cart);
 }
 
 export async function createCart(
-  market: Market,
+  store: Store,
   lines: Array<{ merchandiseId: string; quantity: number }>,
+  countryCode?: string,
 ): Promise<CartView | null> {
-  const data = await runQuery<{ cartCreate: CartMutationResult }>(market, CART_CREATE, { lines });
+  const data = await runQuery<{ cartCreate: CartMutationResult }>(store, CART_CREATE, {
+    lines,
+    country: countryCode ?? null,
+  });
   return normalize(data?.cartCreate?.cart);
 }
 
 export async function addLines(
-  market: Market,
+  store: Store,
   cartId: string,
   lines: Array<{ merchandiseId: string; quantity: number }>,
 ): Promise<CartView | null> {
-  const data = await runQuery<{ cartLinesAdd: CartMutationResult }>(market, CART_LINES_ADD, {
+  const data = await runQuery<{ cartLinesAdd: CartMutationResult }>(store, CART_LINES_ADD, {
     cartId,
     lines,
   });
@@ -106,12 +110,12 @@ export async function addLines(
 }
 
 export async function updateLine(
-  market: Market,
+  store: Store,
   cartId: string,
   lineId: string,
   quantity: number,
 ): Promise<CartView | null> {
-  const data = await runQuery<{ cartLinesUpdate: CartMutationResult }>(market, CART_LINES_UPDATE, {
+  const data = await runQuery<{ cartLinesUpdate: CartMutationResult }>(store, CART_LINES_UPDATE, {
     cartId,
     lines: [{ id: lineId, quantity }],
   });
@@ -119,11 +123,11 @@ export async function updateLine(
 }
 
 export async function removeLine(
-  market: Market,
+  store: Store,
   cartId: string,
   lineId: string,
 ): Promise<CartView | null> {
-  const data = await runQuery<{ cartLinesRemove: CartMutationResult }>(market, CART_LINES_REMOVE, {
+  const data = await runQuery<{ cartLinesRemove: CartMutationResult }>(store, CART_LINES_REMOVE, {
     cartId,
     lineIds: [lineId],
   });

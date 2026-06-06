@@ -1,48 +1,38 @@
 ---
 import {
-  COUNTRIES,
+  MARKETS,
   MARKET_COOKIE,
   MARKET_COOKIE_MAX_AGE,
-  MARKET_DEFAULT_COUNTRY,
-  getCountryByCode,
+  getMarketByPath,
   getAlternateUrl,
 } from '~/lib/markets';
 
-const COUNTRY_COOKIE = 'mirkash-country';
-
-const { market } = Astro.locals;
 const pathname = Astro.url.pathname;
+const current = Astro.locals.marketConfig ?? getMarketByPath(pathname);
 
-const cookieCode = Astro.cookies.get(COUNTRY_COOKIE)?.value;
-const current =
-  (cookieCode ? getCountryByCode(cookieCode) : undefined) ??
-  getCountryByCode(MARKET_DEFAULT_COUNTRY[market])!;
-
-const currencySymbol = current.currency;
-
-const options = COUNTRIES.map((c) => ({
-  code: c.code,
-  name: c.name,
-  flag: c.flag,
-  market: c.market,
-  symbol: c.currency,
-  href: getAlternateUrl(pathname, c.market),
-  active: c.code === current.code,
+const options = MARKETS.map((m) => ({
+  slug: m.localeSlug,
+  name: m.countryName,
+  flag: m.flag,
+  symbol: m.currencySymbol,
+  currency: m.currency,
+  href: getAlternateUrl(pathname, m),
+  active: m.localeSlug === current.localeSlug,
 }));
 ---
-<div class="country-select" data-current={current.code}>
+<div class="country-select" data-current={current.localeSlug}>
   <button class="country-select__btn" aria-haspopup="listbox" aria-expanded="false" type="button">
     <span class="country-select__flag" aria-hidden="true">{current.flag}</span>
-    <span class="country-select__label">{current.name} ({currencySymbol})</span>
+    <span class="country-select__label">{current.countryName} ({current.currencySymbol} {current.currency})</span>
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
   <ul class="country-select__menu" role="listbox">
     {options.map((o) => (
       <li role="option" aria-selected={o.active}>
-        <a href={o.href} data-country={o.code} data-market={o.market}>
+        <a href={o.href} data-slug={o.slug}>
           <span class="country-select__flag" aria-hidden="true">{o.flag}</span>
           <span>{o.name}</span>
-          <span class="country-select__cur">{o.symbol}</span>
+          <span class="country-select__cur">{o.symbol} {o.currency}</span>
         </a>
       </li>
     ))}
@@ -50,75 +40,37 @@ const options = COUNTRIES.map((c) => ({
 </div>
 
 <style>
-  .country-select {
-    position: relative;
-    display: inline-flex;
-  }
+  .country-select { position: relative; display: inline-flex; }
   .country-select__btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    color: var(--ink-mid);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    font-weight: 400;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--ink-mid); font-family: inherit; font-size: 11px;
+    letter-spacing: var(--tr-caps); text-transform: uppercase; font-weight: 400;
     transition: color .2s;
   }
   .country-select__btn:hover { color: var(--ink); }
   .country-select__flag { font-size: 13px; line-height: 1; }
   .country-select__menu {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    right: 0;
-    background: var(--paper, #F5F0E8);
-    border: 1px solid var(--rule, #e4dfd7);
-    list-style: none;
-    margin: 0;
-    padding: 6px 0;
-    min-width: 220px;
-    max-height: 280px;
-    overflow-y: auto;
-    box-shadow: 0 6px 28px rgba(0,0,0,.12);
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(6px);
-    transition: opacity .2s ease, transform .2s ease;
-    z-index: 250;
+    position: absolute; bottom: calc(100% + 8px); right: 0;
+    background: var(--paper, #F5F0E8); border: 1px solid var(--rule, #e4dfd7);
+    list-style: none; margin: 0; padding: 6px 0; min-width: 240px;
+    max-height: 300px; overflow-y: auto; box-shadow: 0 6px 28px rgba(0,0,0,.12);
+    opacity: 0; pointer-events: none; transform: translateY(6px);
+    transition: opacity .2s ease, transform .2s ease; z-index: 250;
   }
-  .country-select.is-open .country-select__menu {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
-  }
+  .country-select.is-open .country-select__menu { opacity: 1; pointer-events: auto; transform: translateY(0); }
   .country-select__menu li a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 16px;
-    font-size: 11px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    color: var(--depth, #2C1A0E);
-    transition: background .15s, color .15s;
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    font-size: 11px; letter-spacing: var(--tr-caps); text-transform: uppercase;
+    color: var(--depth, #2C1A0E); transition: background .15s, color .15s;
   }
   .country-select__menu li a:hover { background: rgba(0,0,0,.04); color: var(--cherry, #8B1A1A); }
   .country-select__menu li[aria-selected="true"] a { color: var(--cherry, #8B1A1A); }
-  .country-select__cur {
-    margin-left: auto;
-    color: var(--ink-mid);
-    font-size: 11px;
-    letter-spacing: 0;
-  }
+  .country-select__cur { margin-left: auto; color: var(--ink-mid); font-size: 11px; letter-spacing: 0; }
   .country-select__menu li a:hover .country-select__cur { color: inherit; }
 </style>
 
-<script define:vars={{ COUNTRY_COOKIE, MARKET_COOKIE, maxAge: MARKET_COOKIE_MAX_AGE }}>
+<script define:vars={{ MARKET_COOKIE, maxAge: MARKET_COOKIE_MAX_AGE }}>
   document.querySelectorAll('.country-select').forEach((root) => {
     const btn = root.querySelector('.country-select__btn');
     if (!btn) return;
@@ -133,16 +85,10 @@ const options = COUNTRIES.map((c) => ({
         btn.setAttribute('aria-expanded', 'false');
       }
     });
-    root.querySelectorAll('[data-country]').forEach((link) => {
+    root.querySelectorAll('[data-slug]').forEach((link) => {
       link.addEventListener('click', () => {
-        const code = link.getAttribute('data-country');
-        const market = link.getAttribute('data-market');
-        if (market) {
-          document.cookie = `${MARKET_COOKIE}=${market}; path=/; max-age=${maxAge}; samesite=lax`;
-        }
-        if (code) {
-          document.cookie = `${COUNTRY_COOKIE}=${code}; path=/; max-age=${maxAge}; samesite=lax`;
-        }
+        const slug = link.getAttribute('data-slug') ?? '';
+        document.cookie = `${MARKET_COOKIE}=${slug}; path=/; max-age=${maxAge}; samesite=lax`;
       });
     });
   });

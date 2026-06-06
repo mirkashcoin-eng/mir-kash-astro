@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
 import { createCart, addLines } from '~/lib/shopify/cart';
-import { resolveMarket, getCartId, persistCart } from '~/lib/cart-session';
+import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { merchandiseId?: string; quantity?: number; market?: string };
+  let body: { merchandiseId?: string; quantity?: number; store?: string; countryCode?: string };
   try {
     body = await request.json();
   } catch {
@@ -18,21 +18,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'merchandiseId required' }), { status: 400 });
   }
 
-  const market = resolveMarket(body.market);
-  const existingId = getCartId(cookies, market);
+  const store = resolveStore(body.store);
+  const countryCode = body.countryCode;
+  const existingId = getCartId(cookies, store);
   const lines = [{ merchandiseId, quantity }];
 
-  let cart = existingId ? await addLines(market, existingId, lines) : null;
-  // No cart yet, or the stored cart expired/was lost → create a fresh one.
-  if (!cart) cart = await createCart(market, lines);
+  let cart = existingId ? await addLines(store, existingId, lines) : null;
+  // No cart yet, or the stored cart expired → create a fresh one in the local currency.
+  if (!cart) cart = await createCart(store, lines, countryCode);
 
   if (!cart) {
     return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
   }
 
-  persistCart(cookies, market, cart);
+  persistCart(cookies, store, cart);
   return new Response(JSON.stringify(cart), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },
   });
 };

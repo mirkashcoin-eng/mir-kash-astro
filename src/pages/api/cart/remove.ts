@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
 import { removeLine } from '~/lib/shopify/cart';
-import { resolveMarket, getCartId, persistCart } from '~/lib/cart-session';
+import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { lineId?: string; market?: string };
+  let body: { lineId?: string; store?: string };
   try {
     body = await request.json();
   } catch {
@@ -17,20 +17,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'lineId required' }), { status: 400 });
   }
 
-  const market = resolveMarket(body.market);
-  const cartId = getCartId(cookies, market);
+  const store = resolveStore(body.store);
+  const cartId = getCartId(cookies, store);
   if (!cartId) {
     return new Response(JSON.stringify({ error: 'No cart' }), { status: 404 });
   }
 
-  const cart = await removeLine(market, cartId, lineId);
+  const cart = await removeLine(store, cartId, lineId);
   if (!cart) {
     return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
   }
 
-  persistCart(cookies, market, cart);
+  persistCart(cookies, store, cart);
   return new Response(JSON.stringify(cart), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },
   });
 };

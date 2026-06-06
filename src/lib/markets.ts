@@ -1,19 +1,9 @@
-import type { Market, MarketConfig } from '~/types/market';
+import type { Store, Market, MarketConfig } from '~/types/market';
 import type { Money } from '~/types/shopify';
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  INR: '₹',
-  EUR: '€',
-  GBP: '£',
-  AED: 'د.إ',
-};
-
 export const SITE_ORIGIN = 'https://mirkash.com';
-export const MARKET_COOKIE = 'mirkash-market';
+export const MARKET_COOKIE = 'market_locale';       // stores the chosen localeSlug ('' for India)
 export const MARKET_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-export const DEFAULT_MARKET: Market = 'india';
-export const INTERNATIONAL_DEFAULT_MARKET: Market = 'us';
 
 function getEnv(key: string): string {
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
@@ -23,151 +13,149 @@ function getEnv(key: string): string {
   return meta[key] ?? '';
 }
 
-export const MARKETS: Record<Market, MarketConfig> = {
-  india: {
-    market: 'india',
-    urlPrefix: '',
-    currency: 'INR',
-    currencySymbol: '₹',
-    locale: 'en-IN',
-    hreflang: 'en-IN',
-    countryName: 'India',
-    flag: '🇮🇳',
-    label: 'India (₹)',
-    shopifyDomain: getEnv('SHOPIFY_IN_DOMAIN'),
-    shopifyToken: getEnv('SHOPIFY_IN_TOKEN'),
-  },
-  us: {
-    market: 'us',
-    urlPrefix: '/en-us',
-    currency: 'USD',
-    currencySymbol: '$',
-    locale: 'en-US',
-    hreflang: 'en-US',
-    countryName: 'United States',
-    flag: '🇺🇸',
-    label: 'United States ($)',
-    shopifyDomain: getEnv('SHOPIFY_GLOBAL_DOMAIN'),
-    shopifyToken: getEnv('SHOPIFY_GLOBAL_TOKEN'),
-  },
+// ── Shopify stores (domain + Storefront token per store) ──────────────────────
+export const STORE_CREDS: Record<Store, { shopifyDomain: string; shopifyToken: string }> = {
+  india: { shopifyDomain: getEnv('SHOPIFY_IN_DOMAIN'), shopifyToken: getEnv('SHOPIFY_IN_TOKEN') },
+  global: { shopifyDomain: getEnv('SHOPIFY_GLOBAL_DOMAIN'), shopifyToken: getEnv('SHOPIFY_GLOBAL_TOKEN') },
 };
 
-export const COUNTRY_TO_MARKET: Record<string, Market> = {
-  IN: 'india',
-};
+// ── Markets (one per country we serve) ────────────────────────────────────────
+// India is the default (served at root, INR, India store). Everything else is the
+// global store with its local currency via Storefront @inContext.
+type Row = [country: string, name: string, currency: string, symbol: string, flag: string];
 
-export function getMarketFromCountry(country: string): Market {
-  return COUNTRY_TO_MARKET[country] ?? INTERNATIONAL_DEFAULT_MARKET;
-}
-
-export interface Country {
-  code: string;
-  name: string;
-  flag: string;
-  market: Market;
-  // Real local currency symbol — shown in the selector for context only.
-  // Checkout still charges in the market currency (INR for India, USD globally).
-  currency: string;
-}
-
-// India ships from the India store (INR); every other country resolves to the
-// global store (USD). Alphabetical by name.
-export const COUNTRIES: Country[] = [
-  { code: 'AU', name: 'Australia', flag: '🇦🇺', market: 'us', currency: 'A$' },
-  { code: 'AT', name: 'Austria', flag: '🇦🇹', market: 'us', currency: '€' },
-  { code: 'BE', name: 'Belgium', flag: '🇧🇪', market: 'us', currency: '€' },
-  { code: 'BR', name: 'Brazil', flag: '🇧🇷', market: 'us', currency: 'R$' },
-  { code: 'CA', name: 'Canada', flag: '🇨🇦', market: 'us', currency: 'C$' },
-  { code: 'CN', name: 'China', flag: '🇨🇳', market: 'us', currency: '¥' },
-  { code: 'DK', name: 'Denmark', flag: '🇩🇰', market: 'us', currency: 'kr' },
-  { code: 'EG', name: 'Egypt', flag: '🇪🇬', market: 'us', currency: 'E£' },
-  { code: 'FI', name: 'Finland', flag: '🇫🇮', market: 'us', currency: '€' },
-  { code: 'FR', name: 'France', flag: '🇫🇷', market: 'us', currency: '€' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪', market: 'us', currency: '€' },
-  { code: 'GR', name: 'Greece', flag: '🇬🇷', market: 'us', currency: '€' },
-  { code: 'HK', name: 'Hong Kong', flag: '🇭🇰', market: 'us', currency: 'HK$' },
-  { code: 'IN', name: 'India', flag: '🇮🇳', market: 'india', currency: '₹' },
-  { code: 'ID', name: 'Indonesia', flag: '🇮🇩', market: 'us', currency: 'Rp' },
-  { code: 'IE', name: 'Ireland', flag: '🇮🇪', market: 'us', currency: '€' },
-  { code: 'IL', name: 'Israel', flag: '🇮🇱', market: 'us', currency: '₪' },
-  { code: 'IT', name: 'Italy', flag: '🇮🇹', market: 'us', currency: '€' },
-  { code: 'JP', name: 'Japan', flag: '🇯🇵', market: 'us', currency: '¥' },
-  { code: 'MY', name: 'Malaysia', flag: '🇲🇾', market: 'us', currency: 'RM' },
-  { code: 'MX', name: 'Mexico', flag: '🇲🇽', market: 'us', currency: 'Mex$' },
-  { code: 'NL', name: 'Netherlands', flag: '🇳🇱', market: 'us', currency: '€' },
-  { code: 'NZ', name: 'New Zealand', flag: '🇳🇿', market: 'us', currency: 'NZ$' },
-  { code: 'NO', name: 'Norway', flag: '🇳🇴', market: 'us', currency: 'kr' },
-  { code: 'PH', name: 'Philippines', flag: '🇵🇭', market: 'us', currency: '₱' },
-  { code: 'PL', name: 'Poland', flag: '🇵🇱', market: 'us', currency: 'zł' },
-  { code: 'PT', name: 'Portugal', flag: '🇵🇹', market: 'us', currency: '€' },
-  { code: 'QA', name: 'Qatar', flag: '🇶🇦', market: 'us', currency: 'QR' },
-  { code: 'SA', name: 'Saudi Arabia', flag: '🇸🇦', market: 'us', currency: 'SR' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬', market: 'us', currency: 'S$' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦', market: 'us', currency: 'R' },
-  { code: 'KR', name: 'South Korea', flag: '🇰🇷', market: 'us', currency: '₩' },
-  { code: 'ES', name: 'Spain', flag: '🇪🇸', market: 'us', currency: '€' },
-  { code: 'SE', name: 'Sweden', flag: '🇸🇪', market: 'us', currency: 'kr' },
-  { code: 'CH', name: 'Switzerland', flag: '🇨🇭', market: 'us', currency: 'CHF' },
-  { code: 'TW', name: 'Taiwan', flag: '🇹🇼', market: 'us', currency: 'NT$' },
-  { code: 'TH', name: 'Thailand', flag: '🇹🇭', market: 'us', currency: '฿' },
-  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', market: 'us', currency: 'AED' },
-  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', market: 'us', currency: '£' },
-  { code: 'US', name: 'United States', flag: '🇺🇸', market: 'us', currency: '$' },
-  { code: 'VN', name: 'Vietnam', flag: '🇻🇳', market: 'us', currency: '₫' },
+const GLOBAL_ROWS: Row[] = [
+  ['US', 'United States', 'USD', '$', '🇺🇸'],
+  ['GB', 'United Kingdom', 'GBP', '£', '🇬🇧'],
+  ['AE', 'United Arab Emirates', 'AED', 'د.إ', '🇦🇪'],
+  ['AU', 'Australia', 'AUD', 'A$', '🇦🇺'],
+  ['CA', 'Canada', 'CAD', 'C$', '🇨🇦'],
+  ['SG', 'Singapore', 'SGD', 'S$', '🇸🇬'],
+  ['HK', 'Hong Kong', 'HKD', 'HK$', '🇭🇰'],
+  ['DE', 'Germany', 'EUR', '€', '🇩🇪'],
+  ['FR', 'France', 'EUR', '€', '🇫🇷'],
+  ['IT', 'Italy', 'EUR', '€', '🇮🇹'],
+  ['ES', 'Spain', 'EUR', '€', '🇪🇸'],
+  ['NL', 'Netherlands', 'EUR', '€', '🇳🇱'],
+  ['IE', 'Ireland', 'EUR', '€', '🇮🇪'],
+  ['CH', 'Switzerland', 'CHF', 'CHF', '🇨🇭'],
+  ['SE', 'Sweden', 'SEK', 'kr', '🇸🇪'],
+  ['NO', 'Norway', 'NOK', 'kr', '🇳🇴'],
+  ['DK', 'Denmark', 'DKK', 'kr', '🇩🇰'],
+  ['JP', 'Japan', 'JPY', '¥', '🇯🇵'],
+  ['NZ', 'New Zealand', 'NZD', 'NZ$', '🇳🇿'],
+  ['SA', 'Saudi Arabia', 'SAR', 'SR', '🇸🇦'],
+  ['ZA', 'South Africa', 'ZAR', 'R', '🇿🇦'],
 ];
 
-export function getCountryByCode(code: string): Country | undefined {
-  return COUNTRIES.find((c) => c.code === code.toUpperCase());
-}
-
-// Default country shown per market when no explicit country choice is stored.
-export const MARKET_DEFAULT_COUNTRY: Record<Market, string> = {
-  india: 'IN',
-  us: 'US',
+export const INDIA_MARKET: MarketConfig = {
+  store: 'india',
+  localeSlug: '',
+  urlPrefix: '',
+  countryCode: 'IN',
+  currency: 'INR',
+  currencySymbol: '₹',
+  locale: 'en-IN',
+  hreflang: 'en-IN',
+  countryName: 'India',
+  flag: '🇮🇳',
+  isDefault: true,
 };
 
+export const MARKETS: MarketConfig[] = [
+  INDIA_MARKET,
+  ...GLOBAL_ROWS.map(([country, name, currency, symbol, flag]) => ({
+    store: 'global' as Store,
+    localeSlug: `en-${country.toLowerCase()}`,
+    urlPrefix: `/en-${country.toLowerCase()}`,
+    countryCode: country,
+    currency,
+    currencySymbol: symbol,
+    locale: `en-${country}`,
+    hreflang: `en-${country}`,
+    countryName: name,
+    flag,
+  })),
+];
+
+export const DEFAULT_MARKET = INDIA_MARKET;
+
 export function listMarkets(): MarketConfig[] {
-  return Object.values(MARKETS);
+  return MARKETS;
 }
 
-export function getMarketFromUrl(pathname: string): Market {
-  for (const cfg of listMarkets()) {
-    if (!cfg.urlPrefix) continue;
-    if (pathname === cfg.urlPrefix || pathname.startsWith(cfg.urlPrefix + '/')) {
-      return cfg.market;
-    }
-  }
-  return DEFAULT_MARKET;
+// ── Lookups ───────────────────────────────────────────────────────────────────
+export function getMarketBySlug(slug: string): MarketConfig | undefined {
+  return MARKETS.find((m) => m.localeSlug === slug);
 }
 
+export function getMarketByCountry(country: string): MarketConfig {
+  const cc = (country || '').toUpperCase();
+  if (cc === 'IN') return INDIA_MARKET;
+  return MARKETS.find((m) => m.countryCode === cc) ?? getMarketBySlug('en-us')!;
+}
+
+// Returns the locale slug present in a path ('en-gb') or null.
+export function parseLocaleFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/(en-[a-z]{2})(?:\/|$)/);
+  return m ? m[1] : null;
+}
+
+export function getMarketByPath(pathname: string): MarketConfig {
+  const slug = parseLocaleFromPath(pathname);
+  return (slug && getMarketBySlug(slug)) || INDIA_MARKET;
+}
+
+// Path for a market's home, e.g. '/en-gb' or '/'.
+export function getMarketPath(m: MarketConfig): string {
+  return m.urlPrefix || '/';
+}
+
+// Strip any locale prefix → bare path ('/products/bag').
 export function stripMarketPrefix(pathname: string): string {
-  for (const cfg of listMarkets()) {
-    if (!cfg.urlPrefix) continue;
-    if (pathname === cfg.urlPrefix) return '/';
-    if (pathname.startsWith(cfg.urlPrefix + '/')) {
-      return pathname.slice(cfg.urlPrefix.length);
-    }
-  }
-  return pathname;
+  const slug = parseLocaleFromPath(pathname);
+  if (!slug) return pathname;
+  const stripped = pathname.slice(`/${slug}`.length);
+  return stripped || '/';
 }
 
-export function getAlternateUrl(pathname: string, target: Market): string {
-  const stripped = stripMarketPrefix(pathname);
-  const prefix = MARKETS[target].urlPrefix;
-  if (!prefix) return stripped || '/';
-  if (stripped === '/') return prefix;
-  return prefix + stripped;
+// Same page, different market.
+export function getAlternateUrl(pathname: string, target: MarketConfig): string {
+  const bare = stripMarketPrefix(pathname);
+  if (!target.urlPrefix) return bare || '/';
+  return bare === '/' ? target.urlPrefix : target.urlPrefix + bare;
 }
 
 export function absoluteUrl(pathname: string): string {
   return SITE_ORIGIN + pathname;
 }
 
-export function formatMoney(money: Money, locale = 'en'): string {
-  const symbol = CURRENCY_SYMBOLS[money.currencyCode] ?? money.currencyCode + ' ';
-  const amount = Number(money.amount);
-  const rounded = Number.isFinite(amount)
-    ? Math.round(amount).toLocaleString(locale)
-    : money.amount;
-  return symbol + rounded;
+// ── Money formatting ──────────────────────────────────────────────────────────
+const SYMBOLS: Record<string, string> = {
+  USD: '$', INR: '₹', EUR: '€', GBP: '£', AED: 'د.إ', AUD: 'A$', CAD: 'C$',
+  SGD: 'S$', HKD: 'HK$', CHF: 'CHF', SEK: 'kr', NOK: 'kr', DKK: 'kr',
+  JPY: '¥', NZD: 'NZ$', SAR: 'SR', ZAR: 'R',
+};
+
+export function formatPrice(amount: string | number, currencyCode: string, locale = 'en'): string {
+  const value = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (!Number.isFinite(value)) return String(amount);
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode || 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    const sym = SYMBOLS[currencyCode] ?? currencyCode + ' ';
+    return sym + Math.round(value).toLocaleString(locale);
+  }
 }
+
+// Back-compat: existing callers use formatMoney(money, locale).
+export function formatMoney(money: Money, locale = 'en'): string {
+  return formatPrice(money.amount, money.currencyCode, locale);
+}
+
+export type { Store, Market, MarketConfig };

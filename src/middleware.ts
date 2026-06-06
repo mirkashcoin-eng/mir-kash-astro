@@ -1,18 +1,20 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
-  MARKETS,
   MARKET_COOKIE,
-  getMarketFromUrl,
-  getMarketFromCountry,
+  INDIA_MARKET,
+  getMarketByPath,
+  getMarketBySlug,
+  getMarketByCountry,
+  parseLocaleFromPath,
   getAlternateUrl,
 } from '~/lib/markets';
-import type { Market } from '~/types/market';
 
 const BOT_UA = /bot|crawl|spider|googlebot|bingbot|facebookexternalhit|slurp|duckduckbot/i;
 const SKIP_PATHS = [/^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/];
 
-function shouldSkipGeoLogic(pathname: string, ua: string): boolean {
+function shouldSkip(pathname: string, ua: string): boolean {
   if (BOT_UA.test(ua)) return true;
+  if (pathname.includes('.')) return true; // static asset
   return SKIP_PATHS.some((re) => re.test(pathname));
 }
 
@@ -28,39 +30,38 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { request, url, cookies, redirect } = context;
   const pathname = url.pathname;
 
-  // Legacy India URLs (/en-in/*) now live at the root — permanently redirect.
+  // Legacy India URLs (/en-in/*) now live at the root.
   if (pathname === '/en-in' || pathname.startsWith('/en-in/')) {
     return redirect(pathname.replace(/^\/en-in/, '') || '/', 301);
   }
 
-  const market: Market = getMarketFromUrl(pathname);
-  context.locals.market = market;
-  context.locals.marketConfig = MARKETS[market];
+  // Resolve the active market from the URL prefix (defaults to India at root).
+  const market = getMarketByPath(pathname);
+  context.locals.market = market.store;
+  context.locals.marketConfig = market;
 
-  const overrideRaw = cookies.get(MARKET_COOKIE)?.value;
-  const override =
-    overrideRaw && (overrideRaw === 'india' || overrideRaw === 'us')
-      ? (overrideRaw as Market)
-      : null;
-
-  if (shouldSkipGeoLogic(pathname, request.headers.get('user-agent') ?? '')) {
+  if (shouldSkip(pathname, request.headers.get('user-agent') ?? '')) {
     return next();
   }
 
-  // A manual market choice always wins and suppresses the geo redirect.
-  if (override) {
-    if (override !== market) {
-      return redirect(getAlternateUrl(pathname, override), 302);
+  // If the URL already carries a locale, respect it (no redirect).
+  if (parseLocaleFromPath(pathname)) return next();
+
+  // We're at the root (India context). A manual choice wins.
+  const saved = cookies.get(MARKET_COOKIE)?.value;
+  if (saved != null) {
+    const chosen = getMarketBySlug(saved) ?? (saved === '' ? INDIA_MARKET : undefined);
+    if (chosen && !chosen.isDefault) {
+      return redirect(getAlternateUrl(pathname, chosen), 302);
     }
-    return next();
+    return next(); // saved is India → stay at root
   }
 
-  // No manual choice: auto-route non-India visitors to their market.
-  // India visitors at the root resolve to india === india → no redirect (fast path).
+  // No manual choice: auto-route by geo.
   const country = readCountry(request);
   if (country) {
-    const geoMarket = getMarketFromCountry(country);
-    if (geoMarket !== market) {
+    const geoMarket = getMarketByCountry(country);
+    if (!geoMarket.isDefault) {
       return redirect(getAlternateUrl(pathname, geoMarket), 302);
     }
   }

@@ -7,7 +7,8 @@ import ProductRow from './ProductRow.astro';
 import EditorialPanel from './EditorialPanel.astro';
 import { getProductsByCollection, getAllProducts } from '~/lib/shopify/queries';
 
-const { market } = Astro.locals;
+const { market, marketConfig } = Astro.locals;
+const country = marketConfig.countryCode;
 
 const HOMEPAGE_COLLECTIONS = {
   row1: 'new-arrivals',
@@ -16,9 +17,9 @@ const HOMEPAGE_COLLECTIONS = {
 };
 
 const [row1Raw, row2Raw, row3Raw] = await Promise.all([
-  getProductsByCollection(market, HOMEPAGE_COLLECTIONS.row1, 4),
-  getProductsByCollection(market, HOMEPAGE_COLLECTIONS.row2, 4),
-  getProductsByCollection(market, HOMEPAGE_COLLECTIONS.row3, 4),
+  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row1, 4),
+  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row2, 4),
+  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row3, 4),
 ]);
 
 let ROW_1 = row1Raw;
@@ -27,7 +28,7 @@ let ROW_3 = row3Raw;
 
 const needsFallback = ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0;
 if (needsFallback) {
-  const allProducts = await getAllProducts(market, 16);
+  const allProducts = await getAllProducts(market, country, 16);
   let cursor = 0;
   const takeNext = (n: number) => {
     const slice = allProducts.slice(cursor, cursor + n);

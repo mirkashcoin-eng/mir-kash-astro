@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ShopAll from '~/components/ShopAll.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
 <BaseLayout title="Shop All — Mir Kash" path="/shop">
   <ShopAll />

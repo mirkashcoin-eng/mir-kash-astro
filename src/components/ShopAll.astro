@@ -10,7 +10,7 @@ import { formatMoney } from '~/lib/markets';
 const { market, marketConfig } = Astro.locals;
 const homeHref = marketConfig.urlPrefix || '/';
 
-const products = await getAllProducts(market, 48);
+const products = await getAllProducts(market, marketConfig.countryCode, 48);
 
 function normalizeCat(productType: string, tags: string[]): string {
   const haystack = (productType + ' ' + tags.join(' ')).toLowerCase();

@@ -5,7 +5,7 @@ import { getProductByHandle } from '~/lib/shopify/queries';
 
 const { market, marketConfig } = Astro.locals;
 const handle = Astro.params.handle as string;
-const product = await getProductByHandle(market, handle);
+const product = await getProductByHandle(market, marketConfig.countryCode, handle);
 if (!product) return Astro.redirect(`${marketConfig.urlPrefix}/shop`);
 ---
 <BaseLayout title={`${product.title} — Mir Kash`} description={product.description} path={`/products/${handle}`}>

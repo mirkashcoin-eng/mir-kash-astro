@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCart } from '~/lib/shopify/cart';
-import { resolveMarket, getCartId, persistCart, clearCart } from '~/lib/cart-session';
+import { resolveStore, getCartId, persistCart, clearCart } from '~/lib/cart-session';
 
 export const prerender = false;
 
@@ -17,20 +17,19 @@ const EMPTY = {
 const NO_STORE = { 'Cache-Control': 'private, no-store' };
 
 export const GET: APIRoute = async ({ url, cookies }) => {
-  const market = resolveMarket(url.searchParams.get('market'));
-  const cartId = getCartId(cookies, market);
+  const store = resolveStore(url.searchParams.get('store'));
+  const cartId = getCartId(cookies, store);
 
   if (!cartId) {
     return Response.json(EMPTY, { headers: NO_STORE });
   }
 
-  const cart = await getCart(market, cartId);
+  const cart = await getCart(store, cartId);
   if (!cart) {
-    // Stored cart no longer valid — clear it so we start fresh next add.
-    clearCart(cookies, market);
+    clearCart(cookies, store);
     return Response.json(EMPTY, { headers: NO_STORE });
   }
 
-  persistCart(cookies, market, cart);
+  persistCart(cookies, store, cart);
   return Response.json(cart, { headers: NO_STORE });
 };

@@ -121,14 +121,14 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
 
 <SiteFooter />
 
-<script define:vars={{ market }}>
+<script define:vars={{ store: market }}>
   const main = document.querySelector('.cart-page');
 
   async function mutate(path, payload) {
     const res = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, market }),
+      body: JSON.stringify({ ...payload, store }),
     });
     if (!res.ok) throw new Error('cart op failed');
     return res.json();
