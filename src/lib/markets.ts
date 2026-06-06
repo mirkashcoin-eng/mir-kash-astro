@@ -160,11 +160,16 @@ const SYMBOLS: Record<string, string> = {
   JPY: '¥', NZD: 'NZ$', SAR: 'SR', ZAR: 'R',
 };
 
-export function formatPrice(amount: string | number, currencyCode: string, locale = 'en'): string {
+// Always format in a fixed English locale so every currency is unambiguous
+// (USD "$", AUD "A$", CAD "CA$", SGD "SGD", CHF "CHF", ¥/CN¥, £, €, ₹ …) and
+// consistent across markets — never a bare "$" for a non-USD currency.
+const DISPLAY_LOCALE = 'en-US';
+
+export function formatPrice(amount: string | number, currencyCode: string): string {
   const value = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (!Number.isFinite(value)) return String(amount);
   try {
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(DISPLAY_LOCALE, {
       style: 'currency',
       currency: currencyCode || 'USD',
       minimumFractionDigits: 0,
@@ -172,13 +177,14 @@ export function formatPrice(amount: string | number, currencyCode: string, local
     }).format(value);
   } catch {
     const sym = SYMBOLS[currencyCode] ?? currencyCode + ' ';
-    return sym + Math.round(value).toLocaleString(locale);
+    return sym + Math.round(value).toLocaleString(DISPLAY_LOCALE);
   }
 }
 
-// Back-compat: existing callers use formatMoney(money, locale).
-export function formatMoney(money: Money, locale = 'en'): string {
-  return formatPrice(money.amount, money.currencyCode, locale);
+// Back-compat: existing callers use formatMoney(money, locale). The locale arg is
+// ignored now — we always format in a fixed locale for unambiguous symbols.
+export function formatMoney(money: Money, _locale?: string): string {
+  return formatPrice(money.amount, money.currencyCode);
 }
 
 export type { Store, Market, MarketConfig };
