@@ -3,6 +3,7 @@ import { getCartId } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
 import { createDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { createCashfreeOrder } from '~/lib/cashfree';
+import { saveLead } from '~/lib/firestore';
 
 export const prerender = false;
 
@@ -101,6 +102,18 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   });
 
   if (!cf) return bad('Payment init failed', 502);
+
+  // Capture the lead in Firestore (best-effort; never blocks checkout).
+  await saveLead(orderId, {
+    draftOrderId: draft.id,
+    fullName,
+    email,
+    phone: phone10,
+    address: { address1, address2: address.address2 ?? '', city, province, zip },
+    amount,
+    currency: draft.totalPrice.currencyCode || 'INR',
+    items: cart.lines.map((l) => ({ title: l.title, qty: l.quantity, price: l.price })),
+  });
 
   return new Response(
     JSON.stringify({

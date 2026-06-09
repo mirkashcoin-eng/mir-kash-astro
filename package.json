@@ -17,6 +17,7 @@
     "@shopify/storefront-api-client": "^1.0.10",
     "astro": "^5.0.0",
     "firebase": "^12.14.0",
+    "firebase-admin": "^14.0.0",
     "nanostores": "^0.11.3"
   },
   "devDependencies": {
