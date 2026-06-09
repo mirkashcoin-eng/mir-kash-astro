@@ -340,6 +340,8 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
       if (!res.ok) throw new Error('add failed');
       const cart = await res.json();
       if (checkout) {
+        // India uses our custom checkout; the global store goes to Shopify hosted checkout.
+        if (store === 'india') { window.location.href = '/checkout'; return; }
         if (cart.checkoutUrl) { window.location.href = cart.checkoutUrl; return; }
         throw new Error('no checkout url');
       }

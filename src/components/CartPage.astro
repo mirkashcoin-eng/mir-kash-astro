@@ -107,7 +107,7 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
           <span class="cart-summary__val">{money(cart!.total)}</span>
         </div>
 
-        <a class="cart-checkout-btn" href={cart!.checkoutUrl}>Checkout <span class="arrow-line"></span></a>
+        <a class="cart-checkout-btn" href={market === 'india' ? '/checkout' : cart!.checkoutUrl}>Checkout <span class="arrow-line"></span></a>
 
         <div class="cart-trust">
           <span class="cart-trust__item">Secure checkout</span>

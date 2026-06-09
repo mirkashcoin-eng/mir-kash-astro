@@ -1,0 +1,92 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import SiteFooter from '~/components/SiteFooter.astro';
+import { finalizeOrder, type FinalizeStatus } from '~/lib/cashfree';
+
+export const prerender = false;
+
+// Never cache — this finalizes a specific order for a specific buyer.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const orderId = Astro.url.searchParams.get('order_id') ?? '';
+let status: FinalizeStatus = 'error';
+let orderName: string | undefined;
+
+if (orderId) {
+  const result = await finalizeOrder(orderId, Astro.cookies);
+  status = result.status;
+  orderName = result.orderName;
+}
+
+const COPY: Record<FinalizeStatus, { title: string; body: string }> = {
+  paid: {
+    title: 'Thank you',
+    body: 'Your order is confirmed. A receipt is on its way to your inbox.',
+  },
+  pending: {
+    title: 'Payment processing',
+    body: 'We have not received final confirmation yet. If money was debited, your order will confirm automatically within a few minutes — no need to pay again.',
+  },
+  failed: {
+    title: 'Payment not completed',
+    body: 'Your payment did not go through and you have not been charged. Your bag is saved — you can try again.',
+  },
+  error: {
+    title: 'Something went wrong',
+    body: 'We could not verify your payment. If money was debited, it will be reconciled automatically. Please contact us if you need help.',
+  },
+};
+
+const copy = COPY[status];
+---
+<BaseLayout title="Order — Mir Kash" path="/checkout/return">
+  <header class="hdr">
+    <div class="hdr__wrap">
+      <a href="/" class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
+    </div>
+  </header>
+
+  <main class="ret">
+    <div class={`ret__card ret__card--${status}`}>
+      <span class="ret__mark" aria-hidden="true">{status === 'paid' ? '✓' : status === 'pending' ? '…' : '!'}</span>
+      <h1 class="ret__title">{copy.title}</h1>
+      {status === 'paid' && orderName && <p class="ret__order">Order {orderName}</p>}
+      <p class="ret__body">{copy.body}</p>
+      <div class="ret__actions">
+        {status === 'paid' ? (
+          <a class="ret__btn" href="/shop">Continue shopping</a>
+        ) : status === 'failed' ? (
+          <a class="ret__btn" href="/checkout">Try again</a>
+        ) : (
+          <a class="ret__btn" href="/">Back to home</a>
+        )}
+      </div>
+    </div>
+  </main>
+
+  <SiteFooter />
+
+  <style is:global>
+    :root {
+      --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+      --cherry: #8B1A1A; --depth: #2C1A0E; --rule: #e4dfd7; --mid: #6e6a64;
+      --hdr-h: 56px;
+    }
+    body { background: #fff; color: var(--depth); }
+    .hdr { border-bottom: 1px solid var(--rule); }
+    .hdr__wrap { display: flex; justify-content: center; align-items: center; height: var(--hdr-h); }
+    .hdr__logo img { height: 20px; filter: invert(1); }
+
+    .ret { max-width: 560px; margin: 0 auto; min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: clamp(40px,8vw,96px) var(--gutter, clamp(20px,4vw,56px)); }
+    .ret__card { text-align: center; }
+    .ret__mark { width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; color: #fff; background: var(--depth); margin-bottom: 24px; }
+    .ret__card--paid .ret__mark { background: #2f6b3f; }
+    .ret__card--failed .ret__mark, .ret__card--error .ret__mark { background: var(--cherry); }
+    .ret__card--pending .ret__mark { background: var(--mid); }
+    .ret__title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px,4vw,40px); margin-bottom: 8px; }
+    .ret__order { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); margin-bottom: 18px; }
+    .ret__body { font-family: var(--serif); font-size: 16px; line-height: 1.6; color: var(--mid); margin-bottom: 32px; }
+    .ret__btn { display: inline-flex; align-items: center; height: 50px; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; transition: background .3s; }
+    .ret__btn:hover { background: var(--cherry); }
+  </style>
+</BaseLayout>

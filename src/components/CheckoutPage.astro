@@ -1,0 +1,406 @@
+---
+import SiteFooter from './SiteFooter.astro';
+import { getCart } from '~/lib/shopify/cart';
+import { getCartId } from '~/lib/cart-session';
+import { shopifyImage } from '~/lib/shopifyImage';
+import { formatMoney } from '~/lib/markets';
+
+// Custom checkout is the INDIA store only. The Global store keeps Shopify's
+// hosted checkout and never reaches this page.
+const store = 'india' as const;
+
+// Per-visitor — never cache on the CDN (overrides BaseLayout's public header).
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const cartId = getCartId(Astro.cookies, store);
+const cart = cartId ? await getCart(store, cartId) : null;
+if (!cart || cart.lines.length === 0) {
+  return Astro.redirect('/cart');
+}
+
+const currency = cart.currency || 'INR';
+const money = (n: number) => formatMoney({ amount: String(n), currencyCode: currency }, 'en-IN');
+---
+
+<div class="ticker" aria-label="Announcements">
+  <div class="ticker__track">
+    {[0, 1].map((i) => (
+      <div class="ticker__seq" aria-hidden={i === 1 ? 'true' : undefined}>
+        <span>Handmade vegan bags</span><span class="dot">·</span>
+        <span>Made slowly, worn forever</span><span class="dot">·</span>
+        <span>Apple leather from Italy</span><span class="dot">·</span>
+        <span>Ships worldwide</span><span class="dot">·</span>
+        <span>Cruelty-free always</span><span class="dot">·</span>
+      </div>
+    ))}
+  </div>
+</div>
+
+<header class="hdr">
+  <div class="hdr__wrap">
+    <div class="hdr__left" aria-hidden="true"></div>
+    <a href="/" class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
+    <div class="hdr__right">
+      <a class="hdr__btn" href="/cart" aria-label="Bag">Bag</a>
+    </div>
+  </div>
+</header>
+
+<main class="co" data-currency={currency}>
+  <h1 class="co__title">Checkout</h1>
+
+  <div class="co__layout">
+    <div class="co__steps">
+      <!-- ── Step 1: Phone + OTP ── -->
+      <section class="co-step is-active" data-step="1">
+        <h2 class="co-step__head"><span class="co-step__num">1</span> Verify your phone</h2>
+        <div class="co-step__body">
+          <p class="co-note">We'll text a one-time code to confirm your number.</p>
+          <div class="co-field">
+            <label for="phone">Mobile number</label>
+            <div class="co-phone">
+              <span class="co-phone__cc">+91</span>
+              <input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="98765 43210" autocomplete="tel-national" />
+            </div>
+          </div>
+          <button class="co-btn co-btn--ghost" id="sendOtp" type="button">Send code</button>
+
+          <div class="co-field co-otp-field" id="otpField" hidden>
+            <label for="otp">Enter the 6-digit code</label>
+            <input id="otp" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code" />
+            <button class="co-btn" id="verifyOtp" type="button">Verify &amp; continue</button>
+          </div>
+          <p class="co-error" id="otpError" role="alert" hidden></p>
+        </div>
+        <div id="recaptcha-container"></div>
+      </section>
+
+      <!-- ── Step 2: Address ── -->
+      <section class="co-step" data-step="2">
+        <h2 class="co-step__head"><span class="co-step__num">2</span> Shipping address</h2>
+        <div class="co-step__body">
+          <div class="co-field">
+            <label for="fullName">Full name</label>
+            <input id="fullName" type="text" autocomplete="name" />
+          </div>
+          <div class="co-field">
+            <label for="address1">Address</label>
+            <input id="address1" type="text" autocomplete="address-line1" placeholder="House no., street" />
+          </div>
+          <div class="co-field">
+            <label for="address2">Apartment, landmark <span class="co-opt">(optional)</span></label>
+            <input id="address2" type="text" autocomplete="address-line2" />
+          </div>
+          <div class="co-row">
+            <div class="co-field">
+              <label for="city">City</label>
+              <input id="city" type="text" autocomplete="address-level2" />
+            </div>
+            <div class="co-field">
+              <label for="province">State</label>
+              <input id="province" type="text" autocomplete="address-level1" />
+            </div>
+            <div class="co-field">
+              <label for="zip">PIN code</label>
+              <input id="zip" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" />
+            </div>
+          </div>
+          <div class="co-field">
+            <label for="email">Email</label>
+            <input id="email" type="email" autocomplete="email" placeholder="for your order confirmation" />
+          </div>
+          <p class="co-error" id="addrError" role="alert" hidden></p>
+          <button class="co-btn" id="toReview" type="button">Continue to payment</button>
+        </div>
+      </section>
+
+      <!-- ── Step 3: Review & Pay ── -->
+      <section class="co-step" data-step="3">
+        <h2 class="co-step__head"><span class="co-step__num">3</span> Review &amp; pay</h2>
+        <div class="co-step__body">
+          <div class="co-review" id="reviewAddr"></div>
+          <p class="co-note">Free shipping. Taxes are calculated by Shopify and shown on your receipt.</p>
+          <button class="co-btn co-btn--pay" id="payBtn" type="button">
+            Pay with Cashfree <span class="arrow-line"></span>
+          </button>
+          <p class="co-error" id="payError" role="alert" hidden></p>
+          <p class="co-secure">Secured by Cashfree · UPI · Cards · Netbanking</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── Order summary ── -->
+    <aside class="co-summary">
+      <h2 class="co-summary__title">Order summary</h2>
+      <div class="co-summary__items">
+        {cart.lines.map((line) => (
+          <div class="co-line">
+            <div class="co-line__img">
+              {line.image && <img src={shopifyImage(line.image, 160)} alt={line.title} />}
+              <span class="co-line__qty">{line.quantity}</span>
+            </div>
+            <div class="co-line__info">
+              <span class="co-line__name">{line.title}</span>
+              {line.variantTitle && !/default title/i.test(line.variantTitle) && (
+                <span class="co-line__variant">{line.variantTitle}</span>
+              )}
+            </div>
+            <span class="co-line__price">{money(line.lineTotal)}</span>
+          </div>
+        ))}
+      </div>
+      <div class="co-summary__row">
+        <span>Subtotal</span><span>{money(cart.subtotal)}</span>
+      </div>
+      <div class="co-summary__row">
+        <span>Shipping</span><span>Free</span>
+      </div>
+      <div class="co-summary__divider"></div>
+      <div class="co-summary__row co-summary__total">
+        <span>Total</span><span>{money(cart.total)}</span>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<SiteFooter />
+
+<script>
+  import { createRecaptcha, sendOtp, confirmOtp, firebaseConfigured } from '~/lib/firebase';
+  import { load } from '@cashfreepayments/cashfree-js';
+  import type { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
+
+  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+  const steps = Array.from(document.querySelectorAll<HTMLElement>('.co-step'));
+
+  function gotoStep(n: number) {
+    steps.forEach((s) => s.classList.toggle('is-active', s.dataset.step === String(n)));
+    document.querySelector(`.co-step[data-step="${n}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showError(el: HTMLElement, msg: string) {
+    el.textContent = msg;
+    el.hidden = false;
+  }
+  function clearError(el: HTMLElement) {
+    el.hidden = true;
+  }
+
+  // ── State ──
+  let confirmation: ConfirmationResult | null = null;
+  let verifier: RecaptchaVerifier | null = null;
+  let verifiedPhone = ''; // 10-digit national number
+
+  // ── Step 1: OTP ──
+  const phoneInput = $<HTMLInputElement>('phone');
+  const otpField = $('otpField');
+  const otpInput = $<HTMLInputElement>('otp');
+  const otpError = $('otpError');
+
+  $('sendOtp').addEventListener('click', async () => {
+    clearError(otpError);
+    const national = phoneInput.value.replace(/\D/g, '');
+    if (national.length !== 10) {
+      showError(otpError, 'Enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!firebaseConfigured()) {
+      showError(otpError, 'OTP is not configured yet. Please contact support.');
+      return;
+    }
+    const btn = $<HTMLButtonElement>('sendOtp');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      if (!verifier) verifier = createRecaptcha('recaptcha-container');
+      confirmation = await sendOtp('+91' + national, verifier);
+      verifiedPhone = national;
+      otpField.hidden = false;
+      btn.textContent = 'Resend code';
+    } catch (err) {
+      console.error(err);
+      showError(otpError, 'Could not send the code. Please try again.');
+      btn.textContent = 'Send code';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('verifyOtp').addEventListener('click', async () => {
+    clearError(otpError);
+    const code = otpInput.value.replace(/\D/g, '');
+    if (code.length !== 6 || !confirmation) {
+      showError(otpError, 'Enter the 6-digit code.');
+      return;
+    }
+    const btn = $<HTMLButtonElement>('verifyOtp');
+    btn.disabled = true;
+    btn.textContent = 'Verifying…';
+    try {
+      await confirmOtp(confirmation, code);
+      gotoStep(2);
+    } catch {
+      showError(otpError, 'That code is incorrect or expired.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Verify & continue';
+    }
+  });
+
+  // ── Step 2: Address ──
+  const addrError = $('addrError');
+  function readAddress() {
+    return {
+      fullName: $<HTMLInputElement>('fullName').value.trim(),
+      address1: $<HTMLInputElement>('address1').value.trim(),
+      address2: $<HTMLInputElement>('address2').value.trim(),
+      city: $<HTMLInputElement>('city').value.trim(),
+      province: $<HTMLInputElement>('province').value.trim(),
+      zip: $<HTMLInputElement>('zip').value.trim(),
+      email: $<HTMLInputElement>('email').value.trim(),
+    };
+  }
+
+  $('toReview').addEventListener('click', () => {
+    clearError(addrError);
+    const a = readAddress();
+    if (!a.fullName || !a.address1 || !a.city || !a.province) {
+      showError(addrError, 'Please fill in your name and address.');
+      return;
+    }
+    if (!/^\d{6}$/.test(a.zip)) {
+      showError(addrError, 'Enter a valid 6-digit PIN code.');
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a.email)) {
+      showError(addrError, 'Enter a valid email address.');
+      return;
+    }
+    $('reviewAddr').innerHTML = `
+      <div class="co-review__name">${a.fullName}</div>
+      <div>${a.address1}${a.address2 ? ', ' + a.address2 : ''}</div>
+      <div>${a.city}, ${a.province} ${a.zip}</div>
+      <div>+91 ${verifiedPhone} · ${a.email}</div>`;
+    gotoStep(3);
+  });
+
+  // ── Step 3: Pay ──
+  const payError = $('payError');
+  $('payBtn').addEventListener('click', async () => {
+    clearError(payError);
+    const btn = $<HTMLButtonElement>('payBtn');
+    btn.disabled = true;
+    btn.classList.add('is-busy');
+    try {
+      const res = await fetch('/api/checkout/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...readAddress(), phone: verifiedPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.paymentSessionId) {
+        throw new Error(data.error || 'Could not start payment');
+      }
+      const cashfree = await load({ mode: data.mode });
+      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' });
+    } catch (err) {
+      console.error(err);
+      showError(payError, 'Payment could not be started. Please try again.');
+      btn.disabled = false;
+      btn.classList.remove('is-busy');
+    }
+  });
+</script>
+
+<style is:global>
+  :root {
+    --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+    --cherry: #8B1A1A; --depth: #2C1A0E; --paper: #ffffff;
+    --rule: #e4dfd7; --mid: #6e6a64;
+    --ticker-h: 32px; --hdr-h: 56px;
+  }
+  body { background: #fff; color: var(--depth); padding-top: var(--ticker-h); }
+
+  .ticker { position: fixed; top: 0; left: 0; right: 0; height: var(--ticker-h); background: var(--cherry); overflow: hidden; z-index: 200; display: flex; align-items: center; }
+  .ticker__track { display: flex; white-space: nowrap; animation: tick 44s linear infinite; }
+  .ticker:hover .ticker__track { animation-play-state: paused; }
+  .ticker__seq { display: flex; align-items: center; gap: 28px; padding-right: 28px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: #fff; flex-shrink: 0; }
+  .ticker__seq .dot { opacity: .55; }
+  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  .hdr { position: sticky; top: var(--ticker-h); z-index: 100; background: #fff; border-bottom: 1px solid var(--rule); }
+  .hdr__wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: var(--hdr-h); padding: 0 var(--gutter, clamp(20px,4vw,56px)); }
+  .hdr__logo { justify-self: center; grid-column: 2; }
+  .hdr__logo img { height: 20px; filter: invert(1); }
+  .hdr__left { grid-column: 1; }
+  .hdr__right { grid-column: 3; justify-self: end; }
+  .hdr__btn { display: inline-flex; align-items: center; color: var(--depth); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; transition: opacity .2s; }
+  .hdr__btn:hover { opacity: .55; }
+
+  /* ── CHECKOUT ── */
+  .co { max-width: 1080px; margin: 0 auto; min-height: 56vh; padding: clamp(36px,5vw,64px) var(--gutter, clamp(20px,4vw,56px)) clamp(56px,8vw,96px); }
+  .co__title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px,4vw,44px); margin-bottom: clamp(28px,4vw,44px); }
+  .co__layout { display: grid; grid-template-columns: 1fr 360px; gap: clamp(32px,5vw,72px); align-items: start; }
+
+  .co-step { border-bottom: 1px solid var(--rule); padding: clamp(20px,2.6vw,30px) 0; }
+  .co-step:first-child { padding-top: 0; }
+  .co-step__head { display: flex; align-items: center; gap: 14px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--mid); }
+  .co-step.is-active .co-step__head { color: var(--depth); }
+  .co-step__num { width: 26px; height: 26px; border: 1px solid var(--rule); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .co-step.is-active .co-step__num { background: var(--depth); color: #fff; border-color: var(--depth); }
+  .co-step__body { margin-top: 22px; max-width: 520px; }
+  .co-step:not(.is-active) .co-step__body { display: none; }
+  .co-step:not(.is-active) #recaptcha-container { display: none; }
+
+  .co-note { font-family: var(--serif); font-size: 15px; color: var(--mid); margin-bottom: 18px; }
+  .co-field { margin-bottom: 16px; display: flex; flex-direction: column; }
+  .co-field label { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: var(--mid); margin-bottom: 7px; }
+  .co-opt { text-transform: none; letter-spacing: 0; }
+  .co-field input { height: 46px; border: 1px solid var(--rule); padding: 0 14px; font-family: var(--serif); font-size: 15px; color: var(--depth); background: #fff; transition: border-color .2s; }
+  .co-field input:focus { outline: none; border-color: var(--depth); }
+  .co-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+  .co-phone { display: flex; align-items: stretch; border: 1px solid var(--rule); }
+  .co-phone:focus-within { border-color: var(--depth); }
+  .co-phone__cc { display: flex; align-items: center; padding: 0 12px; background: #f5f2ed; font-family: var(--serif); font-size: 15px; color: var(--mid); border-right: 1px solid var(--rule); }
+  .co-phone input { flex: 1; border: none; height: 46px; padding: 0 14px; font-family: var(--serif); font-size: 15px; }
+  .co-phone input:focus { outline: none; }
+  .co-otp-field { margin-top: 18px; }
+
+  .co-btn { height: 50px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 0 28px; transition: background .3s, opacity .2s; margin-top: 6px; }
+  .co-btn:hover { background: var(--cherry); }
+  .co-btn:disabled { opacity: .55; cursor: default; }
+  .co-btn--ghost { background: none; color: var(--depth); border: 1px solid var(--depth); }
+  .co-btn--ghost:hover { background: var(--depth); color: #fff; }
+  .co-btn--pay { width: 100%; margin-top: 18px; }
+  .co-btn--pay.is-busy { opacity: .6; pointer-events: none; }
+  .co-btn .arrow-line { display: block; width: 28px; height: 1px; background: #fff; position: relative; transition: width .25s; }
+  .co-btn .arrow-line::after { content: ''; position: absolute; right: -1px; top: -2.5px; width: 6px; height: 6px; border-top: 1px solid #fff; border-right: 1px solid #fff; transform: rotate(45deg); }
+  .co-btn--pay:hover .arrow-line { width: 36px; }
+
+  .co-error { color: var(--cherry); font-family: var(--serif); font-size: 14px; margin-top: 10px; }
+  .co-review { font-family: var(--serif); font-size: 15px; line-height: 1.6; color: var(--depth); margin-bottom: 16px; }
+  .co-review__name { font-weight: 500; }
+  .co-secure { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); text-align: center; margin-top: 16px; }
+
+  /* ── Summary ── */
+  .co-summary { position: sticky; top: calc(var(--ticker-h) + var(--hdr-h) + 40px); border: 1px solid var(--rule); padding: clamp(20px,2.4vw,28px); }
+  .co-summary__title { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--depth); margin-bottom: 18px; }
+  .co-summary__items { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+  .co-line { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
+  .co-line__img { position: relative; width: 52px; aspect-ratio: 4/5; background: #f5f2ed; overflow: hidden; }
+  .co-line__img img { width: 100%; height: 100%; object-fit: cover; }
+  .co-line__qty { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 4px; background: var(--depth); color: #fff; border-radius: 9px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .co-line__name { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--depth); display: block; line-height: 1.3; }
+  .co-line__variant { font-family: var(--serif); font-size: 13px; color: var(--mid); }
+  .co-line__price { font-family: var(--serif); font-size: 14px; color: var(--depth); }
+  .co-summary__row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; font-size: 12px; letter-spacing: .06em; color: var(--mid); }
+  .co-summary__row span:last-child { font-family: var(--serif); font-size: 15px; color: var(--depth); letter-spacing: 0; }
+  .co-summary__divider { height: 1px; background: var(--rule); margin: 10px 0; }
+  .co-summary__total span:first-child { text-transform: uppercase; font-weight: 500; color: var(--depth); font-size: 11.5px; }
+  .co-summary__total span:last-child { font-size: 18px; }
+
+  @media (max-width: 860px) {
+    .co__layout { grid-template-columns: 1fr; }
+    .co-summary { position: static; order: -1; }
+  }
+</style>
