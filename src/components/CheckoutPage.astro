@@ -217,9 +217,10 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
       verifiedPhone = national;
       otpField.hidden = false;
       btn.textContent = 'Resend code';
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showError(otpError, 'Could not send the code. Please try again.');
+      const reason = err?.code || err?.message || 'unknown error';
+      showError(otpError, 'Could not send the code — ' + reason);
       btn.textContent = 'Send code';
     } finally {
       btn.disabled = false;
