@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getCartId } from '~/lib/cart-session';
+import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
 import { createDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { createCashfreeOrder } from '~/lib/cashfree';
@@ -16,6 +16,7 @@ interface Body {
   zip?: string;
   phone?: string;
   email?: string;
+  buynow?: boolean;
 }
 
 function bad(message: string, status = 400) {
@@ -58,7 +59,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   }
 
   // India cart only — custom checkout never touches the global store.
-  const cartId = getCartId(cookies, 'india');
+  // Buy-now uses the separate single-item cart; otherwise the main cart.
+  const isBuyNow = body.buynow === true;
+  const cartId = resolveCheckoutCartId(cookies, 'india', isBuyNow);
   if (!cartId) return bad('Cart is empty', 409);
   const cart = await getCart('india', cartId);
   if (!cart || cart.lines.length === 0) return bad('Cart is empty', 409);
@@ -99,6 +102,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     returnUrl: `${url.origin}/checkout/return`,
     notifyUrl: `${url.origin}/api/webhooks/cashfree`,
     draftOrderId: draft.id,
+    cartKind: isBuyNow ? 'buynow' : 'main',
   });
 
   if (!cf) return bad('Payment init failed', 502);

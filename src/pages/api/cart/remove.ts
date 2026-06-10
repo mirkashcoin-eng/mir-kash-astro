@@ -1,11 +1,16 @@
 import type { APIRoute } from 'astro';
 import { removeLine } from '~/lib/shopify/cart';
-import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
+import {
+  resolveStore,
+  resolveCheckoutCartId,
+  persistCart,
+  persistBuyNowCart,
+} from '~/lib/cart-session';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { lineId?: string; store?: string };
+  let body: { lineId?: string; store?: string; buynow?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -17,8 +22,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'lineId required' }), { status: 400 });
   }
 
+  // buynow → operate on the express single-item cart, else the main cart.
   const store = resolveStore(body.store);
-  const cartId = getCartId(cookies, store);
+  const isBuyNow = body.buynow === true;
+  const cartId = resolveCheckoutCartId(cookies, store, isBuyNow);
   if (!cartId) {
     return new Response(JSON.stringify({ error: 'No cart' }), { status: 404 });
   }
@@ -28,7 +35,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
   }
 
-  persistCart(cookies, store, cart);
+  if (isBuyNow) persistBuyNowCart(cookies, store, cart);
+  else persistCart(cookies, store, cart);
   return new Response(JSON.stringify(cart), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },

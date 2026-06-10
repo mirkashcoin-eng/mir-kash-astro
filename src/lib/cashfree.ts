@@ -4,7 +4,7 @@
 import crypto from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { completeDraftOrder } from '~/lib/shopify/admin';
-import { clearCart } from '~/lib/cart-session';
+import { clearCart, clearBuyNowCart } from '~/lib/cart-session';
 import { markLeadPaid } from '~/lib/firestore';
 
 const API_VERSION = '2023-08-01';
@@ -55,6 +55,7 @@ export interface CreateOrderArgs {
   returnUrl: string; // {order_id} placeholder is appended by Cashfree
   notifyUrl: string;
   draftOrderId: string; // Shopify draft order GID
+  cartKind: 'main' | 'buynow'; // which cart to clear once paid
 }
 
 export interface CreateOrderResult {
@@ -81,7 +82,7 @@ export async function createCashfreeOrder(args: CreateOrderArgs): Promise<Create
       return_url: `${args.returnUrl}?order_id={order_id}`,
       notify_url: args.notifyUrl,
     },
-    order_tags: { draft_order_id: draftNumericId(args.draftOrderId) },
+    order_tags: { draft_order_id: draftNumericId(args.draftOrderId), cart_kind: args.cartKind },
   };
 
   try {
@@ -110,6 +111,7 @@ export async function createCashfreeOrder(args: CreateOrderArgs): Promise<Create
 export interface CashfreeOrder {
   orderStatus: string; // PAID | ACTIVE | EXPIRED | TERMINATED ...
   draftOrderId: string | null; // reconstructed Shopify GID from order_tags
+  cartKind: 'main' | 'buynow'; // which cart this order came from
 }
 
 export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder | null> {
@@ -131,6 +133,7 @@ export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder |
     return {
       orderStatus: json.order_status,
       draftOrderId: num ? draftGid(num) : null,
+      cartKind: json.order_tags?.cart_kind === 'buynow' ? 'buynow' : 'main',
     };
   } catch (err) {
     console.error('[cashfree] getOrder error:', err);
@@ -176,7 +179,11 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
     }
     const order = await completeDraftOrder(cf.draftOrderId);
     if (!order) return { status: 'error' };
-    if (cookies) clearCart(cookies, 'india');
+    if (cookies) {
+      // Clear only the cart this order used, so a buy-now never empties the main bag.
+      if (cf.cartKind === 'buynow') clearBuyNowCart(cookies, 'india');
+      else clearCart(cookies, 'india');
+    }
     await markLeadPaid(orderId, order.orderName ?? order.name);
     return { status: 'paid', orderName: order.orderName ?? order.name };
   }

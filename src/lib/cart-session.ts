@@ -45,3 +45,31 @@ export function clearCart(cookies: AstroCookies, store: Store): void {
   cookies.delete(cartIdCookieName(store), { path: '/' });
   cookies.delete(countCookieName(store), { path: '/' });
 }
+
+// ── Buy-now cart (Amazon-style express checkout) ──────────────────────────────
+// A separate single-item cart so "Buy Now" never disturbs the main cart.
+export function buyNowCartIdCookieName(store: Store): string {
+  return `mk_buynow_${store}`;
+}
+
+export function getBuyNowCartId(cookies: AstroCookies, store: Store): string | null {
+  return cookies.get(buyNowCartIdCookieName(store))?.value ?? null;
+}
+
+export function persistBuyNowCart(cookies: AstroCookies, store: Store, cart: CartView | null): void {
+  if (!cart) return;
+  cookies.set(buyNowCartIdCookieName(store), cart.id, cookieOpts);
+}
+
+export function clearBuyNowCart(cookies: AstroCookies, store: Store): void {
+  cookies.delete(buyNowCartIdCookieName(store), { path: '/' });
+}
+
+// The cart the checkout is operating on: buy-now (single item) or the main cart.
+export function resolveCheckoutCartId(
+  cookies: AstroCookies,
+  store: Store,
+  isBuyNow: boolean,
+): string | null {
+  return isBuyNow ? getBuyNowCartId(cookies, store) : getCartId(cookies, store);
+}
