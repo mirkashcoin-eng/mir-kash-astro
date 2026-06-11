@@ -84,7 +84,10 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     country: 'IN',
   };
 
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164 });
+  const discount = cart.discountAmount > 0
+    ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
+    : undefined;
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);

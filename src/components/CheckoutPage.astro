@@ -46,7 +46,7 @@ const thumbGradients = [
         Order summary
         <svg class="summary-chev" id="sumChev" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1L5.5 5.5L10 1" stroke="currentColor" stroke-width="1.3"></path></svg>
       </span>
-      <span class="summary-amt">{inr(cart.total)}</span>
+      <span class="summary-amt" id="sumAmt">{inr(cart.total)}</span>
     </div>
     <div class="summary-body" id="sumBody">
       <div class="summary-inner">
@@ -65,10 +65,19 @@ const thumbGradients = [
             <div class="sum-price">{inr(line.lineTotal)}</div>
           </div>
         ))}
+        <div class="sum-coupon">
+          <input class="input" id="couponInput" placeholder="Discount code" value={cart.discountCode ?? ''} autocomplete="off" autocapitalize="characters" />
+          <button class="coupon-btn" type="button" id="couponBtn" data-applied={cart.discountCode ? '1' : '0'}>{cart.discountCode ? 'Remove' : 'Apply'}</button>
+        </div>
+        <p class="co-err" id="err-coupon" hidden></p>
         <div class="sum-tots">
           <div class="tot-row"><span class="tot-k">Subtotal</span><span class="tot-v">{inr(cart.subtotal)}</span></div>
+          <div class="tot-row" id="discountRow" style={cart.discountAmount > 0 ? '' : 'display:none'}>
+            <span class="tot-k">Discount <span id="discountLbl">{cart.discountCode}</span></span>
+            <span class="tot-v" id="discountVal" style="color:var(--green);font-weight:500;">−{inr(cart.discountAmount)}</span>
+          </div>
           <div class="tot-row"><span class="tot-k">Shipping</span><span class="tot-v free">Free &nbsp;·&nbsp; 5–7 days</span></div>
-          <div class="tot-row grand"><span class="tot-k">Total</span><span class="tot-v">{inr(cart.total)}</span></div>
+          <div class="tot-row grand"><span class="tot-k">Total</span><span class="tot-v" id="sumGrand">{inr(cart.total)}</span></div>
         </div>
       </div>
     </div>
@@ -309,6 +318,47 @@ const thumbGradients = [
     } catch { btn.disabled = false; btn.textContent = 'Remove'; alert('Could not remove that item.'); }
   });
 
+  // ── Coupon ──
+  const inrFmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+  $('couponBtn').addEventListener('click', async () => {
+    const btn = $('couponBtn') as HTMLButtonElement;
+    const input = document.getElementById('couponInput') as HTMLInputElement;
+    const removing = btn.dataset.applied === '1';
+    const code = removing ? '' : input.value.trim();
+    if (!removing && !code) return;
+    clearErr('coupon');
+    btn.disabled = true; btn.textContent = removing ? 'Removing…' : 'Applying…';
+    try {
+      const res = await fetch('/api/checkout/apply-discount', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, buynow: buyNow }),
+      });
+      const data = await res.json();
+      if (data.ok === false) { showErr('coupon', data.error || 'Invalid code.'); btn.disabled = false; btn.textContent = 'Apply'; return; }
+      if (!res.ok) throw new Error();
+      // Update totals
+      const row = $('discountRow');
+      if (data.discount > 0 && data.code) {
+        row.style.display = '';
+        $('discountLbl').textContent = data.code;
+        $('discountVal').textContent = '−' + inrFmt(data.discount);
+        btn.dataset.applied = '1'; btn.textContent = 'Remove'; input.value = data.code;
+      } else {
+        row.style.display = 'none';
+        btn.dataset.applied = '0'; btn.textContent = 'Apply'; input.value = '';
+      }
+      $('sumGrand').textContent = inrFmt(data.total);
+      $('sumAmt').textContent = inrFmt(data.total);
+      $('placeTxt').textContent = 'She’s yours — pay ' + inrFmt(data.total);
+      sheet.dataset.total = String(data.total);
+    } catch {
+      showErr('coupon', 'Could not apply the code. Please try again.');
+    } finally {
+      btn.disabled = false;
+      if (btn.textContent === 'Applying…' || btn.textContent === 'Removing…') btn.textContent = removing ? 'Apply' : 'Apply';
+    }
+  });
+
   // ── PIN → city/state autofill ──
   const PINS: Record<string, string> = {
     '4000': 'Mumbai, Maharashtra', '4100': 'Pune, Maharashtra', '1100': 'New Delhi, Delhi',
@@ -412,6 +462,11 @@ const thumbGradients = [
   .sum-remove { background: none; border: none; padding: 0; margin-top: 4px; cursor: pointer; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); transition: color .2s; }
   .sum-remove:hover { color: var(--cherry); }
   .sum-price { font-family: var(--serif); font-weight: 400; font-size: 13px; color: var(--depth); white-space: nowrap; }
+  .sum-coupon { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,.1); }
+  .sum-coupon .input { flex: 1; padding: 7px 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  .coupon-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 10.5px; letter-spacing: var(--caps); text-transform: uppercase; font-weight: 600; color: var(--cherry); }
+  .coupon-btn:hover { color: var(--depth); }
+  .coupon-btn:disabled { opacity: .5; cursor: default; }
   .sum-tots { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,.1); }
   .tot-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; }
   .tot-k { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--mid); }

@@ -96,6 +96,7 @@ export interface ShopifyCart {
   id: string;
   checkoutUrl: string;
   totalQuantity: number;
+  discountCodes?: Array<{ applicable: boolean; code: string }>;
   cost: { subtotalAmount: Money; totalAmount: Money };
   lines: { edges: Array<{ node: ShopifyCartLine }> };
 }
@@ -120,5 +121,7 @@ export interface CartView {
   subtotal: number;
   total: number;
   currency: string;
+  discountCode: string | null;   // an applied, applicable code
+  discountAmount: number;        // subtotal − total (₹ off)
   lines: CartLineView[];
 }

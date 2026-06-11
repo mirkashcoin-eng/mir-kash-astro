@@ -62,15 +62,49 @@ const CART_LINES_REMOVE = /* GraphQL */ `
   }
 `;
 
+const CART_DISCOUNT_UPDATE = /* GraphQL */ `
+  ${FRAGMENTS}
+  mutation CartDiscountCodesUpdate($cartId: ID!, $codes: [String!]!, $country: CountryCode) @inContext(country: $country) {
+    cartDiscountCodesUpdate(cartId: $cartId, discountCodes: $codes) {
+      cart { ...CartFields }
+      userErrors { field message }
+    }
+  }
+`;
+
+// Apply (or clear, with []) discount codes on the cart. Returns the updated cart
+// plus whether the FIRST submitted code is actually applicable (valid).
+export async function applyDiscount(
+  store: Store,
+  cartId: string,
+  codes: string[],
+  countryCode?: string,
+): Promise<{ cart: CartView | null; applied: boolean }> {
+  const data = await runQuery<{ cartDiscountCodesUpdate: CartMutationResult }>(
+    store,
+    CART_DISCOUNT_UPDATE,
+    { cartId, codes, country: countryCode ?? null },
+  );
+  const raw = data?.cartDiscountCodesUpdate?.cart ?? null;
+  const want = (codes[0] ?? '').toUpperCase();
+  const applied = !!raw?.discountCodes?.some((d) => d.applicable && d.code.toUpperCase() === want);
+  return { cart: normalize(raw), applied };
+}
+
 function normalize(cart: ShopifyCart | null | undefined): CartView | null {
   if (!cart) return null;
+  const subtotal = Number(cart.cost.subtotalAmount.amount);
+  const total = Number(cart.cost.totalAmount.amount);
+  const applied = (cart.discountCodes ?? []).find((d) => d.applicable);
   return {
     id: cart.id,
     checkoutUrl: cart.checkoutUrl,
     totalQuantity: cart.totalQuantity,
-    subtotal: Number(cart.cost.subtotalAmount.amount),
-    total: Number(cart.cost.totalAmount.amount),
+    subtotal,
+    total,
     currency: cart.cost.totalAmount.currencyCode,
+    discountCode: applied?.code ?? null,
+    discountAmount: Math.max(0, subtotal - total),
     lines: cart.lines.edges.map(({ node }) => ({
       id: node.id,
       merchandiseId: node.merchandise.id,

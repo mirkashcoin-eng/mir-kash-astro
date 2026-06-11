@@ -109,6 +109,7 @@ export const CART_FRAGMENT = /* GraphQL */ `
     id
     checkoutUrl
     totalQuantity
+    discountCodes { applicable code }
     cost {
       subtotalAmount { ...MoneyFields }
       totalAmount { ...MoneyFields }

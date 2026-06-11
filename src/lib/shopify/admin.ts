@@ -178,8 +178,9 @@ export async function createDraftOrder(args: {
   address: ShippingAddressInput;
   email: string;
   phone: string;
+  discount?: { amount: number; title: string }; // fixed ₹ off, from a cart coupon
 }): Promise<DraftOrderResult | null> {
-  const input = {
+  const input: Record<string, unknown> = {
     email: args.email,
     phone: args.phone,
     tags: ['cashfree', 'web-otp'],
@@ -197,6 +198,15 @@ export async function createDraftOrder(args: {
       countryCode: args.address.country || 'IN',
     },
   };
+
+  // Coupon → a fixed-amount order discount so the charged total matches the cart.
+  if (args.discount && args.discount.amount > 0) {
+    input.appliedDiscount = {
+      valueType: 'FIXED_AMOUNT',
+      value: args.discount.amount.toFixed(2),
+      title: args.discount.title || 'Discount',
+    };
+  }
 
   const data = await runAdminQuery<{
     draftOrderCreate: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };

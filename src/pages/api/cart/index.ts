@@ -11,6 +11,8 @@ const EMPTY = {
   subtotal: 0,
   total: 0,
   currency: '',
+  discountCode: null,
+  discountAmount: 0,
   lines: [] as unknown[],
 };
 
