@@ -1,19 +1,13 @@
 ---
-import SiteFooter from './SiteFooter.astro';
 import { getCart } from '~/lib/shopify/cart';
 import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
-import { formatMoney } from '~/lib/markets';
 
-// Custom checkout is the INDIA store only. The Global store keeps Shopify's
-// hosted checkout and never reaches this page.
+// Custom checkout = INDIA store only. Design ported from Rahul's
+// "Mir Kash Checkout (standalone).html" (accordion: Contact → Delivery → Payment).
 const store = 'india' as const;
-
-// "Buy Now" express checkout uses a separate single-item cart so it never
-// touches the main bag; ?buynow=1 selects it.
 const isBuyNow = Astro.url.searchParams.get('buynow') === '1';
 
-// Per-visitor — never cache on the CDN (overrides BaseLayout's public header).
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 const cartId = resolveCheckoutCartId(Astro.cookies, store, isBuyNow);
@@ -22,372 +16,490 @@ if (!cart || cart.lines.length === 0) {
   return Astro.redirect('/cart');
 }
 
-const currency = cart.currency || 'INR';
-const money = (n: number) => formatMoney({ amount: String(n), currencyCode: currency }, 'en-IN');
+// Indian digit grouping (₹1,09,700) to match the design.
+const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+const count = cart.totalQuantity;
+const thumbGradients = [
+  'linear-gradient(160deg,#c4938f,#8b1a1a)',
+  'linear-gradient(160deg,#a0808a,#5c2d3e)',
+  'linear-gradient(160deg,#e8ddd0,#c4a87a)',
+  'linear-gradient(160deg,#b9c2bd,#5c6b62)',
+];
 ---
 
-<div class="ticker" aria-label="Announcements">
-  <div class="ticker__track">
-    {[0, 1].map((i) => (
-      <div class="ticker__seq" aria-hidden={i === 1 ? 'true' : undefined}>
-        <span>Handmade vegan bags</span><span class="dot">·</span>
-        <span>Made slowly, worn forever</span><span class="dot">·</span>
-        <span>Apple leather from Italy</span><span class="dot">·</span>
-        <span>Ships worldwide</span><span class="dot">·</span>
-        <span>Cruelty-free always</span><span class="dot">·</span>
-      </div>
-    ))}
-  </div>
-</div>
+<div class="sheet" data-buynow={isBuyNow ? '1' : '0'} data-total={cart.total}>
 
-<header class="hdr">
-  <div class="hdr__wrap">
-    <div class="hdr__left" aria-hidden="true"></div>
-    <a href="/" class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
-    <div class="hdr__right">
-      <a class="hdr__btn" href="/cart" aria-label="Bag">Bag</a>
+  <header class="head">
+    <a href="/" class="head-logo" aria-label="Mir Kash">
+      <img src="/mir-kash-logo.webp" alt="Mir Kash" />
+    </a>
+    <a href="/cart" class="head-bag" aria-label="Your bag">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+      <span class="count">{count}</span>
+    </a>
+  </header>
+
+  <!-- ORDER SUMMARY -->
+  <div class="summary">
+    <div class="summary-bar" id="sumBar">
+      <span class="summary-l">
+        Order summary
+        <svg class="summary-chev" id="sumChev" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1L5.5 5.5L10 1" stroke="currentColor" stroke-width="1.3"></path></svg>
+      </span>
+      <span class="summary-amt">{inr(cart.total)}</span>
     </div>
-  </div>
-</header>
-
-<main class="co" data-currency={currency} data-buynow={isBuyNow ? '1' : '0'}>
-  <h1 class="co__title">Checkout</h1>
-
-  <div class="co__layout">
-    <div class="co__steps">
-      <!-- ── Step 1: Contact ── -->
-      <section class="co-step is-active" data-step="1">
-        <h2 class="co-step__head"><span class="co-step__num">1</span> Your contact</h2>
-        <div class="co-step__body">
-          <p class="co-note">We'll use this to share order updates.</p>
-          <div class="co-field">
-            <label for="phone">Mobile number</label>
-            <div class="co-phone">
-              <span class="co-phone__cc">+91</span>
-              <input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="98765 43210" autocomplete="tel-national" />
+    <div class="summary-body" id="sumBody">
+      <div class="summary-inner">
+        {cart.lines.map((line, i) => (
+          <div class="sum-item" data-line-id={line.id}>
+            <div class="sum-thumb" style={line.image ? `background:#f5f2ed url('${shopifyImage(line.image, 120)}') center/cover;` : `background:${thumbGradients[i % thumbGradients.length]};`}>
+              <span class="qty">{line.quantity}</span>
             </div>
-          </div>
-          <p class="co-error" id="phoneError" role="alert" hidden></p>
-          <button class="co-btn" id="toAddress" type="button">Continue to Delivery <span class="arrow-line"></span></button>
-        </div>
-      </section>
-
-      <!-- ── Step 2: Address ── -->
-      <section class="co-step" data-step="2">
-        <h2 class="co-step__head"><span class="co-step__num">2</span> Shipping address</h2>
-        <div class="co-step__body">
-          <div class="co-field">
-            <label for="fullName">Full name</label>
-            <input id="fullName" type="text" autocomplete="name" />
-          </div>
-          <div class="co-field">
-            <label for="address1">Address</label>
-            <input id="address1" type="text" autocomplete="address-line1" placeholder="House no., street" />
-          </div>
-          <div class="co-field">
-            <label for="address2">Apartment, landmark <span class="co-opt">(optional)</span></label>
-            <input id="address2" type="text" autocomplete="address-line2" />
-          </div>
-          <div class="co-row">
-            <div class="co-field">
-              <label for="city">City</label>
-              <input id="city" type="text" autocomplete="address-level2" />
-            </div>
-            <div class="co-field">
-              <label for="province">State</label>
-              <input id="province" type="text" autocomplete="address-level1" />
-            </div>
-            <div class="co-field">
-              <label for="zip">PIN code</label>
-              <input id="zip" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" />
-            </div>
-          </div>
-          <div class="co-field">
-            <label for="email">Email</label>
-            <input id="email" type="email" autocomplete="email" placeholder="for your order confirmation" />
-          </div>
-          <p class="co-error" id="addrError" role="alert" hidden></p>
-          <button class="co-btn" id="toReview" type="button">Continue to payment</button>
-        </div>
-      </section>
-
-      <!-- ── Step 3: Review & Pay ── -->
-      <section class="co-step" data-step="3">
-        <h2 class="co-step__head"><span class="co-step__num">3</span> Review &amp; pay</h2>
-        <div class="co-step__body">
-          <div class="co-review" id="reviewAddr"></div>
-          <p class="co-note">Free shipping. Taxes are calculated by Shopify and shown on your receipt.</p>
-          <button class="co-btn co-btn--pay" id="payBtn" type="button">
-            Pay with Cashfree <span class="arrow-line"></span>
-          </button>
-          <p class="co-error" id="payError" role="alert" hidden></p>
-          <p class="co-secure">Secured by Cashfree · UPI · Cards · Netbanking</p>
-        </div>
-      </section>
-    </div>
-
-    <!-- ── Order summary ── -->
-    <aside class="co-summary">
-      <h2 class="co-summary__title">Order summary</h2>
-      <div class="co-summary__items">
-        {cart.lines.map((line) => (
-          <div class="co-line" data-line-id={line.id}>
-            <div class="co-line__img">
-              {line.image && <img src={shopifyImage(line.image, 160)} alt={line.title} />}
-              <span class="co-line__qty">{line.quantity}</span>
-            </div>
-            <div class="co-line__info">
-              <span class="co-line__name">{line.title}</span>
+            <div>
+              <div class="sum-name">{line.title}</div>
               {line.variantTitle && !/default title/i.test(line.variantTitle) && (
-                <span class="co-line__variant">{line.variantTitle}</span>
+                <div class="sum-meta">{line.variantTitle}</div>
               )}
-              <button class="co-line__remove" type="button" data-remove={line.id}>Remove</button>
+              <button class="sum-remove" type="button" data-remove={line.id}>Remove</button>
             </div>
-            <span class="co-line__price">{money(line.lineTotal)}</span>
+            <div class="sum-price">{inr(line.lineTotal)}</div>
           </div>
         ))}
+        <div class="sum-tots">
+          <div class="tot-row"><span class="tot-k">Subtotal</span><span class="tot-v">{inr(cart.subtotal)}</span></div>
+          <div class="tot-row"><span class="tot-k">Shipping</span><span class="tot-v free">Free &nbsp;·&nbsp; 5–7 days</span></div>
+          <div class="tot-row grand"><span class="tot-k">Total</span><span class="tot-v">{inr(cart.total)}</span></div>
+        </div>
       </div>
-      <div class="co-summary__row">
-        <span>Subtotal</span><span>{money(cart.subtotal)}</span>
-      </div>
-      <div class="co-summary__row">
-        <span>Shipping</span><span>Free</span>
-      </div>
-      <div class="co-summary__divider"></div>
-      <div class="co-summary__row co-summary__total">
-        <span>Total</span><span>{money(cart.total)}</span>
-      </div>
-    </aside>
+    </div>
   </div>
-</main>
 
-<SiteFooter />
+  <!-- ACCORDION FLOW -->
+  <div class="flow">
+
+    <!-- 1 · CONTACT -->
+    <section class="acc" data-state="active" id="acc-contact">
+      <button class="acc-head" type="button" data-edit="contact">
+        <span class="acc-marker"><span class="num">1</span><span class="chk">✓</span></span>
+        <span class="acc-head-txt">
+          <span class="acc-title">Contact</span>
+          <span class="acc-recap" id="recap-contact"></span>
+        </span>
+        <span class="acc-edit">Edit</span>
+      </button>
+      <div class="acc-body"><div class="acc-body-inner">
+        <div class="field" style="margin-bottom:0;">
+          <div class="label-row">
+            <label class="field-label" for="f-phone">Mobile number</label>
+            <button class="signin-link" type="button" id="signinBtn" hidden>Have an account? <u>Sign in</u></button>
+          </div>
+          <div class="phone-wrap">
+            <span class="phone-cc">+91</span>
+            <input class="input" type="tel" id="f-phone" placeholder="98765 43210" maxlength="10" inputmode="numeric" autocomplete="tel-national" />
+          </div>
+        </div>
+        <p class="fine">Order &amp; shipping updates by text. See our <a href="/policies">Privacy policy</a>.</p>
+        <p class="co-err" id="err-contact" hidden></p>
+        <button class="btn-cta" type="button" data-complete="contact" style="margin-top:24px;">
+          <span>Continue to delivery</span><span class="arrow"></span>
+        </button>
+      </div></div>
+    </section>
+
+    <!-- 2 · DELIVERY -->
+    <section class="acc" data-state="todo" id="acc-delivery">
+      <button class="acc-head" type="button" data-edit="delivery">
+        <span class="acc-marker"><span class="num">2</span><span class="chk">✓</span></span>
+        <span class="acc-head-txt">
+          <span class="acc-title">Delivery</span>
+          <span class="acc-recap" id="recap-delivery"></span>
+        </span>
+        <span class="acc-edit">Edit</span>
+      </button>
+      <div class="acc-body"><div class="acc-body-inner">
+
+        <div class="ship-strip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+          <span>Free shipping across India &nbsp;·&nbsp; arrives in 5–7 business days</span>
+        </div>
+
+        <!-- Saved address (appears after sign-in — Phase C) -->
+        <div class="saved-card" id="savedCard">
+          <span class="saved-radio"></span>
+          <div>
+            <div class="saved-name" id="savedName"></div>
+            <div class="saved-addr" id="savedAddr"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="f-name">Full name</label>
+          <input class="input" type="text" id="f-name" placeholder="Priya Sharma" autocomplete="name" />
+        </div>
+
+        <div class="pin-grid">
+          <div class="field" style="margin-bottom:0;">
+            <label class="field-label" for="f-pin">PIN code</label>
+            <input class="input" type="tel" id="f-pin" placeholder="400072" maxlength="6" inputmode="numeric" />
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label class="field-label" for="f-citystate">City &amp; State</label>
+            <input class="input" type="text" id="f-citystate" placeholder="City, State" autocomplete="address-level2" />
+          </div>
+        </div>
+        <div class="geo-chip" id="geoChip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 6 9 17l-5-5"></path></svg>
+          <span id="geoTxt">Serviceable · delivers in 3–5 days</span>
+        </div>
+
+        <div class="field" style="margin-top:20px;">
+          <label class="field-label" for="f-addr">Address</label>
+          <input class="input" type="text" id="f-addr" placeholder="Flat / house no. and street" autocomplete="address-line1" />
+        </div>
+
+        <div class="add-links">
+          <button class="add-link" type="button" id="lnk-apt" data-reveal="apt">+ Add apartment, suite</button>
+        </div>
+        <div class="reveal" id="rev-apt">
+          <div class="field">
+            <label class="field-label" for="f-apt">Apartment, suite, etc.</label>
+            <input class="input" type="text" id="f-apt" placeholder="Building, landmark" autocomplete="address-line2" />
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:6px;">
+          <label class="field-label" for="f-email">Email address <span class="opt">· for order confirmation</span></label>
+          <input class="input" type="email" id="f-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <p class="co-err" id="err-delivery" hidden></p>
+        <button class="btn-cta" type="button" data-complete="delivery">
+          <span>Continue to payment</span><span class="arrow"></span>
+        </button>
+      </div></div>
+    </section>
+
+    <!-- 3 · PAYMENT -->
+    <section class="acc" data-state="todo" id="acc-payment">
+      <button class="acc-head" type="button" data-edit="payment">
+        <span class="acc-marker"><span class="num">3</span><span class="chk">✓</span></span>
+        <span class="acc-head-txt">
+          <span class="acc-title">Payment</span>
+          <span class="acc-recap" id="recap-payment"></span>
+        </span>
+        <span class="acc-edit">Edit</span>
+      </button>
+      <div class="acc-body"><div class="acc-body-inner">
+
+        <div class="pay-opt sel" data-pay="upi">
+          <div class="pay-opt-head">
+            <span class="pay-icon"><svg viewBox="0 0 60 28" width="30" height="14"><text x="0" y="22" font-family="Arial" font-weight="900" font-size="24" fill="#5F259F">UPI</text></svg></span>
+            <span class="pay-name">Pay via UPI<span class="pay-desc">GPay, PhonePe, Paytm &amp; more</span></span>
+            <span class="pay-radio"></span>
+          </div>
+        </div>
+
+        <div class="pay-opt" data-pay="card">
+          <div class="pay-opt-head">
+            <span class="pay-icon"><svg width="22" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6a64" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></span>
+            <span class="pay-name">Card<span class="pay-desc">Visa, Mastercard, RuPay &amp; Amex</span></span>
+            <span class="pay-radio"></span>
+          </div>
+        </div>
+
+        <p class="pay-note">
+          <svg width="11" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          You'll complete payment securely with Cashfree (UPI · cards · netbanking).
+        </p>
+
+        <p class="co-err" id="err-payment" hidden></p>
+        <button class="btn-cta" id="placeBtn" type="button" style="margin-top:18px;">
+          <span id="placeTxt">She's yours — pay {inr(cart.total)}</span><span class="arrow"></span>
+        </button>
+      </div></div>
+    </section>
+
+  </div>
+
+  <div class="secured-note">
+    <svg width="10" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    Secure checkout · Mir Kash
+  </div>
+</div>
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
 
-  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-  const steps = Array.from(document.querySelectorAll<HTMLElement>('.co-step'));
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const sheet = document.querySelector('.sheet') as HTMLElement;
+  const buyNow = sheet?.dataset.buynow === '1';
 
-  function gotoStep(n: number) {
-    steps.forEach((s) => s.classList.toggle('is-active', s.dataset.step === String(n)));
-    document.querySelector(`.co-step[data-step="${n}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const ORDER = ['contact', 'delivery', 'payment'];
+  let active = 'contact';
+  const done = new Set<string>();
+
+  function setState(id: string, s: string) { ($('acc-' + id) as HTMLElement).dataset.state = s; }
+  function renderFlow() {
+    ORDER.forEach((id) => setState(id, id === active ? 'active' : (done.has(id) ? 'done' : 'todo')));
+  }
+  function openSection(id: string) { active = id; renderFlow(); }
+  function scrollToSection(id: string) {
+    const y = ($('acc-' + id) as HTMLElement).getBoundingClientRect().top + window.pageYOffset - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
   }
 
-  function showError(el: HTMLElement, msg: string) {
-    el.textContent = msg;
-    el.hidden = false;
+  function showErr(id: string, msg: string) { const e = $('err-' + id); e.textContent = msg; e.hidden = false; }
+  function clearErr(id: string) { $('err-' + id).hidden = true; }
+
+  const val = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value.trim() ?? '';
+  function phone10() { return val('f-phone').replace(/\D/g, '').slice(-10); }
+  function splitCityState(s: string) {
+    const i = s.lastIndexOf(',');
+    return i >= 0 ? { city: s.slice(0, i).trim(), province: s.slice(i + 1).trim() } : { city: s.trim(), province: '' };
   }
-  function clearError(el: HTMLElement) {
-    el.hidden = true;
+
+  function buildRecap(id: string) {
+    const el = $('recap-' + id);
+    if (id === 'contact') el.textContent = '+91 ' + phone10();
+    else if (id === 'delivery') el.textContent = [val('f-name'), val('f-addr'), val('f-citystate')].filter(Boolean).join(' · ') || 'Address added';
+    else if (id === 'payment') el.textContent = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'card' ? 'Card' : 'UPI';
   }
 
-  // ── State ──
-  let enteredPhone = ''; // 10-digit national number
+  // ── Accordion edit / complete ──
+  document.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+    const id = (b as HTMLElement).dataset.edit!;
+    if (done.has(id) || id === active) openSection(id);
+  }));
 
-  // ── Step 1: Contact (no OTP — phone, then auto-advance) ──
-  const phoneInput = $<HTMLInputElement>('phone');
-  const phoneError = $('phoneError');
-
-  $('toAddress').addEventListener('click', async () => {
-    clearError(phoneError);
-    const national = phoneInput.value.replace(/\D/g, '');
-    if (national.length !== 10) {
-      showError(phoneError, 'Enter a valid 10-digit mobile number.');
-      return;
-    }
-    enteredPhone = national;
-    // Lead capture: record who started checkout (best-effort, never blocks).
-    fetch('/api/checkout/lead', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: national }),
-    }).catch(() => {});
-    gotoStep(2);
+  $('err-contact'); // ensure exists
+  document.querySelector('[data-complete="contact"]')!.addEventListener('click', () => {
+    clearErr('contact');
+    if (phone10().length !== 10) { showErr('contact', 'Enter a valid 10-digit mobile number.'); return; }
+    // Lead capture (best-effort)
+    fetch('/api/checkout/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phone10() }) }).catch(() => {});
+    done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow(); scrollToSection('delivery');
   });
 
-  // ── Step 2: Address ──
-  const addrError = $('addrError');
-  function readAddress() {
-    return {
-      fullName: $<HTMLInputElement>('fullName').value.trim(),
-      address1: $<HTMLInputElement>('address1').value.trim(),
-      address2: $<HTMLInputElement>('address2').value.trim(),
-      city: $<HTMLInputElement>('city').value.trim(),
-      province: $<HTMLInputElement>('province').value.trim(),
-      zip: $<HTMLInputElement>('zip').value.trim(),
-      email: $<HTMLInputElement>('email').value.trim(),
-    };
-  }
-
-  $('toReview').addEventListener('click', () => {
-    clearError(addrError);
-    const a = readAddress();
-    if (!a.fullName || !a.address1 || !a.city || !a.province) {
-      showError(addrError, 'Please fill in your name and address.');
-      return;
-    }
-    if (!/^\d{6}$/.test(a.zip)) {
-      showError(addrError, 'Enter a valid 6-digit PIN code.');
-      return;
-    }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a.email)) {
-      showError(addrError, 'Enter a valid email address.');
-      return;
-    }
-    $('reviewAddr').innerHTML = `
-      <div class="co-review__name">${a.fullName}</div>
-      <div>${a.address1}${a.address2 ? ', ' + a.address2 : ''}</div>
-      <div>${a.city}, ${a.province} ${a.zip}</div>
-      <div>+91 ${enteredPhone} · ${a.email}</div>`;
-    gotoStep(3);
+  document.querySelector('[data-complete="delivery"]')!.addEventListener('click', () => {
+    clearErr('delivery');
+    if (!val('f-name') || !val('f-addr') || !/^\d{6}$/.test(val('f-pin'))) { showErr('delivery', 'Please fill name, address and a valid 6-digit PIN.'); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'))) { showErr('delivery', 'Enter a valid email for your confirmation.'); return; }
+    done.add('delivery'); buildRecap('delivery'); active = 'payment'; renderFlow(); scrollToSection('payment');
   });
 
-  // Buy-now express checkout operates on a separate single-item cart.
-  const buyNow = (document.querySelector('.co') as HTMLElement)?.dataset.buynow === '1';
+  // ── Summary toggle ──
+  let sumOpen = false;
+  $('sumBar').addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('[data-remove]')) return;
+    sumOpen = !sumOpen;
+    $('sumBody').classList.toggle('open', sumOpen);
+    $('sumChev').classList.toggle('open', sumOpen);
+  });
 
-  // ── Remove a bag from the order summary ──
-  document.querySelector('.co-summary__items')?.addEventListener('click', async (e) => {
+  // ── Remove a bag ──
+  document.querySelector('.summary-inner')?.addEventListener('click', async (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-remove]');
     if (!btn) return;
-    const lineId = btn.dataset.remove;
-    if (!lineId) return;
-    btn.disabled = true;
-    btn.textContent = 'Removing…';
+    e.stopPropagation();
+    btn.disabled = true; btn.textContent = 'Removing…';
     try {
-      const res = await fetch('/api/cart/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineId, store: 'india', buynow: buyNow }),
-      });
-      if (!res.ok) throw new Error('remove failed');
-      window.location.reload(); // server re-renders summary + total (or redirects to /cart if empty)
-    } catch {
-      btn.disabled = false;
-      btn.textContent = 'Remove';
-      alert('Sorry — could not remove that item. Please try again.');
-    }
+      const res = await fetch('/api/cart/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineId: btn.dataset.remove, store: 'india', buynow: buyNow }) });
+      if (!res.ok) throw new Error();
+      window.location.reload();
+    } catch { btn.disabled = false; btn.textContent = 'Remove'; alert('Could not remove that item.'); }
   });
 
-  // ── Step 3: Pay ──
-  const payError = $('payError');
-  $('payBtn').addEventListener('click', async () => {
-    clearError(payError);
-    const btn = $<HTMLButtonElement>('payBtn');
+  // ── PIN → city/state autofill ──
+  const PINS: Record<string, string> = {
+    '4000': 'Mumbai, Maharashtra', '4100': 'Pune, Maharashtra', '1100': 'New Delhi, Delhi',
+    '1220': 'Gurugram, Haryana', '5600': 'Bengaluru, Karnataka', '6000': 'Chennai, Tamil Nadu',
+    '3800': 'Ahmedabad, Gujarat', '7000': 'Kolkata, West Bengal', '5000': 'Hyderabad, Telangana',
+    '3020': 'Jaipur, Rajasthan', '6820': 'Kochi, Kerala', '1600': 'Chandigarh, Punjab',
+  };
+  $('f-pin').addEventListener('input', (e) => {
+    const input = e.target as HTMLInputElement;
+    const v = input.value.replace(/\D/g, '').substring(0, 6);
+    input.value = v;
+    const chip = $('geoChip');
+    const cs = document.getElementById('f-citystate') as HTMLInputElement;
+    if (v.length === 6) {
+      const loc = PINS[v.substring(0, 4)];
+      if (loc && !cs.value) cs.value = loc;
+      chip.classList.add('show');
+    } else { chip.classList.remove('show'); }
+  });
+
+  // ── Optional field reveal ──
+  document.querySelectorAll('[data-reveal]').forEach((b) => b.addEventListener('click', () => {
+    const w = (b as HTMLElement).dataset.reveal!;
+    $('rev-' + w).classList.add('show');
+    (b as HTMLElement).classList.add('hidden');
+  }));
+
+  // ── Payment method pick ──
+  document.querySelectorAll('.pay-opt').forEach((o) => o.addEventListener('click', () => {
+    document.querySelectorAll('.pay-opt').forEach((x) => x.classList.remove('sel'));
+    o.classList.add('sel');
+    if (done.has('payment')) buildRecap('payment');
+  }));
+
+  // ── Place order → Cashfree ──
+  $('placeBtn').addEventListener('click', async () => {
+    clearErr('payment');
+    const btn = $('placeBtn') as HTMLButtonElement;
     btn.disabled = true;
-    btn.classList.add('is-busy');
+    $('placeTxt').textContent = 'Starting secure payment…';
+    const { city, province } = splitCityState(val('f-citystate'));
     try {
       const res = await fetch('/api/checkout/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...readAddress(), phone: enteredPhone, buynow: buyNow }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: val('f-name'), address1: val('f-addr'), address2: val('f-apt'),
+          city, province, zip: val('f-pin'), email: val('f-email'), phone: phone10(), buynow: buyNow,
+        }),
       });
       const data = await res.json();
-      if (!res.ok || !data.paymentSessionId) {
-        throw new Error(data.error || 'Could not start payment');
-      }
+      if (!res.ok || !data.paymentSessionId) throw new Error(data.error || 'Could not start payment');
       const cashfree = await load({ mode: data.mode });
       await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' });
     } catch (err) {
       console.error(err);
-      showError(payError, 'Payment could not be started. Please try again.');
+      showErr('payment', 'Payment could not be started. Please try again.');
       btn.disabled = false;
-      btn.classList.remove('is-busy');
+      $('placeTxt').textContent = 'She’s yours — pay ' + (sheet.dataset.total ? '₹' + Math.round(Number(sheet.dataset.total)).toLocaleString('en-IN') : '');
     }
   });
+
+  renderFlow();
 </script>
 
 <style is:global>
   :root {
-    --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
-    --cherry: #8B1A1A; --depth: #2C1A0E; --paper: #ffffff;
-    --rule: #e4dfd7; --mid: #6e6a64;
-    --ticker-h: 32px; --hdr-h: 56px;
+    --styrene: 'Jost', -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --serif: var(--styrene); --font: var(--styrene);
+    --cherry: #8B1A1A; --depth: #1a1a1a; --paper: #ffffff; --cream: #f5f5f5; --white: #ffffff;
+    --rule: #e6e6e6; --ink: #141414; --mid: #6b6b6b; --soft: #a3a3a3; --green: #3D6B4F; --caps: 0.13em;
   }
-  body { background: #fff; color: var(--depth); padding-top: var(--ticker-h); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { font-family: var(--font); color: var(--ink); background: var(--paper); font-size: 14px; line-height: 1.5; min-height: 100vh; display: flex; justify-content: center; padding-top: 0; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; }
+  input, select, textarea { font-family: inherit; }
 
-  .ticker { position: fixed; top: 0; left: 0; right: 0; height: var(--ticker-h); background: var(--cherry); overflow: hidden; z-index: 200; display: flex; align-items: center; }
-  .ticker__track { display: flex; white-space: nowrap; animation: tick 44s linear infinite; }
-  .ticker:hover .ticker__track { animation-play-state: paused; }
-  .ticker__seq { display: flex; align-items: center; gap: 28px; padding-right: 28px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: #fff; flex-shrink: 0; }
-  .ticker__seq .dot { opacity: .55; }
-  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .sheet { width: 100%; max-width: 460px; background: var(--white); min-height: 100vh; position: relative; box-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 30px 80px rgba(0,0,0,.07); }
+  @media (max-width: 480px) { .sheet { box-shadow: none; } }
 
-  .hdr { position: sticky; top: var(--ticker-h); z-index: 100; background: #fff; border-bottom: 1px solid var(--rule); }
-  .hdr__wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: var(--hdr-h); padding: 0 var(--gutter, clamp(20px,4vw,56px)); }
-  .hdr__logo { justify-self: center; grid-column: 2; }
-  .hdr__logo img { height: 20px; filter: invert(1); }
-  .hdr__left { grid-column: 1; }
-  .hdr__right { grid-column: 3; justify-self: end; }
-  .hdr__btn { display: inline-flex; align-items: center; color: var(--depth); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; transition: opacity .2s; }
-  .hdr__btn:hover { opacity: .55; }
+  .head { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px 18px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: var(--white); z-index: 20; }
+  .head-logo img { height: 19px; width: auto; display: block; filter: brightness(0); }
+  .head-bag { width: 38px; height: 38px; border: 1px solid var(--rule); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--depth); position: relative; }
+  .head-bag .count { position: absolute; top: -3px; right: -3px; width: 17px; height: 17px; border-radius: 50%; background: var(--cherry); color: #fff; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
 
-  /* ── CHECKOUT ── */
-  .co { max-width: 1080px; margin: 0 auto; min-height: 56vh; padding: clamp(36px,5vw,64px) var(--gutter, clamp(20px,4vw,56px)) clamp(56px,8vw,96px); }
-  .co__title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px,4vw,44px); margin-bottom: clamp(28px,4vw,44px); }
-  .co__layout { display: grid; grid-template-columns: 1fr 360px; gap: clamp(32px,5vw,72px); align-items: start; }
+  .summary { background: var(--cream); border-bottom: 1px solid var(--rule); }
+  .summary-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; cursor: pointer; user-select: none; }
+  .summary-l { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 500; color: var(--cherry); }
+  .summary-chev { transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+  .summary-chev.open { transform: rotate(180deg); }
+  .summary-amt { font-family: var(--serif); font-weight: 400; font-size: 19px; color: var(--depth); }
+  .summary-body { max-height: 0; overflow: hidden; transition: max-height .42s cubic-bezier(.2,.7,.2,1); }
+  .summary-body.open { max-height: 620px; }
+  .summary-inner { padding: 4px 22px 22px; }
+  .sum-item { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; padding: 11px 0; border-top: 1px solid rgba(0,0,0,.07); }
+  .sum-thumb { width: 52px; aspect-ratio: 4/5; position: relative; display: flex; align-items: center; justify-content: center; }
+  .sum-thumb .qty { position: absolute; top: -7px; right: -7px; width: 19px; height: 19px; border-radius: 50%; background: var(--depth); color: #fff; font-size: 10px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+  .sum-name { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; font-weight: 500; color: var(--depth); margin-bottom: 2px; }
+  .sum-meta { font-family: var(--serif); font-weight: 400; font-size: 12px; color: var(--mid); }
+  .sum-remove { background: none; border: none; padding: 0; margin-top: 4px; cursor: pointer; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); transition: color .2s; }
+  .sum-remove:hover { color: var(--cherry); }
+  .sum-price { font-family: var(--serif); font-weight: 400; font-size: 13px; color: var(--depth); white-space: nowrap; }
+  .sum-tots { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,.1); }
+  .tot-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; }
+  .tot-k { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--mid); }
+  .tot-v { font-family: var(--serif); font-weight: 400; font-size: 13px; color: var(--depth); }
+  .tot-v.free { font-weight: 500; color: var(--green); }
+  .tot-row.grand { margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,.1); }
+  .tot-row.grand .tot-k { color: var(--depth); font-size: 11px; }
+  .tot-row.grand .tot-v { font-size: 18px; }
 
-  .co-step { border-bottom: 1px solid var(--rule); padding: clamp(20px,2.6vw,30px) 0; }
-  .co-step:first-child { padding-top: 0; }
-  .co-step__head { display: flex; align-items: center; gap: 14px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--mid); }
-  .co-step.is-active .co-step__head { color: var(--depth); }
-  .co-step__num { width: 26px; height: 26px; border: 1px solid var(--rule); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
-  .co-step.is-active .co-step__num { background: var(--depth); color: #fff; border-color: var(--depth); }
-  .co-step__body { margin-top: 22px; max-width: 520px; }
-  .co-step:not(.is-active) .co-step__body { display: none; }
+  .flow { padding: 6px 0 40px; }
+  .acc { border-bottom: 1px solid var(--rule); }
+  .acc-head { display: flex; align-items: center; gap: 13px; padding: 20px 22px; width: 100%; background: none; border: none; text-align: left; cursor: default; color: inherit; }
+  .acc[data-state="done"] .acc-head { cursor: pointer; }
+  .acc-marker { width: 25px; height: 25px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--soft); color: var(--soft); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; transition: all .3s; }
+  .acc[data-state="active"] .acc-marker { border-color: var(--depth); color: var(--depth); }
+  .acc[data-state="done"] .acc-marker { background: var(--cherry); border-color: var(--cherry); color: #fff; }
+  .acc-marker .num { display: block; }
+  .acc-marker .chk { display: none; }
+  .acc[data-state="done"] .acc-marker .num { display: none; }
+  .acc[data-state="done"] .acc-marker .chk { display: block; }
+  .acc-head-txt { flex: 1; min-width: 0; }
+  .acc-title { font-family: var(--serif); font-weight: 400; font-size: 17px; color: var(--depth); transition: color .3s; line-height: 1.25; }
+  .acc[data-state="todo"] .acc-title { color: var(--soft); }
+  .acc-recap { font-size: 12.5px; color: var(--mid); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; }
+  .acc[data-state="done"] .acc-recap { display: block; }
+  .acc-edit { font-size: 10px; letter-spacing: var(--caps); text-transform: uppercase; font-weight: 500; color: var(--cherry); background: none; border: none; cursor: pointer; flex-shrink: 0; display: none; }
+  .acc[data-state="done"] .acc-edit { display: block; }
+  .acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .42s cubic-bezier(.2,.7,.2,1), opacity .3s; opacity: 0; }
+  .acc[data-state="active"] .acc-body { grid-template-rows: 1fr; opacity: 1; }
+  .acc-body-inner { overflow: hidden; min-height: 0; padding: 2px 22px 28px; }
 
-  .co-note { font-family: var(--serif); font-size: 15px; color: var(--mid); margin-bottom: 18px; }
-  .co-field { margin-bottom: 16px; display: flex; flex-direction: column; }
-  .co-field label { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: var(--mid); margin-bottom: 7px; }
-  .co-opt { text-transform: none; letter-spacing: 0; }
-  .co-field input { height: 46px; border: 1px solid var(--rule); padding: 0 14px; font-family: var(--serif); font-size: 15px; color: var(--depth); background: #fff; transition: border-color .2s; }
-  .co-field input:focus { outline: none; border-color: var(--depth); }
-  .co-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
-  .co-phone { display: flex; align-items: stretch; border: 1px solid var(--rule); }
-  .co-phone:focus-within { border-color: var(--depth); }
-  .co-phone__cc { display: flex; align-items: center; padding: 0 12px; background: #f5f2ed; font-family: var(--serif); font-size: 15px; color: var(--mid); border-right: 1px solid var(--rule); }
-  .co-phone input { flex: 1; border: none; height: 46px; padding: 0 14px; font-family: var(--serif); font-size: 15px; }
-  .co-phone input:focus { outline: none; }
+  .field { margin-bottom: 20px; }
+  .field-label { display: block; font-size: 10px; letter-spacing: var(--caps); text-transform: uppercase; font-weight: 500; color: var(--mid); margin-bottom: 8px; }
+  .field-label .opt { color: var(--soft); text-transform: none; letter-spacing: 0; }
+  .input { width: 100%; border: none; border-bottom: 1px solid var(--rule); background: transparent; padding: 9px 0; font-size: 15px; color: var(--depth); outline: none; transition: border-color .2s; letter-spacing: .01em; }
+  .input:focus { border-bottom-color: var(--depth); }
+  .input::placeholder { color: var(--soft); font-weight: 300; }
+  .phone-wrap { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule); }
+  .phone-wrap:focus-within { border-bottom-color: var(--depth); }
+  .phone-cc { font-size: 15px; font-weight: 500; color: var(--depth); }
+  .phone-wrap .input { border: none; flex: 1; }
 
-  .co-btn { height: 50px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 0 28px; transition: background .3s, opacity .2s; margin-top: 6px; }
-  .co-btn:hover { background: var(--cherry); }
-  .co-btn:disabled { opacity: .55; cursor: default; }
-  .co-btn--ghost { background: none; color: var(--depth); border: 1px solid var(--depth); }
-  .co-btn--ghost:hover { background: var(--depth); color: #fff; }
-  .co-btn--pay { width: 100%; margin-top: 18px; }
-  .co-btn--pay.is-busy { opacity: .6; pointer-events: none; }
-  .co-btn .arrow-line { display: block; width: 28px; height: 1px; background: #fff; position: relative; transition: width .25s; }
-  .co-btn .arrow-line::after { content: ''; position: absolute; right: -1px; top: -2.5px; width: 6px; height: 6px; border-top: 1px solid #fff; border-right: 1px solid #fff; transform: rotate(45deg); }
-  .co-btn--pay:hover .arrow-line { width: 36px; }
+  .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+  .label-row .field-label { margin-bottom: 0; white-space: nowrap; }
+  .signin-link { flex-shrink: 0; background: none; border: none; padding: 0; cursor: pointer; font-size: 11.5px; color: var(--mid); font-weight: 400; white-space: nowrap; transition: color .2s; }
+  .signin-link u { color: var(--cherry); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 1px; }
+  .signin-link:hover { color: var(--depth); }
+  .fine { font-size: 11.5px; color: var(--soft); line-height: 1.6; margin: 16px 0 0; font-family: var(--serif); font-weight: 400; }
+  .fine a { color: var(--mid); border-bottom: 1px solid var(--rule); }
+  .co-err { color: var(--cherry); font-size: 12.5px; margin-top: 12px; }
 
-  .co-error { color: var(--cherry); font-family: var(--serif); font-size: 14px; margin-top: 10px; }
-  .co-review { font-family: var(--serif); font-size: 15px; line-height: 1.6; color: var(--depth); margin-bottom: 16px; }
-  .co-review__name { font-weight: 500; }
-  .co-secure { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); text-align: center; margin-top: 16px; }
+  .pin-grid { display: grid; grid-template-columns: 130px 1fr; gap: 18px; align-items: start; }
+  .geo-chip { display: none; align-items: center; gap: 7px; background: rgba(61,107,79,.08); padding: 8px 12px; margin-top: 9px; font-size: 12px; color: var(--green); }
+  .geo-chip.show { display: flex; }
+  .ship-strip { display: flex; align-items: center; gap: 9px; background: rgba(61,107,79,.08); padding: 11px 14px; font-size: 12.5px; color: var(--green); margin-bottom: 22px; }
+  .ship-strip svg { flex-shrink: 0; stroke: var(--green); }
+  .add-links { display: flex; flex-wrap: wrap; gap: 18px; margin: 2px 0 22px; }
+  .add-link { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--cherry); display: flex; align-items: center; gap: 6px; }
+  .add-link:hover { color: var(--depth); }
+  .add-link.hidden { display: none; }
+  .reveal { display: none; }
+  .reveal.show { display: block; animation: fadeDown .35s ease both; }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-  /* ── Summary ── */
-  .co-summary { position: sticky; top: calc(var(--ticker-h) + var(--hdr-h) + 40px); border: 1px solid var(--rule); padding: clamp(20px,2.4vw,28px); }
-  .co-summary__title { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; color: var(--depth); margin-bottom: 18px; }
-  .co-summary__items { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
-  .co-line { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
-  .co-line__img { position: relative; width: 52px; aspect-ratio: 4/5; background: #f5f2ed; overflow: hidden; }
-  .co-line__img img { width: 100%; height: 100%; object-fit: cover; }
-  .co-line__qty { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 4px; background: var(--depth); color: #fff; border-radius: 9px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
-  .co-line__info { display: flex; flex-direction: column; align-items: flex-start; }
-  .co-line__name { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; color: var(--depth); display: block; line-height: 1.3; }
-  .co-line__variant { font-family: var(--serif); font-size: 13px; color: var(--mid); }
-  .co-line__remove { align-self: flex-start; margin-top: 4px; background: none; border: none; padding: 0; cursor: pointer; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); transition: color .2s; }
-  .co-line__remove:hover { color: var(--cherry); }
-  .co-line__remove:disabled { opacity: .5; cursor: default; }
-  .co-line__price { font-family: var(--serif); font-size: 14px; color: var(--depth); }
-  .co-summary__row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; font-size: 12px; letter-spacing: .06em; color: var(--mid); }
-  .co-summary__row span:last-child { font-family: var(--serif); font-size: 15px; color: var(--depth); letter-spacing: 0; }
-  .co-summary__divider { height: 1px; background: var(--rule); margin: 10px 0; }
-  .co-summary__total span:first-child { text-transform: uppercase; font-weight: 500; color: var(--depth); font-size: 11.5px; }
-  .co-summary__total span:last-child { font-size: 18px; }
+  .saved-card { display: none; gap: 13px; padding: 16px; border: 1px solid var(--depth); margin-bottom: 18px; align-items: flex-start; }
+  .saved-card.show { display: flex; }
+  .saved-radio { width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--cherry); flex-shrink: 0; margin-top: 2px; position: relative; }
+  .saved-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--cherry); }
+  .saved-name { font-size: 13px; font-weight: 500; color: var(--depth); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .saved-addr { font-family: var(--serif); font-weight: 400; font-size: 13px; color: var(--mid); line-height: 1.5; }
 
-  @media (max-width: 860px) {
-    .co__layout { grid-template-columns: 1fr; }
-    .co-summary { position: static; order: -1; }
-  }
+  .pay-opt { border: 1px solid var(--rule); margin-bottom: 10px; transition: border-color .2s; cursor: pointer; }
+  .pay-opt.sel { border-color: var(--depth); }
+  .pay-opt-head { display: flex; align-items: center; gap: 13px; padding: 15px 16px; }
+  .pay-icon { width: 40px; height: 26px; border: 1px solid var(--rule); background: var(--paper); border-radius: 3px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .pay-name { font-size: 13px; font-weight: 500; color: var(--depth); flex: 1; }
+  .pay-desc { font-size: 11px; color: var(--mid); font-weight: 400; margin-top: 1px; display: block; }
+  .pay-radio { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--rule); flex-shrink: 0; position: relative; transition: border-color .2s; }
+  .pay-opt.sel .pay-radio { border-color: var(--cherry); }
+  .pay-opt.sel .pay-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--cherry); }
+  .pay-note { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--mid); margin: 14px 2px 0; line-height: 1.5; }
+  .pay-note svg { flex-shrink: 0; stroke: var(--mid); }
+
+  .btn-cta { width: 100%; height: 52px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-size: 11px; letter-spacing: var(--caps); text-transform: uppercase; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 13px; transition: background .22s; margin-top: 6px; }
+  .btn-cta:hover { background: var(--cherry); }
+  .btn-cta:disabled { opacity: .5; pointer-events: none; }
+  .arrow { display: block; width: 22px; height: 1px; background: currentColor; position: relative; transition: width .2s; }
+  .arrow::after { content: ''; position: absolute; right: -1px; top: -2.5px; width: 6px; height: 6px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; transform: rotate(45deg); }
+  .btn-cta:hover .arrow { width: 30px; }
+  .secured-note { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 22px; color: var(--soft); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; }
 </style>

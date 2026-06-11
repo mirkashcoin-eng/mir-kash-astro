@@ -53,7 +53,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   const phone = (body.phone ?? '').trim();
   const email = (body.email ?? '').trim();
 
-  if (!fullName || !address1 || !city || !province || !zip || !phone || !email) {
+  // province (state) is optional — the checkout's combined "City & State" field
+  // may not always yield a state; Shopify accepts a blank province.
+  if (!fullName || !address1 || !city || !zip || !phone || !email) {
     return bad('Missing required fields');
   }
 
