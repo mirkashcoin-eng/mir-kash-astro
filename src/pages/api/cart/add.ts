@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createCart, addLines } from '~/lib/shopify/cart';
+import { createCart, addLines, updateBuyerIdentity } from '~/lib/shopify/cart';
 import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
 
 export const prerender = false;
@@ -23,9 +23,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const existingId = getCartId(cookies, store);
   const lines = [{ merchandiseId, quantity }];
 
-  let cart = existingId ? await addLines(store, existingId, lines) : null;
+  let cart = existingId ? await addLines(store, existingId, lines, countryCode) : null;
   // No cart yet, or the stored cart expired → create a fresh one in the local currency.
   if (!cart) cart = await createCart(store, lines, countryCode);
+  // Sync buyer identity so checkout URL uses the correct country/currency.
+  else if (countryCode && existingId) {
+    const updated = await updateBuyerIdentity(store, existingId, countryCode);
+    if (updated) cart = updated;
+  }
 
   if (!cart) {
     return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });

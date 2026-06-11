@@ -15,7 +15,7 @@ const cartHref = `${prefix}/cart`;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 const cartId = getCartId(Astro.cookies, market);
-const cart = cartId ? await getCart(market, cartId) : null;
+const cart = cartId ? await getCart(market, cartId, marketConfig.countryCode) : null;
 const lines = cart?.lines ?? [];
 const count = cart?.totalQuantity ?? 0;
 const currency = cart?.currency || marketConfig.currency;
