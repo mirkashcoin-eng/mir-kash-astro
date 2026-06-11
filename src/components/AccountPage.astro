@@ -1,6 +1,6 @@
 ---
-import { supabaseAuthConfigured } from '~/lib/supabaseClient';
-const ready = supabaseAuthConfigured();
+import { firebaseConfigured } from '~/lib/firebaseClient';
+const ready = firebaseConfigured();
 ---
 
 <main class="acct">
@@ -47,7 +47,7 @@ const ready = supabaseAuthConfigured();
 </main>
 
 <script>
-  import { getSessionUser, getAccessToken, signInWithGoogle, signOut, loadProfile, saveProfile } from '~/lib/supabaseClient';
+  import { getSessionUser, getIdToken, signInWithGoogle, signOut, loadProfile, saveProfile } from '~/lib/firebaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const v = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value.trim() ?? '';
@@ -65,7 +65,7 @@ const ready = supabaseAuthConfigured();
     $('who').textContent = user.email ?? 'Signed in';
 
     // Saved address
-    const p = await loadProfile(user.id);
+    const p = await loadProfile(user.uid);
     if (p) {
       (document.getElementById('p-name') as HTMLInputElement).value = p.full_name ?? '';
       (document.getElementById('p-phone') as HTMLInputElement).value = p.phone ?? '';
@@ -78,7 +78,7 @@ const ready = supabaseAuthConfigured();
 
     $('saveBtn').addEventListener('click', async () => {
       const ok = await saveProfile({
-        id: user.id, full_name: v('p-name'), phone: v('p-phone'), address1: v('p-addr1'),
+        id: user.uid, full_name: v('p-name'), phone: v('p-phone'), address1: v('p-addr1'),
         address2: v('p-addr2'), city: v('p-city'), province: v('p-prov'), zip: v('p-zip'),
         email: user.email ?? null,
       });
@@ -90,7 +90,7 @@ const ready = supabaseAuthConfigured();
   }
 
   async function loadOrders() {
-    const token = await getAccessToken();
+    const token = await getIdToken();
     const box = $('orders');
     try {
       const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
@@ -119,7 +119,7 @@ const ready = supabaseAuthConfigured();
     if (!btn) return;
     const reason = prompt('Reason for return (optional):') ?? '';
     btn.disabled = true; btn.textContent = 'Requesting…';
-    const token = await getAccessToken();
+    const token = await getIdToken();
     try {
       const res = await fetch('/api/account/return-request', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
@@ -130,7 +130,9 @@ const ready = supabaseAuthConfigured();
     } catch { btn.disabled = false; btn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
   });
 
-  $('googleBtn')?.addEventListener('click', () => signInWithGoogle(window.location.origin + '/account'));
+  $('googleBtn')?.addEventListener('click', async () => {
+    try { await signInWithGoogle(); location.reload(); } catch { alert('Sign-in was cancelled.'); }
+  });
   $('signoutBtn')?.addEventListener('click', async () => { await signOut(); location.reload(); });
 
   init();

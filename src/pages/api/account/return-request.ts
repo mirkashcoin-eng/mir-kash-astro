@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { verifySupabaseUser } from '~/lib/supabase';
+import { verifyFirebaseUser } from '~/lib/firebaseAuth';
 import { getOrdersByEmail, requestReturn } from '~/lib/shopify/admin';
 
 export const prerender = false;
@@ -8,7 +8,7 @@ export const prerender = false;
 // (by matching it against their own orders) before tagging it in Shopify.
 export const POST: APIRoute = async ({ request }) => {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const user = await verifySupabaseUser(token);
+  const user = await verifyFirebaseUser(token);
   if (!user) return new Response(JSON.stringify({ error: 'Not signed in' }), { status: 401 });
 
   let body: { orderId?: string; reason?: string };

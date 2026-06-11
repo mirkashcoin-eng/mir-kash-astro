@@ -238,7 +238,7 @@ const thumbGradients = [
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
-  import { getSessionUser, loadProfile, signInWithGoogle, supabaseAuthConfigured } from '~/lib/supabaseClient';
+  import { getSessionUser, loadProfile, signInWithGoogle, saveLead, firebaseConfigured } from '~/lib/firebaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const sheet = document.querySelector('.sheet') as HTMLElement;
@@ -285,8 +285,8 @@ const thumbGradients = [
   document.querySelector('[data-complete="contact"]')!.addEventListener('click', () => {
     clearErr('contact');
     if (phone10().length !== 10) { showErr('contact', 'Enter a valid 10-digit mobile number.'); return; }
-    // Lead capture (best-effort)
-    fetch('/api/checkout/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phone10() }) }).catch(() => {});
+    // Lead capture to Firestore (best-effort)
+    saveLead(phone10());
     done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow(); scrollToSection('delivery');
   });
 
@@ -424,15 +424,18 @@ const thumbGradients = [
   renderFlow();
 
   // ── Account: sign-in + saved-address pre-fill ──
-  if (supabaseAuthConfigured()) {
+  if (firebaseConfigured()) {
     const sBtn = $('signinBtn');
-    if (sBtn) { sBtn.hidden = false; sBtn.addEventListener('click', () => signInWithGoogle(window.location.href)); }
+    if (sBtn) {
+      sBtn.hidden = false;
+      sBtn.addEventListener('click', async () => { try { await signInWithGoogle(); location.reload(); } catch {} });
+    }
     const setVal = (id: string, value?: string | null) => { const el = document.getElementById(id) as HTMLInputElement; if (el && value) el.value = value; };
     (async () => {
       const user = await getSessionUser();
       if (!user) return;
       if (sBtn) sBtn.hidden = true;
-      const p = await loadProfile(user.id);
+      const p = await loadProfile(user.uid);
       if (!p) { setVal('f-email', user.email); return; }
       setVal('f-phone', (p.phone || '').replace(/\D/g, '').slice(-10));
       setVal('f-name', p.full_name);

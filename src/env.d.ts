@@ -24,11 +24,11 @@ interface ImportMetaEnv {
   readonly CASHFREE_SECRET_KEY: string;
   readonly CASHFREE_ENV: string;
   readonly PUBLIC_CASHFREE_MODE: string;
-  // Supabase — lead capture + customer accounts (Google sign-in)
-  readonly SUPABASE_URL: string;
-  readonly SUPABASE_SERVICE_ROLE_KEY: string;
-  readonly PUBLIC_SUPABASE_URL: string;   // client-safe
-  readonly PUBLIC_SUPABASE_ANON_KEY: string; // client-safe
+  // Firebase — customer accounts (Google sign-in) + Firestore (profiles + leads)
+  readonly PUBLIC_FIREBASE_API_KEY: string;
+  readonly PUBLIC_FIREBASE_AUTH_DOMAIN: string;
+  readonly PUBLIC_FIREBASE_PROJECT_ID: string;
+  readonly PUBLIC_FIREBASE_APP_ID: string;
 }
 
 interface ImportMeta {
