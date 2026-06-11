@@ -5,7 +5,6 @@ import crypto from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { completeDraftOrder } from '~/lib/shopify/admin';
 import { clearCart, clearBuyNowCart } from '~/lib/cart-session';
-import { markLeadPaid } from '~/lib/firestore';
 
 const API_VERSION = '2023-08-01';
 
@@ -184,7 +183,6 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
       if (cf.cartKind === 'buynow') clearBuyNowCart(cookies, 'india');
       else clearCart(cookies, 'india');
     }
-    await markLeadPaid(orderId, order.orderName ?? order.name);
     return { status: 'paid', orderName: order.orderName ?? order.name };
   }
 

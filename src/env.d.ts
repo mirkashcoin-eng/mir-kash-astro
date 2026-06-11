@@ -24,12 +24,9 @@ interface ImportMetaEnv {
   readonly CASHFREE_SECRET_KEY: string;
   readonly CASHFREE_ENV: string;
   readonly PUBLIC_CASHFREE_MODE: string;
-  readonly PUBLIC_FIREBASE_API_KEY: string;
-  readonly PUBLIC_FIREBASE_AUTH_DOMAIN: string;
-  readonly PUBLIC_FIREBASE_PROJECT_ID: string;
-  readonly PUBLIC_FIREBASE_APP_ID: string;
-  // Firestore lead capture (server-side service account, full JSON)
-  readonly FIREBASE_SERVICE_ACCOUNT: string;
+  // Supabase — lead capture + (later) customer accounts
+  readonly SUPABASE_URL: string;
+  readonly SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
 interface ImportMeta {

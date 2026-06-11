@@ -55,11 +55,11 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
 
   <div class="co__layout">
     <div class="co__steps">
-      <!-- ── Step 1: Phone + OTP ── -->
+      <!-- ── Step 1: Contact ── -->
       <section class="co-step is-active" data-step="1">
-        <h2 class="co-step__head"><span class="co-step__num">1</span> Verify your phone</h2>
+        <h2 class="co-step__head"><span class="co-step__num">1</span> Your contact</h2>
         <div class="co-step__body">
-          <p class="co-note">We'll text a one-time code to confirm your number.</p>
+          <p class="co-note">We'll use this to share order updates.</p>
           <div class="co-field">
             <label for="phone">Mobile number</label>
             <div class="co-phone">
@@ -67,16 +67,9 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
               <input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="98765 43210" autocomplete="tel-national" />
             </div>
           </div>
-          <button class="co-btn co-btn--ghost" id="sendOtp" type="button">Send code</button>
-
-          <div class="co-field co-otp-field" id="otpField" hidden>
-            <label for="otp">Enter the 6-digit code</label>
-            <input id="otp" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code" />
-            <button class="co-btn" id="verifyOtp" type="button">Verify &amp; continue</button>
-          </div>
-          <p class="co-error" id="otpError" role="alert" hidden></p>
+          <p class="co-error" id="phoneError" role="alert" hidden></p>
+          <button class="co-btn" id="toAddress" type="button">Continue to Delivery <span class="arrow-line"></span></button>
         </div>
-        <div id="recaptcha-container"></div>
       </section>
 
       <!-- ── Step 2: Address ── -->
@@ -171,9 +164,7 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
 <SiteFooter />
 
 <script>
-  import { createRecaptcha, sendOtp, confirmOtp, firebaseConfigured } from '~/lib/firebase';
   import { load } from '@cashfreepayments/cashfree-js';
-  import type { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
   const steps = Array.from(document.querySelectorAll<HTMLElement>('.co-step'));
@@ -192,65 +183,27 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
   }
 
   // ── State ──
-  let confirmation: ConfirmationResult | null = null;
-  let verifier: RecaptchaVerifier | null = null;
-  let verifiedPhone = ''; // 10-digit national number
+  let enteredPhone = ''; // 10-digit national number
 
-  // ── Step 1: OTP ──
+  // ── Step 1: Contact (no OTP — phone, then auto-advance) ──
   const phoneInput = $<HTMLInputElement>('phone');
-  const otpField = $('otpField');
-  const otpInput = $<HTMLInputElement>('otp');
-  const otpError = $('otpError');
+  const phoneError = $('phoneError');
 
-  $('sendOtp').addEventListener('click', async () => {
-    clearError(otpError);
+  $('toAddress').addEventListener('click', async () => {
+    clearError(phoneError);
     const national = phoneInput.value.replace(/\D/g, '');
     if (national.length !== 10) {
-      showError(otpError, 'Enter a valid 10-digit mobile number.');
+      showError(phoneError, 'Enter a valid 10-digit mobile number.');
       return;
     }
-    if (!firebaseConfigured()) {
-      showError(otpError, 'OTP is not configured yet. Please contact support.');
-      return;
-    }
-    const btn = $<HTMLButtonElement>('sendOtp');
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-    try {
-      if (!verifier) verifier = createRecaptcha('recaptcha-container');
-      confirmation = await sendOtp('+91' + national, verifier);
-      verifiedPhone = national;
-      otpField.hidden = false;
-      btn.textContent = 'Resend code';
-    } catch (err: any) {
-      console.error(err);
-      const reason = err?.code || err?.message || 'unknown error';
-      showError(otpError, 'Could not send the code — ' + reason);
-      btn.textContent = 'Send code';
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  $('verifyOtp').addEventListener('click', async () => {
-    clearError(otpError);
-    const code = otpInput.value.replace(/\D/g, '');
-    if (code.length !== 6 || !confirmation) {
-      showError(otpError, 'Enter the 6-digit code.');
-      return;
-    }
-    const btn = $<HTMLButtonElement>('verifyOtp');
-    btn.disabled = true;
-    btn.textContent = 'Verifying…';
-    try {
-      await confirmOtp(confirmation, code);
-      gotoStep(2);
-    } catch {
-      showError(otpError, 'That code is incorrect or expired.');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Verify & continue';
-    }
+    enteredPhone = national;
+    // Lead capture: record who started checkout (best-effort, never blocks).
+    fetch('/api/checkout/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: national }),
+    }).catch(() => {});
+    gotoStep(2);
   });
 
   // ── Step 2: Address ──
@@ -286,7 +239,7 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
       <div class="co-review__name">${a.fullName}</div>
       <div>${a.address1}${a.address2 ? ', ' + a.address2 : ''}</div>
       <div>${a.city}, ${a.province} ${a.zip}</div>
-      <div>+91 ${verifiedPhone} · ${a.email}</div>`;
+      <div>+91 ${enteredPhone} · ${a.email}</div>`;
     gotoStep(3);
   });
 
@@ -327,7 +280,7 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
       const res = await fetch('/api/checkout/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...readAddress(), phone: verifiedPhone, buynow: buyNow }),
+        body: JSON.stringify({ ...readAddress(), phone: enteredPhone, buynow: buyNow }),
       });
       const data = await res.json();
       if (!res.ok || !data.paymentSessionId) {
@@ -382,7 +335,6 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
   .co-step.is-active .co-step__num { background: var(--depth); color: #fff; border-color: var(--depth); }
   .co-step__body { margin-top: 22px; max-width: 520px; }
   .co-step:not(.is-active) .co-step__body { display: none; }
-  .co-step:not(.is-active) #recaptcha-container { display: none; }
 
   .co-note { font-family: var(--serif); font-size: 15px; color: var(--mid); margin-bottom: 18px; }
   .co-field { margin-bottom: 16px; display: flex; flex-direction: column; }
@@ -396,7 +348,6 @@ const money = (n: number) => formatMoney({ amount: String(n), currencyCode: curr
   .co-phone__cc { display: flex; align-items: center; padding: 0 12px; background: #f5f2ed; font-family: var(--serif); font-size: 15px; color: var(--mid); border-right: 1px solid var(--rule); }
   .co-phone input { flex: 1; border: none; height: 46px; padding: 0 14px; font-family: var(--serif); font-size: 15px; }
   .co-phone input:focus { outline: none; }
-  .co-otp-field { margin-top: 18px; }
 
   .co-btn { height: 50px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 0 28px; transition: background .3s, opacity .2s; margin-top: 6px; }
   .co-btn:hover { background: var(--cherry); }
