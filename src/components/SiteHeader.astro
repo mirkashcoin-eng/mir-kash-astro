@@ -12,6 +12,7 @@ const navItems = [
   { word: 'Materials', href: `${homeHref}#orchardcraft` },
   { word: 'Journal',   href: `${homeHref}#journal` },
   { word: 'About',     href: `${homeHref}#about` },
+  { word: 'Account',   href: '/account' },
 ];
 ---
 <div class="page-header hdr--solid">
@@ -30,6 +31,9 @@ const navItems = [
       </a>
 
       <div class="hdr-right">
+        <a class="hdr-icon-btn" href="/account" aria-label="Account">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
+        </a>
         <a class="hdr-icon-btn hdr-bag" href={cartHref} aria-label="Bag">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
           <span class="hdr-bag__count">{cartCount}</span>

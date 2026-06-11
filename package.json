@@ -15,6 +15,7 @@
     "@cashfreepayments/cashfree-js": "^1.0.7",
     "@nanostores/persistent": "^0.10.2",
     "@shopify/storefront-api-client": "^1.0.10",
+    "@supabase/supabase-js": "^2.108.1",
     "astro": "^5.0.0",
     "nanostores": "^0.11.3"
   },

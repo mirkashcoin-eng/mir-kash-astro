@@ -238,6 +238,7 @@ const thumbGradients = [
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
+  import { getSessionUser, loadProfile, signInWithGoogle, supabaseAuthConfigured } from '~/lib/supabaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const sheet = document.querySelector('.sheet') as HTMLElement;
@@ -421,6 +422,34 @@ const thumbGradients = [
   });
 
   renderFlow();
+
+  // ── Account: sign-in + saved-address pre-fill ──
+  if (supabaseAuthConfigured()) {
+    const sBtn = $('signinBtn');
+    if (sBtn) { sBtn.hidden = false; sBtn.addEventListener('click', () => signInWithGoogle(window.location.href)); }
+    const setVal = (id: string, value?: string | null) => { const el = document.getElementById(id) as HTMLInputElement; if (el && value) el.value = value; };
+    (async () => {
+      const user = await getSessionUser();
+      if (!user) return;
+      if (sBtn) sBtn.hidden = true;
+      const p = await loadProfile(user.id);
+      if (!p) { setVal('f-email', user.email); return; }
+      setVal('f-phone', (p.phone || '').replace(/\D/g, '').slice(-10));
+      setVal('f-name', p.full_name);
+      setVal('f-addr', p.address1);
+      setVal('f-apt', p.address2);
+      setVal('f-pin', p.zip);
+      setVal('f-email', p.email || user.email);
+      setVal('f-citystate', [p.city, p.province].filter(Boolean).join(', '));
+      if (p.address2) { $('rev-apt').classList.add('show'); $('lnk-apt').classList.add('hidden'); }
+      const card = $('savedCard');
+      if (card && (p.address1 || p.full_name)) {
+        $('savedName').textContent = p.full_name || user.email || '';
+        $('savedAddr').innerHTML = [p.address1, [p.city, p.province, p.zip].filter(Boolean).join(', ')].filter(Boolean).join('<br>');
+        card.classList.add('show');
+      }
+    })();
+  }
 </script>
 
 <style is:global>

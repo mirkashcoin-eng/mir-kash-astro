@@ -1,0 +1,169 @@
+---
+import { supabaseAuthConfigured } from '~/lib/supabaseClient';
+const ready = supabaseAuthConfigured();
+---
+
+<main class="acct">
+  <h1 class="acct__title">My Account</h1>
+
+  {!ready && (
+    <p class="acct__note">Accounts aren’t set up yet. Please check back soon.</p>
+  )}
+
+  <!-- Signed-out -->
+  <section class="acct__signin" id="signedOut" hidden>
+    <p class="acct__lede">Sign in to see your orders, request returns, and check out faster.</p>
+    <button class="g-btn" id="googleBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+  </section>
+
+  <!-- Signed-in -->
+  <section id="signedIn" hidden>
+    <div class="acct__bar">
+      <span id="who" class="acct__who"></span>
+      <button class="acct__signout" id="signoutBtn" type="button">Sign out</button>
+    </div>
+
+    <h2 class="acct__h2">Saved address</h2>
+    <div class="acct__form">
+      <div class="af"><label>Full name</label><input id="p-name" type="text" /></div>
+      <div class="af"><label>Phone</label><input id="p-phone" type="tel" /></div>
+      <div class="af"><label>Address</label><input id="p-addr1" type="text" /></div>
+      <div class="af"><label>Apartment (optional)</label><input id="p-addr2" type="text" /></div>
+      <div class="af3">
+        <div class="af"><label>City</label><input id="p-city" type="text" /></div>
+        <div class="af"><label>State</label><input id="p-prov" type="text" /></div>
+        <div class="af"><label>PIN</label><input id="p-zip" type="text" maxlength="6" /></div>
+      </div>
+      <button class="acct__save" id="saveBtn" type="button">Save address</button>
+      <span class="acct__saved" id="savedMsg" hidden>Saved ✓</span>
+    </div>
+
+    <h2 class="acct__h2">Order history</h2>
+    <div id="orders" class="acct__orders"><p class="acct__note" id="ordersLoading">Loading your orders…</p></div>
+  </section>
+</main>
+
+<script>
+  import { getSessionUser, getAccessToken, signInWithGoogle, signOut, loadProfile, saveProfile } from '~/lib/supabaseClient';
+
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const v = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value.trim() ?? '';
+
+  function inr(amount: string, currency: string) {
+    const n = Math.round(Number(amount));
+    try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n); }
+    catch { return currency + ' ' + n.toLocaleString('en-IN'); }
+  }
+
+  async function init() {
+    const user = await getSessionUser();
+    if (!user) { $('signedOut').hidden = false; return; }
+    $('signedIn').hidden = false;
+    $('who').textContent = user.email ?? 'Signed in';
+
+    // Saved address
+    const p = await loadProfile(user.id);
+    if (p) {
+      (document.getElementById('p-name') as HTMLInputElement).value = p.full_name ?? '';
+      (document.getElementById('p-phone') as HTMLInputElement).value = p.phone ?? '';
+      (document.getElementById('p-addr1') as HTMLInputElement).value = p.address1 ?? '';
+      (document.getElementById('p-addr2') as HTMLInputElement).value = p.address2 ?? '';
+      (document.getElementById('p-city') as HTMLInputElement).value = p.city ?? '';
+      (document.getElementById('p-prov') as HTMLInputElement).value = p.province ?? '';
+      (document.getElementById('p-zip') as HTMLInputElement).value = p.zip ?? '';
+    }
+
+    $('saveBtn').addEventListener('click', async () => {
+      const ok = await saveProfile({
+        id: user.id, full_name: v('p-name'), phone: v('p-phone'), address1: v('p-addr1'),
+        address2: v('p-addr2'), city: v('p-city'), province: v('p-prov'), zip: v('p-zip'),
+        email: user.email ?? null,
+      });
+      const m = $('savedMsg'); m.hidden = false; m.textContent = ok ? 'Saved ✓' : 'Could not save';
+      setTimeout(() => { m.hidden = true; }, 2500);
+    });
+
+    loadOrders();
+  }
+
+  async function loadOrders() {
+    const token = await getAccessToken();
+    const box = $('orders');
+    try {
+      const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+      const data = await res.json();
+      const orders = data.orders || [];
+      if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet.</p>'; return; }
+      box.innerHTML = orders.map((o: any) => `
+        <div class="ord">
+          <div class="ord__top">
+            <span class="ord__name">${o.name}</span>
+            <span class="ord__total">${inr(o.total.amount, o.total.currencyCode)}</span>
+          </div>
+          <div class="ord__meta">${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${o.financialStatus} · ${o.fulfillmentStatus}</div>
+          <div class="ord__items">${o.items.map((i: any) => `${i.quantity}× ${i.title}`).join(', ')}</div>
+          ${o.returnRequested
+            ? '<span class="ord__ret">Return requested</span>'
+            : `<button class="ord__retbtn" data-order="${o.id}">Request a return</button>`}
+        </div>`).join('');
+    } catch {
+      box.innerHTML = '<p class="acct__note">Could not load orders.</p>';
+    }
+  }
+
+  document.getElementById('orders')?.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-order]');
+    if (!btn) return;
+    const reason = prompt('Reason for return (optional):') ?? '';
+    btn.disabled = true; btn.textContent = 'Requesting…';
+    const token = await getAccessToken();
+    try {
+      const res = await fetch('/api/account/return-request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ orderId: btn.dataset.order, reason }),
+      });
+      if (!res.ok) throw new Error();
+      btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__ret', textContent: 'Return requested' }));
+    } catch { btn.disabled = false; btn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
+  });
+
+  $('googleBtn')?.addEventListener('click', () => signInWithGoogle(window.location.origin + '/account'));
+  $('signoutBtn')?.addEventListener('click', async () => { await signOut(); location.reload(); });
+
+  init();
+</script>
+
+<style is:global>
+  .acct { max-width: 620px; margin: 0 auto; padding: clamp(36px,6vw,72px) 22px 80px; font-family: 'Jost', sans-serif; color: #1a1a1a; }
+  .acct__title { font-size: clamp(28px,5vw,40px); font-weight: 400; margin-bottom: 24px; }
+  .acct__h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #6b6b6b; margin: 38px 0 16px; font-weight: 500; }
+  .acct__note { color: #6b6b6b; font-size: 14px; }
+  .acct__lede { color: #6b6b6b; font-size: 15px; margin-bottom: 22px; line-height: 1.6; }
+  .g-btn { display: inline-flex; align-items: center; gap: 11px; height: 50px; padding: 0 22px; border: 1px solid #e6e6e6; background: #fff; cursor: pointer; font-size: 14px; font-weight: 500; transition: border-color .2s; }
+  .g-btn:hover { border-color: #1a1a1a; }
+  .acct__bar { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e6e6; padding-bottom: 16px; }
+  .acct__who { font-size: 14px; font-weight: 500; }
+  .acct__signout { background: none; border: none; cursor: pointer; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #8B1A1A; }
+  .acct__form { display: flex; flex-direction: column; gap: 16px; }
+  .af { display: flex; flex-direction: column; }
+  .af label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b6b6b; margin-bottom: 7px; font-weight: 500; }
+  .af input { border: none; border-bottom: 1px solid #e6e6e6; padding: 9px 0; font-size: 15px; outline: none; font-family: inherit; }
+  .af input:focus { border-bottom-color: #1a1a1a; }
+  .af3 { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 16px; }
+  .acct__save { align-self: flex-start; height: 46px; padding: 0 28px; background: #1a1a1a; color: #fff; border: none; cursor: pointer; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 500; transition: background .2s; margin-top: 6px; }
+  .acct__save:hover { background: #8B1A1A; }
+  .acct__saved { font-size: 12px; color: #3D6B4F; margin-left: 12px; }
+  .acct__orders { display: flex; flex-direction: column; gap: 14px; }
+  .ord { border: 1px solid #e6e6e6; padding: 16px 18px; }
+  .ord__top { display: flex; justify-content: space-between; align-items: baseline; }
+  .ord__name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .ord__total { font-size: 15px; }
+  .ord__meta { font-size: 12px; color: #6b6b6b; margin: 6px 0; text-transform: capitalize; }
+  .ord__items { font-size: 13px; color: #1a1a1a; }
+  .ord__retbtn { margin-top: 12px; background: none; border: 1px solid #e6e6e6; padding: 8px 14px; cursor: pointer; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; transition: border-color .2s; }
+  .ord__retbtn:hover { border-color: #8B1A1A; color: #8B1A1A; }
+  .ord__ret { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #3D6B4F; font-weight: 600; }
+</style>

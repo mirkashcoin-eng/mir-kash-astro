@@ -243,3 +243,80 @@ export async function completeDraftOrder(id: string): Promise<DraftOrderResult |
   }
   return shape(data?.draftOrderComplete?.draftOrder);
 }
+
+// ── Account: order history + returns ───────────────────────────────────────────
+export interface AccountOrder {
+  id: string;
+  name: string;
+  createdAt: string;
+  financialStatus: string;
+  fulfillmentStatus: string;
+  total: Money;
+  items: Array<{ title: string; quantity: number }>;
+  returnRequested: boolean;
+}
+
+const ORDERS_BY_EMAIL = /* GraphQL */ `
+  query OrdersByEmail($q: String!) {
+    orders(first: 25, query: $q, sortKey: CREATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt tags
+        displayFinancialStatus displayFulfillmentStatus
+        totalPriceSet { shopMoney { amount currencyCode } }
+        lineItems(first: 20) { edges { node { title quantity } } }
+      } }
+    }
+  }
+`;
+
+interface RawOrder {
+  id: string; name: string; createdAt: string; tags: string[];
+  displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
+  totalPriceSet: { shopMoney: Money };
+  lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+}
+
+export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
+  if (!email) return [];
+  const data = await runAdminQuery<{ orders: { edges: Array<{ node: RawOrder }> } }>(
+    ORDERS_BY_EMAIL,
+    { q: `email:${email}` },
+  );
+  return (data?.orders?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    name: node.name,
+    createdAt: node.createdAt,
+    financialStatus: node.displayFinancialStatus ?? '',
+    fulfillmentStatus: node.displayFulfillmentStatus ?? '',
+    total: node.totalPriceSet.shopMoney,
+    items: node.lineItems.edges.map((e) => ({ title: e.node.title, quantity: e.node.quantity })),
+    returnRequested: (node.tags ?? []).includes('return-requested'),
+  }));
+}
+
+const TAGS_ADD = /* GraphQL */ `
+  mutation TagsAdd($id: ID!, $tags: [String!]!) {
+    tagsAdd(id: $id, tags: $tags) { userErrors { message } }
+  }
+`;
+const ORDER_NOTE = /* GraphQL */ `query OrderNote($id: ID!) { order(id: $id) { note } }`;
+const ORDER_UPDATE = /* GraphQL */ `
+  mutation OrderUpdate($input: OrderInput!) {
+    orderUpdate(input: $input) { userErrors { message } }
+  }
+`;
+
+// Flags an order for return (tag + appended note). Owner processes in Shopify.
+export async function requestReturn(orderId: string, reason: string): Promise<boolean> {
+  const tagRes = await runAdminQuery<{ tagsAdd: { userErrors: Array<{ message: string }> } }>(
+    TAGS_ADD,
+    { id: orderId, tags: ['return-requested'] },
+  );
+  if (!tagRes) return false;
+
+  const noteData = await runAdminQuery<{ order: { note: string | null } | null }>(ORDER_NOTE, { id: orderId });
+  const prev = noteData?.order?.note ?? '';
+  const line = `Return requested${reason ? ': ' + reason : ''} (${new Date().toISOString().slice(0, 10)})`;
+  await runAdminQuery(ORDER_UPDATE, { input: { id: orderId, note: prev ? prev + '\n' + line : line } });
+  return true;
+}

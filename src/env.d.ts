@@ -24,9 +24,11 @@ interface ImportMetaEnv {
   readonly CASHFREE_SECRET_KEY: string;
   readonly CASHFREE_ENV: string;
   readonly PUBLIC_CASHFREE_MODE: string;
-  // Supabase — lead capture + (later) customer accounts
+  // Supabase — lead capture + customer accounts (Google sign-in)
   readonly SUPABASE_URL: string;
   readonly SUPABASE_SERVICE_ROLE_KEY: string;
+  readonly PUBLIC_SUPABASE_URL: string;   // client-safe
+  readonly PUBLIC_SUPABASE_ANON_KEY: string; // client-safe
 }
 
 interface ImportMeta {

@@ -41,6 +41,26 @@ async function insert(table: string, row: Record<string, unknown>): Promise<void
   }
 }
 
+// Verify a Supabase access token (from the browser account session) server-side
+// and return the authenticated user's email — the only thing that unlocks their
+// Shopify orders. Returns null if unconfigured or invalid.
+export async function verifySupabaseUser(token: string): Promise<{ email: string } | null> {
+  const url = getEnv('SUPABASE_URL');
+  const key = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key || !token) return null;
+  try {
+    const res = await fetch(`${url.replace(/\/$/, '')}/auth/v1/user`, {
+      headers: { apikey: key, Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const user = (await res.json()) as { email?: string };
+    return user.email ? { email: user.email } : null;
+  } catch (err) {
+    console.error('[supabase] verifyUser error:', err);
+    return null;
+  }
+}
+
 // Records that someone started checkout (clicked "Continue to Delivery").
 export async function saveCheckoutLead(data: { phone: string; email?: string | null; source?: string }): Promise<void> {
   await insert('checkout_leads', {
