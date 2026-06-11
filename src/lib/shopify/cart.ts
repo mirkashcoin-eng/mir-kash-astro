@@ -7,15 +7,25 @@ const FRAGMENTS = `${IMAGE_FRAGMENT}${MONEY_FRAGMENT}${CART_FRAGMENT}`;
 
 const CART_QUERY = /* GraphQL */ `
   ${FRAGMENTS}
-  query Cart($id: ID!) {
+  query Cart($id: ID!, $country: CountryCode) @inContext(country: $country) {
     cart(id: $id) { ...CartFields }
   }
 `;
 
 const CART_CREATE = /* GraphQL */ `
   ${FRAGMENTS}
-  mutation CartCreate($lines: [CartLineInput!], $country: CountryCode) {
+  mutation CartCreate($lines: [CartLineInput!], $country: CountryCode) @inContext(country: $country) {
     cartCreate(input: { lines: $lines, buyerIdentity: { countryCode: $country } }) {
+      cart { ...CartFields }
+      userErrors { field message }
+    }
+  }
+`;
+
+const CART_BUYER_IDENTITY_UPDATE = /* GraphQL */ `
+  ${FRAGMENTS}
+  mutation CartBuyerIdentityUpdate($cartId: ID!, $country: CountryCode) @inContext(country: $country) {
+    cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: { countryCode: $country }) {
       cart { ...CartFields }
       userErrors { field message }
     }
@@ -24,7 +34,7 @@ const CART_CREATE = /* GraphQL */ `
 
 const CART_LINES_ADD = /* GraphQL */ `
   ${FRAGMENTS}
-  mutation CartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {
+  mutation CartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!, $country: CountryCode) @inContext(country: $country) {
     cartLinesAdd(cartId: $cartId, lines: $lines) {
       cart { ...CartFields }
       userErrors { field message }
@@ -80,8 +90,11 @@ interface CartMutationResult {
   userErrors: Array<{ field: string[] | null; message: string }>;
 }
 
-export async function getCart(store: Store, cartId: string): Promise<CartView | null> {
-  const data = await runQuery<{ cart: ShopifyCart | null }>(store, CART_QUERY, { id: cartId });
+export async function getCart(store: Store, cartId: string, countryCode?: string): Promise<CartView | null> {
+  const data = await runQuery<{ cart: ShopifyCart | null }>(store, CART_QUERY, {
+    id: cartId,
+    country: countryCode ?? null,
+  });
   return normalize(data?.cart);
 }
 
@@ -97,14 +110,29 @@ export async function createCart(
   return normalize(data?.cartCreate?.cart);
 }
 
+export async function updateBuyerIdentity(
+  store: Store,
+  cartId: string,
+  countryCode: string,
+): Promise<CartView | null> {
+  const data = await runQuery<{ cartBuyerIdentityUpdate: CartMutationResult }>(
+    store,
+    CART_BUYER_IDENTITY_UPDATE,
+    { cartId, country: countryCode },
+  );
+  return normalize(data?.cartBuyerIdentityUpdate?.cart);
+}
+
 export async function addLines(
   store: Store,
   cartId: string,
   lines: Array<{ merchandiseId: string; quantity: number }>,
+  countryCode?: string,
 ): Promise<CartView | null> {
   const data = await runQuery<{ cartLinesAdd: CartMutationResult }>(store, CART_LINES_ADD, {
     cartId,
     lines,
+    country: countryCode ?? null,
   });
   return normalize(data?.cartLinesAdd?.cart);
 }
