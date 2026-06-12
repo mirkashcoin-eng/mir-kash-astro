@@ -2,6 +2,7 @@
 import { getCart } from '~/lib/shopify/cart';
 import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
+import MiniFooter from './MiniFooter.astro';
 
 // Custom checkout = INDIA store only. Design ported from Rahul's
 // "Mir Kash Checkout (standalone).html" (accordion: Contact → Delivery → Payment).
@@ -234,6 +235,7 @@ const thumbGradients = [
     <svg width="10" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
     Secure checkout · Mir Kash
   </div>
+  <MiniFooter />
 </div>
 
 <script>
@@ -428,7 +430,14 @@ const thumbGradients = [
     const sBtn = $('signinBtn');
     if (sBtn) {
       sBtn.hidden = false;
-      sBtn.addEventListener('click', async () => { try { await signInWithGoogle(); location.reload(); } catch {} });
+      sBtn.addEventListener('click', async () => {
+        try { await signInWithGoogle(); location.reload(); }
+        catch (e: any) {
+          const code = e?.code || '';
+          if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+          alert('Sign-in failed: ' + (code || e?.message || 'unknown'));
+        }
+      });
     }
     const setVal = (id: string, value?: string | null) => { const el = document.getElementById(id) as HTMLInputElement; if (el && value) el.value = value; };
     (async () => {

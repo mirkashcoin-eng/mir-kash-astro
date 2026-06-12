@@ -3,6 +3,7 @@ import { getCart } from '~/lib/shopify/cart';
 import { getCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { formatMoney } from '~/lib/markets';
+import MiniFooter from './MiniFooter.astro';
 
 const { market, marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
@@ -78,6 +79,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
       </>
     )}
   </div>
+  <MiniFooter />
 </div>
 
 <script define:vars={{ store: market }}>

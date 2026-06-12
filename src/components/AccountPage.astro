@@ -138,7 +138,14 @@ const ready = firebaseConfigured();
   });
 
   $('googleBtn')?.addEventListener('click', async () => {
-    try { await signInWithGoogle(); location.reload(); } catch { alert('Sign-in was cancelled.'); }
+    try { await signInWithGoogle(); location.reload(); }
+    catch (e: any) {
+      const code = e?.code || e?.message || 'unknown';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      alert('Sign-in failed: ' + code +
+        (code === 'auth/operation-not-allowed' ? '\n\nEnable Google in Firebase → Authentication → Sign-in method.' :
+         code === 'auth/unauthorized-domain' ? '\n\nAdd this domain in Firebase → Authentication → Settings → Authorized domains.' : ''));
+    }
   });
   $('signoutBtn')?.addEventListener('click', async () => { await signOut(); location.reload(); });
 
