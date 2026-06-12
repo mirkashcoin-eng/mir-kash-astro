@@ -3,6 +3,13 @@ import { firebaseConfigured } from '~/lib/firebaseClient';
 const ready = firebaseConfigured();
 ---
 
+<header class="acct-head">
+  <a href="/" class="acct-logo" aria-label="Mir Kash"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
+  <a href="/cart" class="acct-bag" aria-label="Bag">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+  </a>
+</header>
+
 <main class="acct">
   <h1 class="acct__title">My Account</h1>
 
@@ -139,6 +146,10 @@ const ready = firebaseConfigured();
 </script>
 
 <style is:global>
+  body { font-family: 'Jost', -apple-system, sans-serif; color: #141414; background: #fff; }
+  .acct-head { display: flex; align-items: center; justify-content: space-between; max-width: 620px; margin: 0 auto; padding: 20px 22px 18px; border-bottom: 1px solid #e6e6e6; }
+  .acct-logo img { height: 19px; display: block; filter: brightness(0); }
+  .acct-bag { width: 38px; height: 38px; border: 1px solid #e6e6e6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1a1a1a; }
   .acct { max-width: 620px; margin: 0 auto; padding: clamp(36px,6vw,72px) 22px 80px; font-family: 'Jost', sans-serif; color: #1a1a1a; }
   .acct__title { font-size: clamp(28px,5vw,40px); font-weight: 400; margin-bottom: 24px; }
   .acct__h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #6b6b6b; margin: 38px 0 16px; font-weight: 500; }
