@@ -23,25 +23,33 @@ function getEnv(key: string): string {
 
 function adminDomain(store: Store): string {
   // Admin API uses the *.myshopify.com domain, which differs from the custom
-  // storefront domain. India falls back to its storefront domain if not set.
-  const fallback = store === 'india' ? getEnv('SHOPIFY_IN_DOMAIN') : '';
+  // storefront domain. Fall back to each store's storefront myshopify domain.
+  const fallback = store === 'india' ? getEnv('SHOPIFY_IN_DOMAIN') : getEnv('SHOPIFY_GLOBAL_DOMAIN');
   return getEnv(`${ENV_PREFIX[store]}_DOMAIN`) || fallback;
 }
 
-export function adminConfigured(store: Store): boolean {
-  return Boolean(
-    adminDomain(store) &&
-      getEnv(`${ENV_PREFIX[store]}_CLIENT_ID`) &&
-      getEnv(`${ENV_PREFIX[store]}_CLIENT_SECRET`),
-  );
+// A static Admin API access token (classic custom app, `shpat_…`), if provided.
+// Preferred over the client-credentials grant when present.
+function staticToken(store: Store): string {
+  return getEnv(`${ENV_PREFIX[store]}_TOKEN`);
 }
 
-// The new Shopify Dev Dashboard no longer hands out a static Admin token. Instead
-// we exchange the app's Client ID + Secret for a short-lived (~24h) access token
-// via the client-credentials grant, and cache it (per store) until it nears expiry.
+export function adminConfigured(store: Store): boolean {
+  if (!adminDomain(store)) return false;
+  if (staticToken(store)) return true;
+  return Boolean(getEnv(`${ENV_PREFIX[store]}_CLIENT_ID`) && getEnv(`${ENV_PREFIX[store]}_CLIENT_SECRET`));
+}
+
+// Two supported auth modes per store:
+//  • a static Admin API token (`SHOPIFY_*_ADMIN_TOKEN`, classic custom app), used directly; or
+//  • the client-credentials grant (Client ID + Secret) exchanged for a short-lived
+//    (~24h) token, cached per store until it nears expiry.
 const tokenCache = new Map<Store, { token: string; expiresAt: number }>();
 
 async function getAdminToken(store: Store): Promise<string | null> {
+  const fixed = staticToken(store);
+  if (fixed) return fixed;
+
   const now = Date.now();
   const cached = tokenCache.get(store);
   if (cached && cached.expiresAt > now + 60_000) return cached.token;
