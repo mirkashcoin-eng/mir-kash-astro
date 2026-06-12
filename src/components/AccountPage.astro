@@ -29,14 +29,27 @@ const ready = firebaseConfigured();
 
   <!-- Signed-in -->
   <section id="signedIn" hidden>
-    <div class="acct__welcome" id="welcome" hidden>You're signed in ✓</div>
-    <div class="acct__bar">
-      <span id="who" class="acct__who"></span>
-      <button class="acct__signout" id="signoutBtn" type="button">Sign out</button>
+    <div class="acct__hero">
+      <h2 class="acct__hello" id="hello">Welcome back</h2>
+      <div class="acct__sub">
+        <span id="who" class="acct__who"></span>
+        <button class="acct__signout" id="signoutBtn" type="button">Sign out</button>
+      </div>
     </div>
 
     <h2 class="acct__h2">Saved address</h2>
-    <div class="acct__form">
+
+    <!-- Read-only card (shown when an address is already saved) -->
+    <div class="acct__card" id="addrCard" hidden>
+      <div class="acct__cardname" id="cardName"></div>
+      <div class="acct__cardline" id="cardPhone"></div>
+      <div class="acct__cardline" id="cardAddr"></div>
+      <button class="acct__edit" id="editBtn" type="button">Edit address</button>
+    </div>
+
+    <!-- Editable form (revealed by "Edit", or shown directly when no address yet) -->
+    <div class="acct__form" id="addrForm" hidden>
+      <p class="acct__note acct__prompt" id="addrPrompt" hidden>Add your delivery address so checkout is one tap.</p>
       <div class="af"><label>Full name</label><input id="p-name" type="text" /></div>
       <div class="af"><label>Phone</label><input id="p-phone" type="tel" /></div>
       <div class="af"><label>Address</label><input id="p-addr1" type="text" /></div>
@@ -51,8 +64,11 @@ const ready = firebaseConfigured();
         </div>
         <div class="af"><label>PIN</label><input id="p-zip" type="text" maxlength="6" inputmode="numeric" /></div>
       </div>
-      <button class="acct__save" id="saveBtn" type="button">Save address</button>
-      <span class="acct__saved" id="savedMsg" hidden>Saved ✓</span>
+      <div class="acct__actions">
+        <button class="acct__save" id="saveBtn" type="button">Save address</button>
+        <button class="acct__cancel" id="cancelBtn" type="button" hidden>Cancel</button>
+        <span class="acct__saved" id="savedMsg" hidden>Saved ✓</span>
+      </div>
     </div>
 
     <h2 class="acct__h2">Order history</h2>
@@ -79,28 +95,50 @@ const ready = firebaseConfigured();
     catch { return currency + ' ' + n.toLocaleString('en-IN'); }
   }
 
+  const setVal = (id: string, value?: string | null) => { (document.getElementById(id) as HTMLInputElement).value = value ?? ''; };
+  const hasAddress = () => Boolean(v('p-name') || v('p-addr1'));
+
+  // Render the read-only summary card from the current form values.
+  function renderCard() {
+    $('cardName').textContent = v('p-name') || '—';
+    $('cardPhone').textContent = v('p-phone') ? '+91 ' + v('p-phone').replace(/\D/g, '').slice(-10) : '';
+    const cityLine = [v('p-city'), v('p-state'), v('p-zip')].filter(Boolean).join(', ');
+    $('cardAddr').innerHTML = [v('p-addr1'), v('p-addr2'), cityLine].filter(Boolean).join('<br>');
+    $('addrCard').hidden = false;
+    $('addrForm').hidden = true;
+  }
+  function showForm(withPrompt: boolean) {
+    $('addrPrompt').hidden = !withPrompt;
+    $('cancelBtn').hidden = !hasAddress();
+    $('addrCard').hidden = true;
+    $('addrForm').hidden = false;
+  }
+
   async function init() {
     const user = await getSessionUser();
     if (!user) { $('signedOut').hidden = false; return; }
     $('signedIn').hidden = false;
-    $('welcome').hidden = false;
-    $('who').textContent = 'Signed in as ' + (user.email ?? 'your account');
 
     const stateSel = document.getElementById('p-state') as HTMLSelectElement;
     stateSel.addEventListener('change', () => fillCities(stateSel.value));
 
-    // Saved address
+    // Saved address → fill the form (so Edit has data) then decide card vs form.
     const p = await loadProfile(user.uid);
     if (p) {
-      (document.getElementById('p-name') as HTMLInputElement).value = p.full_name ?? '';
-      (document.getElementById('p-phone') as HTMLInputElement).value = p.phone ?? '';
-      (document.getElementById('p-addr1') as HTMLInputElement).value = p.address1 ?? '';
-      (document.getElementById('p-addr2') as HTMLInputElement).value = p.address2 ?? '';
-      stateSel.value = p.province ?? '';
-      fillCities(stateSel.value);
-      (document.getElementById('p-city') as HTMLInputElement).value = p.city ?? '';
-      (document.getElementById('p-zip') as HTMLInputElement).value = p.zip ?? '';
+      setVal('p-name', p.full_name); setVal('p-phone', p.phone);
+      setVal('p-addr1', p.address1); setVal('p-addr2', p.address2);
+      stateSel.value = p.province ?? ''; fillCities(stateSel.value);
+      setVal('p-city', p.city); setVal('p-zip', p.zip);
     }
+
+    const first = ((p?.full_name || user.email || '').trim().split(/[\s@]/)[0]) || 'there';
+    $('hello').textContent = 'Welcome back, ' + first;
+    $('who').textContent = 'Signed in as ' + (user.email ?? 'your account');
+
+    if (hasAddress()) renderCard(); else showForm(true);
+
+    $('editBtn').addEventListener('click', () => showForm(false));
+    $('cancelBtn').addEventListener('click', () => { if (hasAddress()) renderCard(); });
 
     $('saveBtn').addEventListener('click', async () => {
       const ok = await saveProfile({
@@ -110,6 +148,7 @@ const ready = firebaseConfigured();
       });
       const m = $('savedMsg'); m.hidden = false; m.textContent = ok ? 'Saved ✓' : 'Could not save';
       setTimeout(() => { m.hidden = true; }, 2500);
+      if (ok) renderCard();
     });
 
     loadOrders();
@@ -122,7 +161,7 @@ const ready = firebaseConfigured();
       const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
       const data = await res.json();
       const orders = data.orders || [];
-      if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet.</p>'; return; }
+      if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet. Orders you place will appear here — with a one-tap return option.</p>'; return; }
       box.innerHTML = orders.map((o: any) => `
         <div class="ord">
           <div class="ord__top">
@@ -183,16 +222,26 @@ const ready = firebaseConfigured();
   .acct__lede { color: #6b6b6b; font-size: 15px; margin-bottom: 22px; line-height: 1.6; }
   .g-btn { display: inline-flex; align-items: center; gap: 11px; height: 50px; padding: 0 22px; border: 1px solid #e6e6e6; background: #fff; cursor: pointer; font-size: 14px; font-weight: 500; transition: border-color .2s; }
   .g-btn:hover { border-color: #1a1a1a; }
-  .acct__bar { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6e6e6; padding-bottom: 16px; }
-  .acct__who { font-size: 14px; font-weight: 500; }
-  .acct__signout { background: none; border: none; cursor: pointer; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #8B1A1A; }
+  .acct__hero { border-bottom: 1px solid #e6e6e6; padding-bottom: 18px; }
+  .acct__hello { font-size: clamp(22px,4vw,30px); font-weight: 400; color: #1a1a1a; margin-bottom: 8px; }
+  .acct__sub { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .acct__who { font-size: 13px; color: #6b6b6b; }
+  .acct__signout { background: none; border: none; cursor: pointer; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #8B1A1A; flex-shrink: 0; }
+  .acct__card { border: 1px solid #e6e6e6; padding: 18px 20px; }
+  .acct__cardname { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .acct__cardline { font-size: 14px; color: #4a4a4a; line-height: 1.55; }
+  .acct__edit { margin-top: 16px; background: none; border: 1px solid #e6e6e6; padding: 8px 16px; cursor: pointer; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; transition: border-color .2s, color .2s; }
+  .acct__edit:hover { border-color: #1a1a1a; }
+  .acct__prompt { margin-bottom: 4px; }
+  .acct__actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+  .acct__cancel { background: none; border: none; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6b6b6b; }
+  .acct__cancel:hover { color: #1a1a1a; }
   .acct__form { display: flex; flex-direction: column; gap: 16px; }
   .af { display: flex; flex-direction: column; }
   .af label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b6b6b; margin-bottom: 7px; font-weight: 500; }
   .af input, .af select { border: none; border-bottom: 1px solid #e6e6e6; padding: 9px 0; font-size: 15px; outline: none; font-family: inherit; background: transparent; color: #1a1a1a; }
   .af input:focus, .af select:focus { border-bottom-color: #1a1a1a; }
   .af select { -webkit-appearance: none; appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23a8a39c' stroke-width='1.2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 2px center; }
-  .acct__welcome { background: rgba(61,107,79,.08); color: #3D6B4F; font-size: 13px; font-weight: 500; padding: 12px 16px; margin-bottom: 20px; }
   .af3 { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 16px; }
   .acct__save { align-self: flex-start; height: 46px; padding: 0 28px; background: #1a1a1a; color: #fff; border: none; cursor: pointer; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 500; transition: background .2s; margin-top: 6px; }
   .acct__save:hover { background: #8B1A1A; }

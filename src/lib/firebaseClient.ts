@@ -5,6 +5,7 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut,
   onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail,
+  setPersistence, browserLocalPersistence,
   type Auth, type User,
 } from 'firebase/auth';
 import {
@@ -28,7 +29,12 @@ export function firebaseConfigured(): boolean {
 function init() {
   if (!firebaseConfigured()) return false;
   if (!app) app = getApps()[0] ?? initializeApp(cfg);
-  if (!auth) auth = getAuth(app);
+  if (!auth) {
+    auth = getAuth(app);
+    // Keep the customer signed in across tabs and revisits (explicit, though it's
+    // the SDK default) so they never have to log in again on a return visit.
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+  }
   if (!db) db = getFirestore(app);
   return true;
 }

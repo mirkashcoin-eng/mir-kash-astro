@@ -30,8 +30,9 @@ const navItems = [
       </a>
 
       <div class="hdr-right">
-        <a class="hdr-icon-btn" href="/account" aria-label="Account">
+        <a class="hdr-icon-btn hdr-account" href="/account" aria-label="Account">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
+          <span class="hdr-account__dot" aria-hidden="true"></span>
         </a>
         <a class="hdr-icon-btn hdr-bag" href={cartHref} aria-label="Bag">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
@@ -86,3 +87,30 @@ const navItems = [
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   })();
 </script>
+
+<script>
+  // Reflect the signed-in customer across the whole site (header is CDN-cached, so
+  // this runs client-side, like the bag badge). Shows a dot on the account icon and
+  // greets them by first name.
+  import { firebaseConfigured, getSessionUser } from '~/lib/firebaseClient';
+  (async function () {
+    const btn = document.querySelector<HTMLAnchorElement>('.hdr-account');
+    if (!btn || !firebaseConfigured()) return;
+    const user = await getSessionUser();
+    if (!user) return;
+    const first = (user.displayName || user.email || '').trim().split(/[\s@]/)[0] || 'there';
+    btn.classList.add('is-auth');
+    btn.setAttribute('aria-label', 'Hi, ' + first);
+    btn.setAttribute('title', 'Hi, ' + first);
+  })();
+</script>
+
+<style>
+  .hdr-account { position: relative; }
+  .hdr-account__dot {
+    position: absolute; top: 6px; right: 6px; width: 7px; height: 7px;
+    border-radius: 50%; background: #3D6B4F; box-shadow: 0 0 0 2px #fff;
+    opacity: 0; transform: scale(.6); transition: opacity .2s, transform .2s;
+  }
+  .hdr-account.is-auth .hdr-account__dot { opacity: 1; transform: scale(1); }
+</style>
