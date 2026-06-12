@@ -1,5 +1,6 @@
 ---
 import { firebaseConfigured } from '~/lib/firebaseClient';
+import { STATES } from '~/lib/india-locations';
 const ready = firebaseConfigured();
 ---
 
@@ -28,6 +29,7 @@ const ready = firebaseConfigured();
 
   <!-- Signed-in -->
   <section id="signedIn" hidden>
+    <div class="acct__welcome" id="welcome" hidden>You're signed in ✓</div>
     <div class="acct__bar">
       <span id="who" class="acct__who"></span>
       <button class="acct__signout" id="signoutBtn" type="button">Sign out</button>
@@ -40,9 +42,14 @@ const ready = firebaseConfigured();
       <div class="af"><label>Address</label><input id="p-addr1" type="text" /></div>
       <div class="af"><label>Apartment (optional)</label><input id="p-addr2" type="text" /></div>
       <div class="af3">
-        <div class="af"><label>City</label><input id="p-city" type="text" /></div>
-        <div class="af"><label>State</label><input id="p-prov" type="text" /></div>
-        <div class="af"><label>PIN</label><input id="p-zip" type="text" maxlength="6" /></div>
+        <div class="af"><label>State</label>
+          <select id="p-state"><option value="">Select state</option>{STATES.map((s) => <option value={s}>{s}</option>)}</select>
+        </div>
+        <div class="af"><label>City</label>
+          <input id="p-city" type="text" list="acctCities" placeholder="Select state first" autocomplete="off" />
+          <datalist id="acctCities"></datalist>
+        </div>
+        <div class="af"><label>PIN</label><input id="p-zip" type="text" maxlength="6" inputmode="numeric" /></div>
       </div>
       <button class="acct__save" id="saveBtn" type="button">Save address</button>
       <span class="acct__saved" id="savedMsg" hidden>Saved ✓</span>
@@ -55,9 +62,16 @@ const ready = firebaseConfigured();
 
 <script>
   import { getSessionUser, getIdToken, signInWithGoogle, signOut, loadProfile, saveProfile } from '~/lib/firebaseClient';
+  import { citiesFor } from '~/lib/india-locations';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const v = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value.trim() ?? '';
+
+  // Fill the city datalist from the chosen state.
+  function fillCities(state: string) {
+    const dl = $('acctCities'); if (!dl) return;
+    dl.innerHTML = citiesFor(state).map((c) => `<option value="${c}"></option>`).join('');
+  }
 
   function inr(amount: string, currency: string) {
     const n = Math.round(Number(amount));
@@ -69,7 +83,11 @@ const ready = firebaseConfigured();
     const user = await getSessionUser();
     if (!user) { $('signedOut').hidden = false; return; }
     $('signedIn').hidden = false;
-    $('who').textContent = user.email ?? 'Signed in';
+    $('welcome').hidden = false;
+    $('who').textContent = 'Signed in as ' + (user.email ?? 'your account');
+
+    const stateSel = document.getElementById('p-state') as HTMLSelectElement;
+    stateSel.addEventListener('change', () => fillCities(stateSel.value));
 
     // Saved address
     const p = await loadProfile(user.uid);
@@ -78,15 +96,16 @@ const ready = firebaseConfigured();
       (document.getElementById('p-phone') as HTMLInputElement).value = p.phone ?? '';
       (document.getElementById('p-addr1') as HTMLInputElement).value = p.address1 ?? '';
       (document.getElementById('p-addr2') as HTMLInputElement).value = p.address2 ?? '';
+      stateSel.value = p.province ?? '';
+      fillCities(stateSel.value);
       (document.getElementById('p-city') as HTMLInputElement).value = p.city ?? '';
-      (document.getElementById('p-prov') as HTMLInputElement).value = p.province ?? '';
       (document.getElementById('p-zip') as HTMLInputElement).value = p.zip ?? '';
     }
 
     $('saveBtn').addEventListener('click', async () => {
       const ok = await saveProfile({
         id: user.uid, full_name: v('p-name'), phone: v('p-phone'), address1: v('p-addr1'),
-        address2: v('p-addr2'), city: v('p-city'), province: v('p-prov'), zip: v('p-zip'),
+        address2: v('p-addr2'), city: v('p-city'), province: v('p-state'), zip: v('p-zip'),
         email: user.email ?? null,
       });
       const m = $('savedMsg'); m.hidden = false; m.textContent = ok ? 'Saved ✓' : 'Could not save';
@@ -170,8 +189,10 @@ const ready = firebaseConfigured();
   .acct__form { display: flex; flex-direction: column; gap: 16px; }
   .af { display: flex; flex-direction: column; }
   .af label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b6b6b; margin-bottom: 7px; font-weight: 500; }
-  .af input { border: none; border-bottom: 1px solid #e6e6e6; padding: 9px 0; font-size: 15px; outline: none; font-family: inherit; }
-  .af input:focus { border-bottom-color: #1a1a1a; }
+  .af input, .af select { border: none; border-bottom: 1px solid #e6e6e6; padding: 9px 0; font-size: 15px; outline: none; font-family: inherit; background: transparent; color: #1a1a1a; }
+  .af input:focus, .af select:focus { border-bottom-color: #1a1a1a; }
+  .af select { -webkit-appearance: none; appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23a8a39c' stroke-width='1.2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 2px center; }
+  .acct__welcome { background: rgba(61,107,79,.08); color: #3D6B4F; font-size: 13px; font-weight: 500; padding: 12px 16px; margin-bottom: 20px; }
   .af3 { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 16px; }
   .acct__save { align-self: flex-start; height: 46px; padding: 0 28px; background: #1a1a1a; color: #fff; border: none; cursor: pointer; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 500; transition: background .2s; margin-top: 6px; }
   .acct__save:hover { background: #8B1A1A; }
