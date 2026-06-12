@@ -241,7 +241,7 @@ const thumbGradients = [
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
-  import { getSessionUser, loadProfile, signInWithGoogle, saveLead, firebaseConfigured } from '~/lib/firebaseClient';
+  import { getSessionUser, loadProfile, signInWithGoogle, saveLead, ensureAccountFromCheckout, firebaseConfigured } from '~/lib/firebaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const sheet = document.querySelector('.sheet') as HTMLElement;
@@ -404,6 +404,12 @@ const thumbGradients = [
     btn.disabled = true;
     $('placeTxt').textContent = 'Starting secure payment…';
     const { city, province } = splitCityState(val('f-citystate'));
+    // Save details to the customer's account (signed in) or auto-create one
+    // (guest → email+password + set-password email). Best-effort; never blocks.
+    await ensureAccountFromCheckout(val('f-email'), {
+      full_name: val('f-name'), phone: phone10(), address1: val('f-addr'),
+      address2: val('f-apt'), city, province, zip: val('f-pin'),
+    });
     try {
       const res = await fetch('/api/checkout/create', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

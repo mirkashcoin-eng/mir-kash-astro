@@ -4,7 +4,8 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut,
-  onAuthStateChanged, type Auth, type User,
+  onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail,
+  type Auth, type User,
 } from 'firebase/auth';
 import {
   getFirestore, doc, getDoc, setDoc, collection, addDoc, serverTimestamp, type Firestore,
@@ -74,6 +75,34 @@ export async function saveProfile(p: Profile): Promise<boolean> {
     await setDoc(doc(db!, 'profiles', p.id), { ...p, updated_at: serverTimestamp() }, { merge: true });
     return true;
   } catch { return false; }
+}
+
+function randomPassword(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase() + '9!';
+}
+
+// On checkout: persist the customer's details to their account.
+//  • Signed in  → save to their existing profile.
+//  • Guest      → auto-create an email+password account, save the profile, and
+//                 email a "set your password" link so they can log in later.
+// Best-effort and fully swallowed — a failure here must never block the order.
+// Returning customers (auth/email-already-in-use) are skipped silently.
+export async function ensureAccountFromCheckout(
+  email: string,
+  profile: Omit<Profile, 'id' | 'email'>,
+): Promise<void> {
+  if (!init() || !email) return;
+  try {
+    if (auth!.currentUser) {
+      await saveProfile({ id: auth!.currentUser.uid, ...profile, email });
+      return;
+    }
+    const cred = await createUserWithEmailAndPassword(auth!, email, randomPassword());
+    await saveProfile({ id: cred.user.uid, ...profile, email });
+    await sendPasswordResetEmail(auth!, email);
+  } catch {
+    /* email-already-in-use or any error → skip; never block checkout */
+  }
 }
 
 // Lead capture — written client-side to a write-only `checkout_leads` collection.
