@@ -1,10 +1,17 @@
-// Shopify Admin API client for the INDIA store only — used by the custom checkout
-// to create + complete draft orders (so Shopify owns the order, computes GST, and
-// decrements inventory). Never import this from client-side code; it carries the
-// Admin token. See [[mir-kash-project]] India custom checkout plan.
+// Shopify Admin API client — used by the India custom checkout (draft orders) and
+// by the customer account (order history + returns + customer lookup) for BOTH the
+// India and Global stores. Never import this from client-side code; it carries the
+// Admin token. See [[mir-kash-project]].
 import type { Money } from '~/types/shopify';
+import type { Store } from '~/types/market';
 
 const ADMIN_API_VERSION = '2025-01';
+
+// Per-store env prefixes for the Admin app credentials.
+const ENV_PREFIX: Record<Store, string> = {
+  india: 'SHOPIFY_IN_ADMIN',
+  global: 'SHOPIFY_GL_ADMIN',
+};
 
 function getEnv(key: string): string {
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
@@ -14,30 +21,34 @@ function getEnv(key: string): string {
   return meta[key] ?? '';
 }
 
-function adminDomain(): string {
+function adminDomain(store: Store): string {
   // Admin API uses the *.myshopify.com domain, which differs from the custom
-  // storefront domain. Fall back to the storefront domain if not configured.
-  return getEnv('SHOPIFY_IN_ADMIN_DOMAIN') || getEnv('SHOPIFY_IN_DOMAIN');
+  // storefront domain. India falls back to its storefront domain if not set.
+  const fallback = store === 'india' ? getEnv('SHOPIFY_IN_DOMAIN') : '';
+  return getEnv(`${ENV_PREFIX[store]}_DOMAIN`) || fallback;
 }
 
-export function adminConfigured(): boolean {
+export function adminConfigured(store: Store): boolean {
   return Boolean(
-    adminDomain() && getEnv('SHOPIFY_IN_ADMIN_CLIENT_ID') && getEnv('SHOPIFY_IN_ADMIN_CLIENT_SECRET'),
+    adminDomain(store) &&
+      getEnv(`${ENV_PREFIX[store]}_CLIENT_ID`) &&
+      getEnv(`${ENV_PREFIX[store]}_CLIENT_SECRET`),
   );
 }
 
 // The new Shopify Dev Dashboard no longer hands out a static Admin token. Instead
 // we exchange the app's Client ID + Secret for a short-lived (~24h) access token
-// via the client-credentials grant, and cache it until just before it expires.
-let cachedToken: { token: string; expiresAt: number } | null = null;
+// via the client-credentials grant, and cache it (per store) until it nears expiry.
+const tokenCache = new Map<Store, { token: string; expiresAt: number }>();
 
-async function getAdminToken(): Promise<string | null> {
+async function getAdminToken(store: Store): Promise<string | null> {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.token;
+  const cached = tokenCache.get(store);
+  if (cached && cached.expiresAt > now + 60_000) return cached.token;
 
-  const domain = adminDomain();
-  const clientId = getEnv('SHOPIFY_IN_ADMIN_CLIENT_ID');
-  const clientSecret = getEnv('SHOPIFY_IN_ADMIN_CLIENT_SECRET');
+  const domain = adminDomain(store);
+  const clientId = getEnv(`${ENV_PREFIX[store]}_CLIENT_ID`);
+  const clientSecret = getEnv(`${ENV_PREFIX[store]}_CLIENT_SECRET`);
   if (!domain || !clientId || !clientSecret) return null;
 
   try {
@@ -52,25 +63,27 @@ async function getAdminToken(): Promise<string | null> {
     });
     const json = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!res.ok || !json.access_token) {
-      console.error('[admin] token exchange failed:', res.status, JSON.stringify(json));
+      console.error(`[admin:${store}] token exchange failed:`, res.status, JSON.stringify(json));
       return null;
     }
-    cachedToken = { token: json.access_token, expiresAt: now + (json.expires_in ?? 86400) * 1000 };
-    return cachedToken.token;
+    const entry = { token: json.access_token, expiresAt: now + (json.expires_in ?? 86400) * 1000 };
+    tokenCache.set(store, entry);
+    return entry.token;
   } catch (err) {
-    console.error('[admin] token exchange error:', err);
+    console.error(`[admin:${store}] token exchange error:`, err);
     return null;
   }
 }
 
 export async function runAdminQuery<T>(
+  store: Store,
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<T | null> {
-  const domain = adminDomain();
-  const token = await getAdminToken();
+  const domain = adminDomain(store);
+  const token = await getAdminToken(store);
   if (!domain || !token) {
-    console.warn('[admin] Missing SHOPIFY_IN_ADMIN_DOMAIN / CLIENT_ID / CLIENT_SECRET — returning null.');
+    console.warn(`[admin:${store}] Missing ${ENV_PREFIX[store]}_DOMAIN / CLIENT_ID / CLIENT_SECRET — returning null.`);
     return null;
   }
 
@@ -85,12 +98,12 @@ export async function runAdminQuery<T>(
     });
     const json = (await res.json()) as { data?: T; errors?: unknown };
     if (json.errors) {
-      console.error('[admin] GraphQL errors:', JSON.stringify(json.errors));
+      console.error(`[admin:${store}] GraphQL errors:`, JSON.stringify(json.errors));
       return null;
     }
     return json.data ?? null;
   } catch (err) {
-    console.error('[admin] Request failed:', err);
+    console.error(`[admin:${store}] Request failed:`, err);
     return null;
   }
 }
@@ -210,7 +223,7 @@ export async function createDraftOrder(args: {
 
   const data = await runAdminQuery<{
     draftOrderCreate: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };
-  }>(DRAFT_ORDER_CREATE, { input });
+  }>('india', DRAFT_ORDER_CREATE, { input });
 
   const errs = data?.draftOrderCreate?.userErrors;
   if (errs && errs.length) {
@@ -221,7 +234,7 @@ export async function createDraftOrder(args: {
 }
 
 export async function getDraftOrder(id: string): Promise<DraftOrderResult | null> {
-  const data = await runAdminQuery<{ draftOrder: RawDraftOrder | null }>(DRAFT_ORDER_GET, { id });
+  const data = await runAdminQuery<{ draftOrder: RawDraftOrder | null }>('india', DRAFT_ORDER_GET, { id });
   return shape(data?.draftOrder);
 }
 
@@ -234,7 +247,7 @@ export async function completeDraftOrder(id: string): Promise<DraftOrderResult |
 
   const data = await runAdminQuery<{
     draftOrderComplete: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };
-  }>(DRAFT_ORDER_COMPLETE, { id });
+  }>('india', DRAFT_ORDER_COMPLETE, { id });
 
   const errs = data?.draftOrderComplete?.userErrors;
   if (errs && errs.length) {
@@ -244,8 +257,9 @@ export async function completeDraftOrder(id: string): Promise<DraftOrderResult |
   return shape(data?.draftOrderComplete?.draftOrder);
 }
 
-// ── Account: order history + returns ───────────────────────────────────────────
+// ── Account: order history + returns + customer lookup ─────────────────────────
 export interface AccountOrder {
+  store: Store;
   id: string;
   name: string;
   createdAt: string;
@@ -254,6 +268,16 @@ export interface AccountOrder {
   total: Money;
   items: Array<{ title: string; quantity: number }>;
   returnRequested: boolean;
+}
+
+export interface ShopifyCustomer {
+  full_name: string;
+  phone: string;
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  zip: string;
 }
 
 const ORDERS_BY_EMAIL = /* GraphQL */ `
@@ -276,13 +300,15 @@ interface RawOrder {
   lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
 }
 
-export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
-  if (!email) return [];
+export async function getOrdersByEmail(store: Store, email: string): Promise<AccountOrder[]> {
+  if (!email || !adminConfigured(store)) return [];
   const data = await runAdminQuery<{ orders: { edges: Array<{ node: RawOrder }> } }>(
+    store,
     ORDERS_BY_EMAIL,
     { q: `email:${email}` },
   );
   return (data?.orders?.edges ?? []).map(({ node }) => ({
+    store,
     id: node.id,
     name: node.name,
     createdAt: node.createdAt,
@@ -292,6 +318,48 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     items: node.lineItems.edges.map((e) => ({ title: e.node.title, quantity: e.node.quantity })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
   }));
+}
+
+const CUSTOMER_BY_EMAIL = /* GraphQL */ `
+  query CustomerByEmail($q: String!) {
+    customers(first: 1, query: $q) {
+      edges { node {
+        firstName lastName phone
+        defaultAddress { address1 address2 city province zip phone }
+      } }
+    }
+  }
+`;
+
+interface RawCustomer {
+  firstName: string | null; lastName: string | null; phone: string | null;
+  defaultAddress: {
+    address1: string | null; address2: string | null; city: string | null;
+    province: string | null; zip: string | null; phone: string | null;
+  } | null;
+}
+
+// Looks up the customer the shopper created at Shopify checkout, so the account
+// can show their name + saved address (Global store has no Firestore profile).
+export async function getCustomerByEmail(store: Store, email: string): Promise<ShopifyCustomer | null> {
+  if (!email || !adminConfigured(store)) return null;
+  const data = await runAdminQuery<{ customers: { edges: Array<{ node: RawCustomer }> } }>(
+    store,
+    CUSTOMER_BY_EMAIL,
+    { q: `email:${email}` },
+  );
+  const c = data?.customers?.edges?.[0]?.node;
+  if (!c) return null;
+  const a = c.defaultAddress;
+  return {
+    full_name: [c.firstName, c.lastName].filter(Boolean).join(' '),
+    phone: (a?.phone || c.phone || '').toString(),
+    address1: a?.address1 ?? '',
+    address2: a?.address2 ?? '',
+    city: a?.city ?? '',
+    province: a?.province ?? '',
+    zip: a?.zip ?? '',
+  };
 }
 
 const TAGS_ADD = /* GraphQL */ `
@@ -306,17 +374,19 @@ const ORDER_UPDATE = /* GraphQL */ `
   }
 `;
 
-// Flags an order for return (tag + appended note). Owner processes in Shopify.
-export async function requestReturn(orderId: string, reason: string): Promise<boolean> {
+// Flags an order for return (tag + appended note) in its own store. Owner processes
+// in Shopify.
+export async function requestReturn(store: Store, orderId: string, reason: string): Promise<boolean> {
   const tagRes = await runAdminQuery<{ tagsAdd: { userErrors: Array<{ message: string }> } }>(
+    store,
     TAGS_ADD,
     { id: orderId, tags: ['return-requested'] },
   );
   if (!tagRes) return false;
 
-  const noteData = await runAdminQuery<{ order: { note: string | null } | null }>(ORDER_NOTE, { id: orderId });
+  const noteData = await runAdminQuery<{ order: { note: string | null } | null }>(store, ORDER_NOTE, { id: orderId });
   const prev = noteData?.order?.note ?? '';
   const line = `Return requested${reason ? ': ' + reason : ''} (${new Date().toISOString().slice(0, 10)})`;
-  await runAdminQuery(ORDER_UPDATE, { input: { id: orderId, note: prev ? prev + '\n' + line : line } });
+  await runAdminQuery(store, ORDER_UPDATE, { input: { id: orderId, note: prev ? prev + '\n' + line : line } });
   return true;
 }

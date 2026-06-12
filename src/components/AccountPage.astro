@@ -114,6 +114,18 @@ const ready = firebaseConfigured();
     $('addrForm').hidden = false;
   }
 
+  // Shopify customer record (name + saved address) for the signed-in email —
+  // used when there's no Firestore profile. Returns null if nothing on file.
+  async function loadShopifyProfile() {
+    try {
+      const token = await getIdToken();
+      if (!token) return null;
+      const res = await fetch('/api/account/profile', { headers: { Authorization: 'Bearer ' + token } });
+      const data = await res.json();
+      return data && data.found ? data : null;
+    } catch { return null; }
+  }
+
   async function init() {
     const user = await getSessionUser();
     if (!user) { $('signedOut').hidden = false; return; }
@@ -123,7 +135,14 @@ const ready = firebaseConfigured();
     stateSel.addEventListener('change', () => fillCities(stateSel.value));
 
     // Saved address → fill the form (so Edit has data) then decide card vs form.
-    const p = await loadProfile(user.uid);
+    // Source of truth is the Firestore profile; if there isn't one (typical for a
+    // customer who only used the Global store's Shopify checkout), fall back to
+    // their Shopify customer record so the account still shows their name/address.
+    let p = await loadProfile(user.uid);
+    if (!p || !(p.full_name || p.address1)) {
+      const shop = await loadShopifyProfile();
+      if (shop) p = { id: user.uid, email: user.email ?? null, ...shop };
+    }
     if (p) {
       setVal('p-name', p.full_name); setVal('p-phone', p.phone);
       setVal('p-addr1', p.address1); setVal('p-addr2', p.address2);
@@ -165,14 +184,14 @@ const ready = firebaseConfigured();
       box.innerHTML = orders.map((o: any) => `
         <div class="ord">
           <div class="ord__top">
-            <span class="ord__name">${o.name}</span>
+            <span class="ord__name">${o.name}<span class="ord__store">${o.store === 'global' ? 'Global' : 'India'}</span></span>
             <span class="ord__total">${inr(o.total.amount, o.total.currencyCode)}</span>
           </div>
           <div class="ord__meta">${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${o.financialStatus} · ${o.fulfillmentStatus}</div>
           <div class="ord__items">${o.items.map((i: any) => `${i.quantity}× ${i.title}`).join(', ')}</div>
           ${o.returnRequested
             ? '<span class="ord__ret">Return requested</span>'
-            : `<button class="ord__retbtn" data-order="${o.id}">Request a return</button>`}
+            : `<button class="ord__retbtn" data-order="${o.id}" data-store="${o.store}">Request a return</button>`}
         </div>`).join('');
     } catch {
       box.innerHTML = '<p class="acct__note">Could not load orders.</p>';
@@ -188,7 +207,7 @@ const ready = firebaseConfigured();
     try {
       const res = await fetch('/api/account/return-request', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ orderId: btn.dataset.order, reason }),
+        body: JSON.stringify({ orderId: btn.dataset.order, store: btn.dataset.store, reason }),
       });
       if (!res.ok) throw new Error();
       btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__ret', textContent: 'Return requested' }));
@@ -250,7 +269,8 @@ const ready = firebaseConfigured();
   .acct__orders { display: flex; flex-direction: column; gap: 14px; }
   .ord { border: 1px solid #e6e6e6; padding: 16px 18px; }
   .ord__top { display: flex; justify-content: space-between; align-items: baseline; }
-  .ord__name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .ord__name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .ord__store { font-size: 9px; letter-spacing: .1em; font-weight: 600; color: #6b6b6b; border: 1px solid #e6e6e6; border-radius: 2px; padding: 2px 6px; }
   .ord__total { font-size: 15px; }
   .ord__meta { font-size: 12px; color: #6b6b6b; margin: 6px 0; text-transform: capitalize; }
   .ord__items { font-size: 13px; color: #1a1a1a; }
