@@ -498,6 +498,17 @@ const thumbGradients = [
         $('savedAddr').innerHTML = [p.address1, [p.city, p.province, p.zip].filter(Boolean).join(', ')].filter(Boolean).join('<br>');
         card.classList.add('show');
       }
+
+      // Returning customer: auto-complete the steps we already have, so they don't
+      // re-enter Contact/Delivery — collapse them to a recap (with the Edit button)
+      // and jump toward Payment. Only advance past a step whose data actually
+      // validates (same rules as the Continue buttons); leave the rest for them.
+      const phoneOk = phone10().length === 10;
+      const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'));
+      const deliveryOk = !!(val('f-name') && val('f-addr') && val('f-state') && /^\d{6}$/.test(val('f-pin')) && emailOk);
+      if (phoneOk) { done.add('contact'); buildRecap('contact'); active = 'delivery'; }
+      if (phoneOk && deliveryOk) { done.add('delivery'); buildRecap('delivery'); active = 'payment'; }
+      renderFlow();
     })();
   }
 </script>
