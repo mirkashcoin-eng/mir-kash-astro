@@ -138,3 +138,30 @@ import CountrySelector from './CountrySelector.astro';
     });
   })();
 </script>
+
+<style is:global>
+  /* Make the footer self-contained: it carries the site theme variables itself,
+     so it renders identically on pages (cart/checkout) that override :root. */
+  .site-footer {
+    --serif: 'Cormorant Garamond', 'Times New Roman', serif;
+    --font: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+    --cherry: #8B1A1A; --depth: #2C1A0E; --paper: #f6f3ee; --cream: #ebe6dd;
+    --rule: #e4dfd7; --ink: #141414; --ink-mid: #6e6a64; --ink-soft: #a8a39c;
+    --gutter: clamp(20px, 4vw, 56px);
+    background: var(--paper); color: var(--depth); font-family: var(--font); text-align: left;
+  }
+  .site-footer .fi-heading { font-family: var(--serif); font-weight: 300; font-style: normal; font-size: clamp(22px,2.2vw,32px); letter-spacing: 0; text-transform: none; color: var(--depth); margin-top: 12px; }
+  .site-footer .fi-heading em { font-style: normal; color: var(--cherry); }
+  .site-footer .fi-val { font-family: var(--serif); font-style: normal; font-weight: 300; font-size: clamp(16px,1.3vw,20px); letter-spacing: 0; text-transform: none; color: var(--depth); line-height: 1.35; }
+  .site-footer .fi-label { font-size: 10.5px; color: var(--ink-mid); }
+  .site-footer .fi-news { border-bottom-color: var(--depth); }
+  .site-footer .fi-news__input { font-family: var(--serif); font-style: normal; font-weight: 300; font-size: 16px; letter-spacing: 0; }
+  .site-footer .fi-news__input::placeholder { font-family: var(--serif); font-style: normal; color: var(--ink-mid); letter-spacing: 0; text-transform: none; }
+  .site-footer .fi-news__submit:hover { color: var(--cherry); opacity: 1; }
+  .site-footer .fa-col summary { color: var(--depth); font-weight: 500; }
+  .site-footer .fa-col ul li a:hover { color: var(--cherry); opacity: 1; }
+  .site-footer .footer-bottom { border-top: 1px solid var(--rule); position: relative; }
+  .site-footer .footer-bottom::before { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 60px; height: 1px; background: var(--cherry); }
+  .site-footer .fb-meta a:hover { color: var(--cherry); }
+  @media (max-width: 768px) { .site-footer .fi-heading { font-size: 22px; } }
+</style>

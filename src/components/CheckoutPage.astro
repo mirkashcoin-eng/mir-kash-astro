@@ -2,7 +2,7 @@
 import { getCart } from '~/lib/shopify/cart';
 import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
-import MiniFooter from './MiniFooter.astro';
+import SiteFooter from './SiteFooter.astro';
 
 // Custom checkout = INDIA store only. Design ported from Rahul's
 // "Mir Kash Checkout (standalone).html" (accordion: Contact → Delivery → Payment).
@@ -235,8 +235,9 @@ const thumbGradients = [
     <svg width="10" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
     Secure checkout · Mir Kash
   </div>
-  <MiniFooter />
 </div>
+
+<SiteFooter />
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
@@ -473,7 +474,9 @@ const thumbGradients = [
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-  body { font-family: var(--font); color: var(--ink); background: var(--paper); font-size: 14px; line-height: 1.5; min-height: 100vh; display: flex; justify-content: center; padding-top: 0; }
+  body { font-family: var(--font); color: var(--ink); background: var(--paper); font-size: 14px; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding-top: 0; }
+  .sheet { flex: 0 0 auto; }
+  body > .site-footer { width: 100%; }
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; }
   input, select, textarea { font-family: inherit; }
