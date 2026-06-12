@@ -20,12 +20,6 @@ interface ImportMetaEnv {
   readonly SHOPIFY_IN_ADMIN_DOMAIN: string;
   readonly SHOPIFY_IN_ADMIN_CLIENT_ID: string;
   readonly SHOPIFY_IN_ADMIN_CLIENT_SECRET: string;
-  // Global store Admin app — account order history + returns + customer lookup.
-  // Provide EITHER a static token (SHOPIFY_GL_ADMIN_TOKEN) OR Client ID + Secret.
-  readonly SHOPIFY_GL_ADMIN_DOMAIN: string;
-  readonly SHOPIFY_GL_ADMIN_TOKEN: string;
-  readonly SHOPIFY_GL_ADMIN_CLIENT_ID: string;
-  readonly SHOPIFY_GL_ADMIN_CLIENT_SECRET: string;
   readonly CASHFREE_APP_ID: string;
   readonly CASHFREE_SECRET_KEY: string;
   readonly CASHFREE_ENV: string;
