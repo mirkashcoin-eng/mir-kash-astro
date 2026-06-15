@@ -1,0 +1,6 @@
+project_id = "btupzwyyqdkzfoygfwcz"
+
+# Shopify calls this function with its own HMAC signature, NOT a Supabase JWT —
+# so JWT verification must be off (we verify the Shopify signature ourselves).
+[functions.shopify-webhook]
+verify_jwt = false

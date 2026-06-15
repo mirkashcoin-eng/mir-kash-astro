@@ -179,11 +179,14 @@ export async function createDraftOrder(args: {
   email: string;
   phone: string;
   discount?: { amount: number; title: string }; // fixed ₹ off, from a cart coupon
+  optin?: boolean; // customer agreed to WhatsApp order updates
 }): Promise<DraftOrderResult | null> {
   const input: Record<string, unknown> = {
     email: args.email,
     phone: args.phone,
-    tags: ['cashfree', 'web-otp'],
+    tags: args.optin ? ['cashfree', 'web-otp', 'wa-optin'] : ['cashfree', 'web-otp'],
+    // Carries through to the order's note_attributes; the WhatsApp service reads wa_optin.
+    customAttributes: args.optin ? [{ key: 'wa_optin', value: 'true' }] : [],
     shippingLine: { title: 'Free Shipping', price: '0' },
     lineItems: args.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
     shippingAddress: {

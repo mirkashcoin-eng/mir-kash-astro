@@ -129,6 +129,10 @@ const thumbGradients = [
           </div>
         </div>
         <p class="fine">Order &amp; shipping updates by text. See our <a href="/policies">Privacy policy</a>.</p>
+        <label class="wa-optin">
+          <input type="checkbox" id="waOptin" checked />
+          <span>Send my order updates on <strong>WhatsApp</strong></span>
+        </label>
         <p class="co-err" id="err-contact" hidden></p>
         <button class="btn-cta" type="button" data-complete="contact" style="margin-top:24px;">
           <span>Continue to delivery</span><span class="arrow"></span>
@@ -470,6 +474,7 @@ const thumbGradients = [
         body: JSON.stringify({
           fullName: val('f-name'), address1: val('f-addr'), address2: val('f-apt'),
           city, province, zip: val('f-pin'), email: val('f-email'), phone: phone10(), buynow: buyNow,
+          waOptin: ($('waOptin') as HTMLInputElement)?.checked ?? false,
         }),
       });
       const data = await res.json();
@@ -645,6 +650,9 @@ const thumbGradients = [
   .signin-link u { color: var(--cherry); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 1px; }
   .signin-link:hover { color: var(--depth); }
   .fine { font-size: 11.5px; color: var(--soft); line-height: 1.6; margin: 16px 0 0; font-family: var(--serif); font-weight: 400; }
+  .wa-optin { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13px; color: var(--mid); cursor: pointer; }
+  .wa-optin input { width: 16px; height: 16px; accent-color: #25D366; cursor: pointer; flex-shrink: 0; margin: 0; }
+  .wa-optin strong { font-weight: 600; color: var(--depth); }
   .fine a { color: var(--mid); border-bottom: 1px solid var(--rule); }
   .co-err { color: var(--cherry); font-size: 12.5px; margin-top: 12px; }
 

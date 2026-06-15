@@ -16,6 +16,7 @@ interface Body {
   phone?: string;
   email?: string;
   buynow?: boolean;
+  waOptin?: boolean;
 }
 
 function bad(message: string, status = 400) {
@@ -87,7 +88,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   const discount = cart.discountAmount > 0
     ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
     : undefined;
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount });
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);
