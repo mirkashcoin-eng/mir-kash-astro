@@ -54,6 +54,13 @@ Easiest: open **Dashboard → SQL Editor**, paste the contents of `supabase/migr
 ```bash
 supabase secrets set META_ACCESS_TOKEN=EAAxxxxx_your_permanent_token
 # optional: supabase secrets set META_API_VERSION=v21.0
+
+# OPTIONAL — only needed for the refund message (refunds/create webhook lacks the
+# phone + order number, so the function looks the order up via the India Admin API).
+# The other 4 messages work WITHOUT these.
+supabase secrets set SHOPIFY_IN_ADMIN_DOMAIN=e8601g-8a.myshopify.com
+supabase secrets set SHOPIFY_IN_ADMIN_CLIENT_ID=xxxx
+supabase secrets set SHOPIFY_IN_ADMIN_CLIENT_SECRET=xxxx
 ```
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically — don't set them.
 
@@ -68,18 +75,20 @@ https://btupzwyyqdkzfoygfwcz.supabase.co/functions/v1/shopify-webhook
 
 **5. Create the Shopify webhooks** (India admin)
 Settings → Notifications → **Webhooks** → Create webhook, for **each** topic:
-- **Order creation** (`orders/create`)
-- **Order fulfilled** (`orders/fulfilled`)
+- **Order creation** (`orders/create`) → order_confirmed / cod_confirmation
+- **Order fulfilled** (`orders/fulfilled`) → order_shipped
+- **Order cancelled** (`orders/cancelled`) → order_cancelled
+- **Refund created** (`refunds/create`) → refund_processed *(needs the optional admin secrets in step 3)*
 
-For both: **Format = JSON**, **URL =** the function URL above. Save.
-At the bottom of that Webhooks page Shopify shows a **signing secret** — copy it.
+For all: **Format = JSON**, **URL =** the function URL above. Save.
+At the bottom of that Webhooks page Shopify shows one **signing secret** for the store — copy it.
 
 **6. Seed the store row**
 Open `supabase/seed.example.sql`, paste the **signing secret** into `shopify_webhook_secret` (confirm the
 `store_domain`), then run it in the SQL Editor.
 
 **7. Submit the templates**
-Create the 3 templates from `templates/TEMPLATES.md` in WhatsApp Manager and wait for approval (Utility templates
+Create the 5 templates from `templates/TEMPLATES.md` in WhatsApp Manager and wait for approval (Utility templates
 usually approve fast). The names already match the seed.
 
 ---

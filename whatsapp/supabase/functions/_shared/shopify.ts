@@ -45,16 +45,41 @@ export function isCOD(order: any): boolean {
   return /cash on delivery|\bcod\b/i.test(`${gws} ${gw}`);
 }
 
-export type EventKey = "order_confirmed" | "cod_confirmation" | "order_shipped";
+export type EventKey =
+  | "order_confirmed"
+  | "cod_confirmation"
+  | "order_shipped"
+  | "order_cancelled"
+  | "refund_processed";
 
 /** Map a Shopify webhook topic (+ payload) to one of our event keys. */
 export function detectEventKey(topic: string, payload: any): EventKey | null {
   if (topic === "orders/create") return isCOD(payload) ? "cod_confirmation" : "order_confirmed";
   if (topic === "orders/fulfilled") return "order_shipped";
+  if (topic === "orders/cancelled") return "order_cancelled";
+  if (topic === "refunds/create") return "refund_processed";
   return null;
 }
 
-function money(total: any, currency: string): string {
+/** Bare order number for the "#{{n}}" templates (no leading '#'). */
+export function orderNumber(p: any): string {
+  if (p?.order_number != null) return String(p.order_number);
+  return String(p?.name ?? "").replace(/^#/, "") || "your order";
+}
+
+/** Shopify cancel_reason → friendly text. */
+export function cancelReasonText(reason: string | null | undefined): string {
+  switch ((reason ?? "").toLowerCase()) {
+    case "customer": return "cancelled at your request";
+    case "inventory": return "an item was unavailable";
+    case "declined": return "the payment was declined";
+    case "fraud": return "a verification issue";
+    case "staff": return "a store adjustment";
+    default: return "an order issue";
+  }
+}
+
+export function formatMoney(total: any, currency = "INR"): string {
   const n = Math.round(Number(total) || 0);
   const sym: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
   const s = sym[currency] ?? (currency ? currency + " " : "");
@@ -68,24 +93,22 @@ function money(total: any, currency: string): string {
 export interface Recipient {
   phone: string | null;
   name: string;
-  orderName: string;
+  orderNum: string;
   total: string;
-  courier: string;
   trackingUrl: string;
+  reason: string;
 }
 
-/** Pull the message fields from an order (create) or order (fulfilled) payload. */
-export function extractRecipient(_topic: string, p: any): Recipient {
+/** Pull the message fields from an order payload (create / fulfilled / cancelled). */
+export function extractRecipient(p: any): Recipient {
   const cust = p?.customer ?? {};
   const ship = p?.shipping_address ?? {};
   const bill = p?.billing_address ?? {};
   const rawPhone = cust.phone || ship.phone || bill.phone || p?.phone || null;
   const name = (cust.first_name || ship.first_name || "there").toString().trim() || "there";
-  const orderName = (p?.name || "your order").toString();
-  const total = money(p?.total_price, p?.currency || "INR");
+  const total = formatMoney(p?.total_price, p?.currency || "INR");
 
   const f = Array.isArray(p?.fulfillments) ? p.fulfillments[0] : null;
-  const courier = (f?.tracking_company || "our courier partner").toString();
   const trackingUrl = (
     f?.tracking_url ||
     (Array.isArray(f?.tracking_urls) ? f.tracking_urls[0] : "") ||
@@ -93,7 +116,14 @@ export function extractRecipient(_topic: string, p: any): Recipient {
     "https://mirkash.in"
   ).toString();
 
-  return { phone: normalizePhone(rawPhone), name, orderName, total, courier, trackingUrl };
+  return {
+    phone: normalizePhone(rawPhone),
+    name,
+    orderNum: orderNumber(p),
+    total,
+    trackingUrl,
+    reason: cancelReasonText(p?.cancel_reason),
+  };
 }
 
 /**

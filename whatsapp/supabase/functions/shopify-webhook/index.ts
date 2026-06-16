@@ -5,8 +5,12 @@
 // Deploy WITHOUT JWT verification (Shopify can't send a Supabase token):
 //   supabase functions deploy shopify-webhook --no-verify-jwt
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { detectEventKey, extractRecipient, hasOptIn, verifyShopifyHmac } from "../_shared/shopify.ts";
+import { detectEventKey, extractRecipient, formatMoney, hasOptIn, verifyShopifyHmac } from "../_shared/shopify.ts";
+import { lookupOrder } from "../_shared/shopifyAdmin.ts";
 import { sendTemplate } from "../_shared/meta.ts";
+
+// Refund days shown in the cancel/refund messages (no per-order value from Shopify).
+const REFUND_DAYS = "5–7";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -79,19 +83,41 @@ Deno.serve(async (req) => {
     .eq("store_domain", shopDomain).eq("event_key", eventKey).eq("is_active", true).maybeSingle();
   if (!tmpl) { await finish("skipped", `no template for ${eventKey}`); return ok("no template"); }
 
-  // 5) Consent (when required) + recipient.
-  if (store.require_optin && !hasOptIn(payload)) { await finish("skipped", "no opt-in"); return ok("no opt-in"); }
-  const r = extractRecipient(topic, payload);
-  if (!r.phone) { await finish("skipped", "no phone"); return ok("no phone"); }
+  // 5) Consent (when required) + recipient + per-event message variables.
+  //    (The opt-in tag lives on the ORDER; the refund webhook has no tags, so the
+  //    consent gate is only applied to order-type events.)
+  if (store.require_optin && eventKey !== "refund_processed" && !hasOptIn(payload)) {
+    await finish("skipped", "no opt-in"); return ok("no opt-in");
+  }
 
-  const bodyParams = eventKey === "order_shipped"
-    ? [r.name, r.orderName, r.courier, r.trackingUrl]
-    : [r.name, r.orderName, r.total];
+  let toPhone: string;
+  let bodyParams: string[];
+
+  if (eventKey === "refund_processed") {
+    // The refunds/create webhook lacks the phone + order number → look the order up.
+    const look = await lookupOrder(payload?.order_id ?? "");
+    if (!look?.phone) { await finish("skipped", "refund: no phone / admin creds"); return ok("refund skipped"); }
+    const txns = Array.isArray(payload?.transactions) ? payload.transactions : [];
+    const amount = formatMoney(
+      txns.reduce((s: number, t: any) => s + (Number(t?.amount) || 0), 0),
+      txns[0]?.currency || "INR",
+    );
+    toPhone = look.phone;
+    bodyParams = [look.firstName, look.orderNum, amount, REFUND_DAYS]; // [name, order#, amount, days]
+  } else {
+    const r = extractRecipient(payload);
+    if (!r.phone) { await finish("skipped", "no phone"); return ok("no phone"); }
+    toPhone = r.phone;
+    bodyParams =
+      eventKey === "order_shipped" ? [r.name, r.orderNum, r.trackingUrl]
+      : eventKey === "order_cancelled" ? [r.name, r.orderNum, r.reason, REFUND_DAYS]
+      : [r.name, r.orderNum, r.total]; // order_confirmed | cod_confirmation
+  }
 
   // 6) Send via Meta + log the result.
   const result = await sendTemplate({
     phoneNumberId: store.meta_phone_number_id,
-    to: r.phone,
+    to: toPhone,
     templateName: tmpl.template_name,
     language: tmpl.language_code,
     bodyParams,
@@ -100,7 +126,7 @@ Deno.serve(async (req) => {
   await supabase.from("messages_out").insert({
     store_domain: shopDomain,
     event_key: eventKey,
-    to_phone: r.phone,
+    to_phone: toPhone,
     template_name: tmpl.template_name,
     meta_message_id: result.messageId ?? null,
     status: result.ok ? "sent" : "failed",

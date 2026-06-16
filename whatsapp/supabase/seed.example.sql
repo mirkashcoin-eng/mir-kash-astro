@@ -21,9 +21,11 @@ on conflict (store_domain) do update set
 
 -- event_key → the EXACT approved Meta template name (lowercase + underscores).
 insert into template_map (store_domain, event_key, template_name, language_code) values
-  ('e8601g-8a.myshopify.com', 'order_confirmed',  'order_confirmed',  'en_US'),
-  ('e8601g-8a.myshopify.com', 'cod_confirmation', 'cod_confirmation', 'en_US'),
-  ('e8601g-8a.myshopify.com', 'order_shipped',    'order_shipped',    'en_US')
+  ('e8601g-8a.myshopify.com', 'order_confirmed',   'order_confirmed',   'en_US'),
+  ('e8601g-8a.myshopify.com', 'cod_confirmation',  'cod_confirmation',  'en_US'),
+  ('e8601g-8a.myshopify.com', 'order_shipped',     'order_shipped',     'en_US'),
+  ('e8601g-8a.myshopify.com', 'order_cancelled',   'order_cancelled',   'en_US'),
+  ('e8601g-8a.myshopify.com', 'refund_processed',  'refund_processed',  'en_US')
 on conflict (store_domain, event_key) do update set
   template_name = excluded.template_name,
   language_code = excluded.language_code,
