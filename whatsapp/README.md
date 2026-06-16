@@ -131,3 +131,15 @@ with a fresh `X-Shopify-Webhook-Id`. (A one-click replay endpoint is a Phase 1.1
 - This project deploys to **Supabase**, not Vercel — it's independent of the `mir-kash-astro` website.
 - Multi-store ready: to add Global later, insert another `store_config` + `template_map` rows and point that
   store's Shopify webhooks at the same function URL.
+
+## Gotchas on a "new API keys" project (learned during first deploy)
+- Edge Functions may not get a working auto-injected `SUPABASE_SERVICE_ROLE_KEY`. The function therefore prefers an
+  explicit **`SUPA_SERVICE_KEY`** secret (set it to the project's legacy `service_role` key) and falls back to the
+  injected one.
+- If **"Automatically expose new tables"** was OFF at project creation, the 4 tables aren't granted to the API
+  roles, so even `service_role` reads return empty via the Data API. Fix once:
+  ```sql
+  grant usage on schema public to service_role;
+  grant all privileges on table store_config, template_map, webhook_events, messages_out to service_role;
+  notify pgrst, 'reload schema';
+  ```

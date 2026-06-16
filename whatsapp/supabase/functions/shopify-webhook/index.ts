@@ -12,9 +12,11 @@ import { sendTemplate } from "../_shared/meta.ts";
 // Refund days shown in the cancel/refund messages (no per-order value from Shopify).
 const REFUND_DAYS = "5–7";
 
+// Prefer an explicit service key (SUPA_SERVICE_KEY) — new-keys projects don't always
+// auto-inject a working SUPABASE_SERVICE_ROLE_KEY into Edge Functions.
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  Deno.env.get("SUPA_SERVICE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } },
 );
 
@@ -113,6 +115,10 @@ Deno.serve(async (req) => {
       : eventKey === "order_cancelled" ? [r.name, r.orderNum, r.reason, REFUND_DAYS]
       : [r.name, r.orderNum, r.total]; // order_confirmed | cod_confirmation
   }
+
+  // hello_world (the universal test template) takes no variables — used to verify
+  // the pipeline before the real templates are approved.
+  if (tmpl.template_name === "hello_world") bodyParams = [];
 
   // 6) Send via Meta + log the result.
   const result = await sendTemplate({
