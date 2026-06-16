@@ -54,7 +54,10 @@ Good news, {{1}} — your order is on its way.
 Order #{{2}} has shipped and should arrive within 5–7 business days.
 
 Track it here: {{3}}
+
+Thank you for shopping with Mir Kash.
 ```
+*(A line was added after the link because Meta doesn't allow a template to end with a variable.)*
 | Slot | Meaning | Sample |
 |------|---------|--------|
 | {{1}} | First name | Priya |

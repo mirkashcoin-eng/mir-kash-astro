@@ -26,12 +26,10 @@ export async function sendTemplate(opts: {
     template: {
       name: opts.templateName,
       language: { code: opts.language },
-      components: [
-        {
-          type: "body",
-          parameters: opts.bodyParams.map((text) => ({ type: "text", text })),
-        },
-      ],
+      // Templates with no variables (e.g. hello_world) must omit the body component.
+      ...(opts.bodyParams.length
+        ? { components: [{ type: "body", parameters: opts.bodyParams.map((text) => ({ type: "text", text })) }] }
+        : {}),
     },
   };
 
