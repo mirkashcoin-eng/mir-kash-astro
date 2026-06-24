@@ -636,14 +636,20 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
   .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
 
-  .acc-btn { width: 100%; padding: 14px 0; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 500; letter-spacing: .03em; border-bottom: 1px solid var(--rule); text-align: left; transition: color .2s; }
+  .acc-item { border-top: 1px solid var(--rule); }
+  .acc-item:last-child { border-bottom: 1px solid var(--rule); }
+  .acc-btn { width: 100%; padding: 19px 2px; display: flex; align-items: center; justify-content: space-between; gap: 18px; font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--depth); text-align: left; transition: color .25s; }
   .acc-btn:hover { color: var(--cherry); }
-  .acc-icon { font-size: 20px; color: var(--mid); font-weight: 300; line-height: 1; transition: transform .3s; flex-shrink: 0; }
-  .acc-item.is-open .acc-icon { transform: rotate(45deg); }
-  .acc-body { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+  /* Thin + that morphs to − on open (elegant, hairline) */
+  .acc-icon { position: relative; width: 11px; height: 11px; flex-shrink: 0; font-size: 0; }
+  .acc-icon::before, .acc-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: 11px; height: 1px; background: var(--depth); transform: translate(-50%, -50%); transition: transform .4s cubic-bezier(.2,.7,.2,1), background-color .25s; }
+  .acc-icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+  .acc-btn:hover .acc-icon::before, .acc-btn:hover .acc-icon::after { background: var(--cherry); }
+  .acc-item.is-open .acc-icon::after { transform: translate(-50%, -50%) rotate(0deg); }
+  .acc-body { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
   .acc-item.is-open .acc-body { max-height: 500px; }
-  .acc-inner { padding: 4px 0 18px; font-size: 13px; line-height: 1.8; color: #555; }
-  .acc-inner ul { list-style: disc; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; }
+  .acc-inner { padding: 0 2px 22px; font-size: 13px; line-height: 1.85; color: var(--mid); }
+  .acc-inner ul { list-style: disc; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
 
   .mob-gal { display: none; position: relative; background: #f5f2ed; }
   .mob-gal__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
