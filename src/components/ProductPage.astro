@@ -24,6 +24,14 @@ const images = imgNodes.map((n) => ({
   alt: n.altText ?? product.title,
 }));
 
+// Editorial sections (story slideshow · full-bleed · lookbook) reuse the product's
+// own gallery photos, cycling when there are fewer images than slots.
+const galleryFulls = images.map((i) => i.full);
+const pickImg = (i: number) => (galleryFulls.length ? galleryFulls[i % galleryFulls.length] : '');
+const storyImgArr = [0, 1, 2, 3].map(pickImg);
+const fullBleedImg = pickImg(1);
+const lookImgs = [0, 1, 2].map(pickImg);
+
 // ── Options & variants ───────────────────────────────────────────────────────
 const isRealOption = (name: string, values: string[]) =>
   !(values.length === 1 && /default title/i.test(values[0]));
@@ -223,24 +231,98 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   </div>
 
   <!-- ══ FEATURES ══ -->
-  <section class="features">
+  <section class="features reveal">
     <div class="feat-grid">
       <div class="feat">
-        <p class="feat__eye">Orchardcraft™</p>
-        <h3 class="feat__title">Made from apples, not animals</h3>
-        <p class="feat__body">Full-grain apple leather from the peel and core left by the South Tyrol juice harvest — soft, durable, and cruelty-free.</p>
+        <p class="feat__eye">Craft</p>
+        <h3 class="feat__title">Handmade in Jaipur</h3>
+        <p class="feat__body">Every Carry-All is stitched by hand at our Jaipur atelier — no shortcuts, no compromises. Artisans cut, stitch, and finish each piece one at a time, with the same care on the first bag as the ten-thousandth.</p>
       </div>
       <div class="feat">
-        <p class="feat__eye">Handcrafted</p>
-        <h3 class="feat__title">Built slowly in Jaipur</h3>
-        <p class="feat__body">Each bag is cut, stitched, and finished by hand in our atelier — made to be carried for years, not seasons.</p>
+        <p class="feat__eye">Material</p>
+        <h3 class="feat__title">Apple Leather</h3>
+        <p class="feat__body">Our Orchardcraft™ apple leather is derived from the peel and core of apples leftover from the food industry in South Tyrol. It carries a natural grain and requires no animal hides — and only grows more beautiful with time.</p>
       </div>
       <div class="feat">
-        <p class="feat__eye">The Promise</p>
-        <h3 class="feat__title">Worn forever. Hurts nothing.</h3>
-        <p class="feat__body">A 1-year warranty, easy returns, and a kinder way to carry beautiful things.</p>
+        <p class="feat__eye">Ethics</p>
+        <h3 class="feat__title">Cruelty-Free Always</h3>
+        <p class="feat__body">Every material, every stitch, every finish is entirely animal-free. Not as a trend — but as a founding commitment. Mir Kash will never use animal leather or exotic skins, ever.</p>
       </div>
     </div>
+  </section>
+
+  <!-- ══ FEATURE STORY SLIDESHOW ══ -->
+  <section class="story">
+    <div class="story__left">
+      <div class="story__slides">
+
+        <div class="s-slide is-active">
+          <p class="s-slide__eye">Inside</p>
+          <h3 class="s-slide__title">Organized at its heart</h3>
+          <p class="s-slide__body">The double-zip system opens fully flat to reveal a structured interior: suede-lined main compartment, a flat slip pocket, and a magnetic key fob — everything where you expect it.</p>
+        </div>
+
+        <div class="s-slide">
+          <p class="s-slide__eye">Structure</p>
+          <h3 class="s-slide__title">A silhouette that holds</h3>
+          <p class="s-slide__body">A semi-rigid base keeps the bag upright and the silhouette crisp, even after a full day of use. The Carry-All never sags, never collapses — it arrives looking exactly as you left it.</p>
+        </div>
+
+        <div class="s-slide">
+          <p class="s-slide__eye">Hardware</p>
+          <h3 class="s-slide__title">Gold that doesn't fade</h3>
+          <p class="s-slide__body">All metal components — zippers, rings, and base feet — are 14k gold-plated brass. Solid enough to last a decade. Beautiful enough to notice from across a room.</p>
+        </div>
+
+        <div class="s-slide">
+          <p class="s-slide__eye">Carry</p>
+          <h3 class="s-slide__title">Made for your hand</h3>
+          <p class="s-slide__body">The top handle is padded and shaped to sit comfortably in a relaxed grip. Compact enough to tuck under an arm. Structured enough to set on a table and stay standing.</p>
+        </div>
+
+      </div>
+
+      <div class="story__foot">
+        <div class="prog-bars" id="progBars">
+          <div class="prog-bar active"></div>
+          <div class="prog-bar"></div>
+          <div class="prog-bar"></div>
+          <div class="prog-bar"></div>
+        </div>
+        <div class="story-nav">
+          <button class="story-nav__btn" id="storyPrev" aria-label="Previous">‹</button>
+          <span class="story-nav__ctr" id="storyCtr">1 / 4</span>
+          <button class="story-nav__btn" id="storyNext" aria-label="Next">›</button>
+          <button class="story-nav__pause" id="storyPause" aria-label="Pause">⏸</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="story__right">
+      <img class="story__img" id="storyImg" src={storyImgArr[0]} alt={product.title} />
+    </div>
+  </section>
+
+  <!-- ══ FULL-BLEED ══ -->
+  <div class="full-bleed reveal">
+    <img src={fullBleedImg} alt={product.title} />
+  </div>
+
+  <!-- ══ LOOKBOOK ══ -->
+  <section class="lookbook reveal">
+    <div class="look-grid">
+      <div class="look-img"><img src={lookImgs[0]} alt="Lookbook 1" /></div>
+      <div class="look-img"><img src={lookImgs[1]} alt="Lookbook 2" /></div>
+      <div class="look-img"><img src={lookImgs[2]} alt="Lookbook 3" /></div>
+    </div>
+    <div class="look-dots">
+      <button class="look-dot is-active" aria-label="Set 1"></button>
+      <button class="look-dot" aria-label="Set 2"></button>
+      <button class="look-dot" aria-label="Set 3"></button>
+    </div>
+    <p class="look-caption">
+      From quiet mornings to late evenings — the Carry-All moves through your day without compromise. Dressed up or down, it always arrives looking right.
+    </p>
   </section>
 </main>
 
@@ -253,7 +335,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
 <SiteFooter />
 
 <script type="application/json" id="pdpData" set:html={JSON.stringify(clientData)}></script>
-<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref }}>
+<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref, storyImgs: storyImgArr }}>
   const data = JSON.parse(document.getElementById('pdpData').textContent || '{}');
   const variants = data.variants || [];
   const colorName = data.colorName;
@@ -405,6 +487,60 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     btn.addEventListener('click', () => btn.closest('.acc-item').classList.toggle('is-open'));
   });
 
+  // ── Feature story slideshow (auto-advancing, with prev/next/pause) ──
+  (function () {
+    const sSlides = document.querySelectorAll('.s-slide');
+    if (!sSlides.length) return;
+    const progBarEls = document.querySelectorAll('.prog-bar');
+    const storyImg = document.getElementById('storyImg');
+    const storyCtr = document.getElementById('storyCtr');
+    let sIdx = 0, sTimer = null, sPaused = false;
+
+    function goStory(n) {
+      sIdx = (n + sSlides.length) % sSlides.length;
+      sSlides.forEach((s) => s.classList.remove('is-active'));
+      sSlides[sIdx].classList.add('is-active');
+      progBarEls.forEach((b, i) => {
+        b.classList.remove('active', 'done');
+        if (i < sIdx) b.classList.add('done');
+        if (i === sIdx) b.classList.add('active');
+      });
+      if (storyImg && storyImgs[sIdx]) {
+        storyImg.style.opacity = '0';
+        setTimeout(() => { storyImg.src = storyImgs[sIdx]; storyImg.style.opacity = '1'; }, 240);
+      }
+      if (storyCtr) storyCtr.textContent = (sIdx + 1) + ' / ' + sSlides.length;
+    }
+    function startTimer() {
+      clearInterval(sTimer);
+      if (!sPaused) sTimer = setInterval(() => goStory(sIdx + 1), 4200);
+    }
+    document.getElementById('storyNext')?.addEventListener('click', () => { goStory(sIdx + 1); startTimer(); });
+    document.getElementById('storyPrev')?.addEventListener('click', () => { goStory(sIdx - 1); startTimer(); });
+    document.getElementById('storyPause')?.addEventListener('click', function () {
+      sPaused = !sPaused;
+      this.textContent = sPaused ? '▶' : '⏸';
+      startTimer();
+    });
+    startTimer();
+  })();
+
+  // ── Lookbook dots (decorative) ──
+  document.querySelectorAll('.look-dot').forEach((dot) => {
+    dot.addEventListener('click', () => {
+      document.querySelectorAll('.look-dot').forEach((d) => d.classList.remove('is-active'));
+      dot.classList.add('is-active');
+    });
+  });
+
+  // ── Scroll reveal (features · full-bleed · lookbook) ──
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('in'); revealObs.unobserve(e.target); }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach((el) => revealObs.observe(el));
+
   // Keep the header bag badge in sync with the live cart (also on bfcache back-nav)
   (function () {
     const els = document.querySelectorAll('.bag-count');
@@ -528,6 +664,50 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .feat__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.2rem, 1.8vw, 1.5rem); line-height: 1.25; margin-bottom: 12px; }
   .feat__body { font-size: 13.5px; line-height: 1.8; color: #555; }
 
+  /* ══ FEATURE STORY SLIDESHOW ══ */
+  .story { display: grid; grid-template-columns: 1fr 1fr; min-height: 72vh; border-top: 1px solid var(--rule); }
+  .story__left { background: #f8f7f4; padding: clamp(3rem, 6vw, 5rem) clamp(2.5rem, 5vw, 5rem); display: flex; flex-direction: column; justify-content: space-between; }
+  .story__slides { flex: 1; display: flex; align-items: center; }
+  .s-slide { display: none; animation: fadeIn .45s ease; }
+  .s-slide.is-active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .s-slide__eye { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--earth); font-weight: 600; margin-bottom: 18px; }
+  .s-slide__title { font-family: var(--serif); font-weight: 300; font-style: normal; font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.25; color: var(--depth); margin-bottom: 14px; }
+  .s-slide__body { font-size: 14px; line-height: 1.8; color: #555; max-width: 36ch; }
+  .story__foot { padding-top: 28px; }
+  .prog-bars { display: flex; gap: 10px; margin-bottom: 16px; }
+  .prog-bar { height: 2px; flex: 1; background: #d5d0cb; position: relative; overflow: hidden; }
+  .prog-bar::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; background: var(--depth); width: 0; }
+  .prog-bar.done::after { width: 100%; transition: none; }
+  .prog-bar.active::after { width: 100%; transition: width 4s linear; }
+  .story-nav { display: flex; align-items: center; gap: 14px; }
+  .story-nav__btn { font-size: 18px; color: var(--depth); padding: 4px; transition: color .2s; line-height: 1; }
+  .story-nav__btn:hover { color: var(--cherry); }
+  .story-nav__ctr { font-size: 12px; letter-spacing: .06em; color: var(--mid); font-weight: 500; }
+  .story-nav__pause { width: 26px; height: 26px; background: var(--depth); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; transition: background .2s; }
+  .story-nav__pause:hover { background: var(--cherry); }
+  .story__right { overflow: hidden; }
+  .story__img { width: 100%; height: 100%; object-fit: cover; transition: opacity .45s ease; }
+
+  /* ══ FULL-BLEED ══ */
+  .full-bleed { width: 100%; aspect-ratio: 16/7; overflow: hidden; background: var(--depth); }
+  .full-bleed img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ══ LOOKBOOK ══ */
+  .lookbook { padding: clamp(3rem, 6vw, 5rem) var(--gutter, clamp(20px,4vw,56px)); background: #ffffff; }
+  .look-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 1400px; margin: 0 auto clamp(1.5rem, 3vw, 2rem); }
+  .look-img { aspect-ratio: 3/4; overflow: hidden; background: var(--paper); }
+  .look-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
+  .look-img:hover img { transform: scale(1.03); }
+  .look-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 1.5rem; }
+  .look-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--depth); background: transparent; transition: background .2s; padding: 0; }
+  .look-dot.is-active { background: var(--depth); }
+  .look-caption { max-width: 680px; margin: 0 auto; font-family: var(--serif); font-weight: 300; font-style: normal; font-size: clamp(0.95rem, 1.6vw, 1.15rem); line-height: 1.8; color: #555; text-align: center; }
+
+  /* ══ SCROLL REVEAL ══ */
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
   .drawer { position: fixed; inset: 0; z-index: 300; pointer-events: none; visibility: hidden; }
   .drawer.is-open { pointer-events: auto; visibility: visible; }
   .drawer__scrim { position: absolute; inset: 0; background: rgba(20,12,8,0); transition: background .35s; }
@@ -560,11 +740,18 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     .mob-info { display: block; }
     .mob-bar { display: flex; }
     .feat-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .story { grid-template-columns: 1fr; }
+    .story__right { aspect-ratio: 4/3; order: -1; }
+    .look-grid { grid-template-columns: 1fr; }
+    .look-img { aspect-ratio: 4/3; }
     body { padding-bottom: 80px; }
   }
   @media (max-width: 1200px) and (min-width: 901px) {
     .pdp { grid-template-columns: 70px 1fr 460px; }
     .pdp__info { padding: 28px 32px 40px; }
+  }
+  @media (max-width: 600px) {
+    .story__left { padding: 2.5rem 1.25rem 2rem; }
   }
 
   /* ── FOOTER BRAND OVERRIDES (match homepage footer) ── */
