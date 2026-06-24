@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import PrivacyPolicyContent from '~/components/legal/PrivacyPolicyContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
 <BaseLayout title="Privacy Policy — Mir Kash" path="/pages/privacy-policy" description="Mir Kash Privacy Policy — how we collect, use, and protect your personal information.">
   <PrivacyPolicyContent />

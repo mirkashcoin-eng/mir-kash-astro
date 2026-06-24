@@ -1,5 +1,8 @@
 ---
 import CountrySelector from './CountrySelector.astro';
+
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
 ---
 <footer class="site-footer">
 
@@ -59,7 +62,7 @@ import CountrySelector from './CountrySelector.astro';
       </summary>
       <ul>
         <li><a href="#">Book a home demo</a></li>
-        <li><a href="/pages/shipping-returns">Shipping &amp; Returns</a></li>
+        <li><a href={`${prefix}/pages/shipping-returns`}>Shipping &amp; Returns</a></li>
         <li><a href="#">Track Order</a></li>
         <li><a href="#">Bulk Gifting</a></li>
       </ul>
@@ -70,8 +73,8 @@ import CountrySelector from './CountrySelector.astro';
         <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <ul>
-        <li><a href="/pages/terms-conditions">Terms</a></li>
-        <li><a href="/pages/privacy-policy">Privacy Policy</a></li>
+        <li><a href={`${prefix}/pages/terms-conditions`}>Terms</a></li>
+        <li><a href={`${prefix}/pages/privacy-policy`}>Privacy Policy</a></li>
         <li><a href="#">Sitemap</a></li>
         <li><a href="#">Accessibility</a></li>
       </ul>

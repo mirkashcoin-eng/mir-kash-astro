@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import TermsConditionsContent from '~/components/legal/TermsConditionsContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
 <BaseLayout title="Terms of Service — Mir Kash" path="/pages/terms-conditions" description="Mir Kash Terms of Service — the terms and conditions that govern your use of our website.">
   <TermsConditionsContent />

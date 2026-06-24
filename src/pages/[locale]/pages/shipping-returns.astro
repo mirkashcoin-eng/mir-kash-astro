@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ShippingReturnsContent from '~/components/legal/ShippingReturnsContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
 <BaseLayout title="Shipping &amp; Returns — Mir Kash" path="/pages/shipping-returns" description="Mir Kash Shipping and Returns — delivery timelines, free shipping across India, and our 15-day return policy.">
   <ShippingReturnsContent />
