@@ -636,19 +636,24 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
   .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
 
-  .acc-item { border-top: 1px solid var(--rule); }
-  .acc-item:last-child { border-bottom: 1px solid var(--rule); }
-  .acc-btn { width: 100%; padding: 19px 2px; display: flex; align-items: center; justify-content: space-between; gap: 18px; font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--depth); text-align: left; transition: color .25s; }
+  .acc-item { border: 1px solid var(--rule); border-radius: 14px; margin-bottom: 10px; overflow: hidden; background: #fff; transition: border-color .3s, box-shadow .35s, transform .35s cubic-bezier(.2,.7,.2,1), background-color .35s; }
+  .acc-item:last-child { margin-bottom: 0; }
+  .acc-item:hover { border-color: #d9d2c6; box-shadow: 0 12px 28px -16px rgba(44,26,14,.28); transform: translateY(-2px); }
+  .acc-item.is-open { background: #fbf9f5; border-color: rgba(44,26,14,.18); box-shadow: 0 12px 28px -18px rgba(44,26,14,.18); transform: none; }
+  .acc-btn { width: 100%; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); text-align: left; transition: color .25s; }
   .acc-btn:hover { color: var(--cherry); }
-  /* Thin + that morphs to − on open (elegant, hairline) */
-  .acc-icon { position: relative; width: 11px; height: 11px; flex-shrink: 0; font-size: 0; }
-  .acc-icon::before, .acc-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: 11px; height: 1px; background: var(--depth); transform: translate(-50%, -50%); transition: transform .4s cubic-bezier(.2,.7,.2,1), background-color .25s; }
+  /* Circular toggle: thin + that spins into a filled × on open */
+  .acc-icon { position: relative; width: 28px; height: 28px; flex-shrink: 0; font-size: 0; border-radius: 50%; border: 1px solid var(--rule); background: transparent; transition: background-color .35s, border-color .3s, transform .5s cubic-bezier(.2,.7,.2,1); }
+  .acc-icon::before, .acc-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: 10px; height: 1.5px; background: var(--depth); transform: translate(-50%, -50%); transition: background-color .3s; }
   .acc-icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+  .acc-btn:hover .acc-icon { border-color: var(--cherry); }
   .acc-btn:hover .acc-icon::before, .acc-btn:hover .acc-icon::after { background: var(--cherry); }
-  .acc-item.is-open .acc-icon::after { transform: translate(-50%, -50%) rotate(0deg); }
-  .acc-body { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
+  .acc-item.is-open .acc-icon { background: var(--depth); border-color: var(--depth); transform: rotate(135deg); }
+  .acc-item.is-open .acc-icon::before, .acc-item.is-open .acc-icon::after { background: #fff; }
+  .acc-body { max-height: 0; overflow: hidden; transition: max-height .45s cubic-bezier(.2,.7,.2,1); }
   .acc-item.is-open .acc-body { max-height: 500px; }
-  .acc-inner { padding: 0 2px 22px; font-size: 13px; line-height: 1.85; color: var(--mid); }
+  .acc-inner { padding: 0 18px 18px; font-size: 13px; line-height: 1.85; color: var(--mid); opacity: 0; transform: translateY(-6px); transition: opacity .4s ease .06s, transform .4s ease .06s; }
+  .acc-item.is-open .acc-inner { opacity: 1; transform: none; }
   .acc-inner ul { list-style: disc; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
 
   .mob-gal { display: none; position: relative; background: #f5f2ed; }
