@@ -29,8 +29,13 @@ const { heading } = Astro.props;
   }
   body { background: var(--paper); }
 
-  /* Legal pages use the solid header; the hamburger is replaced by the nav row. */
+  /* Legal pages use the solid header with the hamburger hidden (the nav row replaces
+     it). With the menu button gone, place the logo centered and the account/bag
+     actions hard-right so row 1 matches the rest of the site. */
   .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
   .legal {
     background: var(--paper);
