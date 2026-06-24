@@ -30,7 +30,15 @@ const galleryFulls = images.map((i) => i.full);
 const pickImg = (i: number) => (galleryFulls.length ? galleryFulls[i % galleryFulls.length] : '');
 const storyImgArr = [0, 1, 2, 3].map(pickImg);
 const fullBleedImg = pickImg(1);
-const lookImgs = [0, 1, 2].map(pickImg);
+
+// Shoppable reels — the brand's vertical videos (hosted on the Shopify CDN), same as mirkash.in.
+const REELS = [
+  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/9aec54c28a0b4e6ebc496c4fd9cfcb25/9aec54c28a0b4e6ebc496c4fd9cfcb25.HD-1080p-2.5Mbps-41014614.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/9aec54c28a0b4e6ebc496c4fd9cfcb25.thumbnail.0000000000_600x.jpg?v=1736928328' },
+  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/2dc16b90b6c84393a5f695adae892c15/2dc16b90b6c84393a5f695adae892c15.SD-480p-0.9Mbps-44607305.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/2dc16b90b6c84393a5f695adae892c15.thumbnail.0000000000_600x.jpg?v=1742590421' },
+  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/e23697e03d794e6ca9713f375825a876/e23697e03d794e6ca9713f375825a876.HD-1080p-7.2Mbps-44606795.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/e23697e03d794e6ca9713f375825a876.thumbnail.0000000000_600x.jpg?v=1742589749' },
+  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/34f18c8ed63946558f022c56a611ac85/34f18c8ed63946558f022c56a611ac85.HD-1080p-7.2Mbps-44606796.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/34f18c8ed63946558f022c56a611ac85.thumbnail.0000000000_600x.jpg?v=1742589749' },
+  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/d6665fbc4f0c4e22a961f411bcd15963/d6665fbc4f0c4e22a961f411bcd15963.HD-1080p-7.2Mbps-44850754.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/d6665fbc4f0c4e22a961f411bcd15963.thumbnail.0000000000_600x.jpg?v=1742980518' },
+];
 
 // ── Options & variants ───────────────────────────────────────────────────────
 const isRealOption = (name: string, values: string[]) =>
@@ -308,21 +316,23 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     <img src={fullBleedImg} alt={product.title} />
   </div>
 
-  <!-- ══ LOOKBOOK ══ -->
-  <section class="lookbook reveal">
-    <div class="look-grid">
-      <div class="look-img"><img src={lookImgs[0]} alt="Lookbook 1" /></div>
-      <div class="look-img"><img src={lookImgs[1]} alt="Lookbook 2" /></div>
-      <div class="look-img"><img src={lookImgs[2]} alt="Lookbook 3" /></div>
+  <!-- ══ REELS ══ -->
+  <section class="reels reveal">
+    <div class="reels__head">
+      <p class="reels__eye">Reels</p>
+      <h2 class="reels__title">Mir Kash in motion</h2>
     </div>
-    <div class="look-dots">
-      <button class="look-dot is-active" aria-label="Set 1"></button>
-      <button class="look-dot" aria-label="Set 2"></button>
-      <button class="look-dot" aria-label="Set 3"></button>
+    <div class="reels__track" id="reelsTrack">
+      {REELS.map((r) => (
+        <div class="reel">
+          <video class="reel__video" src={r.src} poster={r.poster} muted loop playsinline preload="metadata"></video>
+          <button class="reel__sound" type="button" aria-label="Toggle sound">
+            <svg class="i-mute" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+            <svg class="i-sound" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+          </button>
+        </div>
+      ))}
     </div>
-    <p class="look-caption">
-      From quiet mornings to late evenings — the Carry-All moves through your day without compromise. Dressed up or down, it always arrives looking right.
-    </p>
   </section>
 </main>
 
@@ -525,13 +535,37 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     startTimer();
   })();
 
-  // ── Lookbook dots (decorative) ──
-  document.querySelectorAll('.look-dot').forEach((dot) => {
-    dot.addEventListener('click', () => {
-      document.querySelectorAll('.look-dot').forEach((d) => d.classList.remove('is-active'));
-      dot.classList.add('is-active');
+  // ── Reels: play when on-screen, pause off-screen; tap a reel's speaker for sound ──
+  (function () {
+    const vids = document.querySelectorAll('.reel__video');
+    if (!vids.length) return;
+    const tryPlay = (v) => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) tryPlay(e.target); else e.target.pause(); });
+      }, { threshold: 0.5 });
+      vids.forEach((v) => io.observe(v));
+    } else {
+      vids.forEach(tryPlay);
+    }
+    document.querySelectorAll('.reel__sound').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const v = btn.closest('.reel')?.querySelector('.reel__video');
+        if (!v) return;
+        if (v.muted) {
+          // only one reel plays sound at a time
+          vids.forEach((o) => { o.muted = true; });
+          document.querySelectorAll('.reel__sound').forEach((b) => b.classList.remove('is-on'));
+          v.muted = false;
+          btn.classList.add('is-on');
+          tryPlay(v);
+        } else {
+          v.muted = true;
+          btn.classList.remove('is-on');
+        }
+      });
     });
-  });
+  })();
 
   // ── Scroll reveal (features · full-bleed · lookbook) ──
   const revealObs = new IntersectionObserver((entries) => {
@@ -699,16 +733,20 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .full-bleed { width: 100%; aspect-ratio: 16/7; overflow: hidden; background: var(--depth); }
   .full-bleed img { width: 100%; height: 100%; object-fit: cover; }
 
-  /* ══ LOOKBOOK ══ */
-  .lookbook { padding: clamp(3rem, 6vw, 5rem) var(--gutter, clamp(20px,4vw,56px)); background: #ffffff; }
-  .look-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 1400px; margin: 0 auto clamp(1.5rem, 3vw, 2rem); }
-  .look-img { aspect-ratio: 3/4; overflow: hidden; background: var(--paper); }
-  .look-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
-  .look-img:hover img { transform: scale(1.03); }
-  .look-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 1.5rem; }
-  .look-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--depth); background: transparent; transition: background .2s; padding: 0; }
-  .look-dot.is-active { background: var(--depth); }
-  .look-caption { max-width: 680px; margin: 0 auto; font-family: var(--serif); font-weight: 300; font-style: normal; font-size: clamp(0.95rem, 1.6vw, 1.15rem); line-height: 1.8; color: #555; text-align: center; }
+  /* ══ REELS ══ */
+  .reels { padding: clamp(3rem, 6vw, 5rem) 0 clamp(3.5rem, 6vw, 5rem); background: #fff; border-top: 1px solid var(--rule); }
+  .reels__head { text-align: center; margin-bottom: clamp(1.8rem, 3.5vw, 2.6rem); padding: 0 var(--gutter, clamp(20px,4vw,56px)); }
+  .reels__eye { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--earth); font-weight: 600; margin-bottom: 12px; }
+  .reels__title { font-family: var(--serif); font-weight: 300; font-style: normal; font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.2; color: var(--depth); }
+  .reels__track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 1440px; margin: 0 auto; padding: 4px var(--gutter, clamp(20px,4vw,56px)); }
+  .reels__track::-webkit-scrollbar { display: none; }
+  .reel { position: relative; flex: 0 0 auto; width: clamp(210px, 22vw, 280px); aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; background: var(--paper); scroll-snap-align: start; box-shadow: 0 14px 30px -20px rgba(44,26,14,.45); }
+  .reel__video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .reel__sound { position: absolute; bottom: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(20,12,8,.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: background .2s; }
+  .reel__sound:hover { background: rgba(20,12,8,.7); }
+  .reel__sound .i-sound { display: none; }
+  .reel__sound.is-on .i-mute { display: none; }
+  .reel__sound.is-on .i-sound { display: block; }
 
   /* ══ SCROLL REVEAL ══ */
   .reveal { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
@@ -748,8 +786,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     .feat-grid { grid-template-columns: 1fr; gap: 2.5rem; }
     .story { grid-template-columns: 1fr; }
     .story__right { aspect-ratio: 4/3; order: -1; }
-    .look-grid { grid-template-columns: 1fr; }
-    .look-img { aspect-ratio: 4/3; }
+    .reel { width: 66vw; max-width: 300px; }
     body { padding-bottom: 80px; }
   }
   @media (max-width: 1200px) and (min-width: 901px) {
