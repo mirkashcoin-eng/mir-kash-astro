@@ -18,8 +18,8 @@ Astro.response.headers.set(
 
 const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path) || '/');
 
-const defaultFonts = 'https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500;600&display=swap';
-const fontsUrl = fontsHref ?? defaultFonts;
+// Jost is self-hosted via /fonts/jost.css (imported in styles.css) — no Google Fonts request.
+const fontsUrl = fontsHref ?? '';
 
 const orgJsonLd = {
   '@context': 'https://schema.org',
@@ -54,9 +54,13 @@ const orgJsonLd = {
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href={fontsUrl} rel="stylesheet" />
+    {fontsUrl && (
+      <>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href={fontsUrl} rel="stylesheet" />
+      </>
+    )}
 
     <link rel="stylesheet" href="/styles.css" />
 

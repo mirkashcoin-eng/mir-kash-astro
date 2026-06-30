@@ -3,7 +3,7 @@
    Geometric / minimal / editorial commerce
    ============================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500;600&display=swap');
+@import url('/fonts/jost.css'); /* self-hosted Jost (variable woff2) — no third-party request */
 
 *, *::before, *::after {
   box-sizing: border-box;
