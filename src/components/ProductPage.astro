@@ -75,6 +75,10 @@ const hexFor = (name: string) =>
   COLOR_HEX[name.trim().toLowerCase()] ?? '#bdb5a8';
 
 const clientData = { variants: variantData, colorName: colorOption?.name ?? null, sizeName: sizeOption?.name ?? null };
+
+// Temporarily hidden until real content is ready — flip to true to bring the
+// Feature Story slideshow back on every product page.
+const SHOW_STORY = false;
 ---
 
 <header class="hdr">
@@ -271,7 +275,8 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
     </div>
   </section>
 
-  <!-- ══ FEATURE STORY SLIDESHOW ══ -->
+  <!-- ══ FEATURE STORY SLIDESHOW ══ — hidden via SHOW_STORY until content is ready -->
+  {SHOW_STORY && (
   <section class="story">
     <div class="story__left">
       <div class="story__slides">
@@ -322,6 +327,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
       <img class="story__img" id="storyImg" src={storyImgArr[0]} alt={product.title} />
     </div>
   </section>
+  )}
 
   <!-- ══ FULL-BLEED ══ -->
   <div class="full-bleed reveal">
