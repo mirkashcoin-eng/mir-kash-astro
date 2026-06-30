@@ -1,0 +1,11 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ReturnsPortal from '~/components/content/ReturnsPortal.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+---
+<BaseLayout title="Start a Return — Mir Kash" path="/pages/returns-portal" description="Start a Mir Kash return — enter your order number and email to begin.">
+  <ReturnsPortal />
+</BaseLayout>

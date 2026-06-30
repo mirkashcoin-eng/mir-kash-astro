@@ -1,0 +1,49 @@
+---
+import LegalPage from '../LegalPage.astro';
+---
+<LegalPage eyebrow="Returns" heading="Start a return" lede="14 days from delivery. Enter your order details and our team will take it from there.">
+  <form class="rp-form" id="returnForm">
+    <label class="rp-field">
+      <span>Order number</span>
+      <input type="text" name="order" required placeholder="e.g. 1042" />
+    </label>
+    <label class="rp-field">
+      <span>Email used on the order</span>
+      <input type="email" name="email" required placeholder="you@email.com" />
+    </label>
+    <label class="rp-field">
+      <span>Reason (optional)</span>
+      <textarea name="reason" rows="3" placeholder="A little about why you&rsquo;re returning"></textarea>
+    </label>
+    <button type="submit" class="rp-submit">Start return</button>
+    <p class="rp-note">Prefer email? Write to <a href="mailto:returns@mirkash.com">returns@mirkash.com</a> with your order number.</p>
+  </form>
+
+  <p class="rp-terms">Bags must be unused and returned in their original packaging (box, dust bag, and inserts). Refunds are processed within 14 working days of inspection. See <a href="/pages/shipping-returns">Shipping &amp; Returns</a> for full details.</p>
+
+  <script is:inline>
+    document.getElementById('returnForm')?.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.currentTarget;
+      var order = (f.order.value || '').trim();
+      var email = (f.email.value || '').trim();
+      var reason = (f.reason.value || '').trim();
+      var subject = encodeURIComponent('Return request — order ' + order);
+      var body = encodeURIComponent('Order number: ' + order + '\nEmail: ' + email + '\nReason: ' + (reason || '—') + '\n\nI would like to start a return.');
+      window.location.href = 'mailto:returns@mirkash.com?subject=' + subject + '&body=' + body;
+    });
+  </script>
+
+  <style>
+    .rp-form { max-width: 460px; margin: 4px 0 8px; }
+    .rp-field { display: block; margin-bottom: 18px; }
+    .rp-field span { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); margin-bottom: 8px; font-weight: 500; }
+    .rp-field input, .rp-field textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--rule, #e4dfd7); background: #fff; font-family: inherit; font-size: 14px; color: var(--depth); border-radius: 0; }
+    .rp-field textarea { resize: vertical; }
+    .rp-field input:focus, .rp-field textarea:focus { outline: none; border-color: var(--depth); }
+    .rp-submit { background: var(--depth); color: #fff; border: none; padding: 14px 30px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; transition: background .2s; }
+    .rp-submit:hover { background: var(--cherry); }
+    .rp-note { font-size: 13px; color: var(--mid, #6e6a64); margin-top: 16px; }
+    .rp-terms { font-size: 13px; color: var(--mid, #6e6a64); margin-top: 28px; }
+  </style>
+</LegalPage>
