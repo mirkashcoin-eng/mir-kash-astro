@@ -1,6 +1,7 @@
 ---
 interface Props {
   image?: string;
+  imageMobile?: string;
   background?: string;
   title: string;
   emphasis?: string;
@@ -8,11 +9,12 @@ interface Props {
   href?: string;
 }
 
-const { image, background, title, emphasis, cta, href = '#' } = Astro.props;
+const { image, imageMobile, background, title, emphasis, cta, href = '#' } = Astro.props;
 const heading = emphasis ? `${title} ` : title;
 
+// Desktop/mobile artwork is swapped by a media query in styles.css via --bg-d / --bg-m.
 const style = image
-  ? `background-image:url('${image}'); background-size:cover; background-position:center; background-repeat:no-repeat;`
+  ? `--bg-d:url('${image}'); --bg-m:url('${imageMobile ?? image}');`
   : background
   ? `background:${background};`
   : '';
