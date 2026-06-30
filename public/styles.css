@@ -813,6 +813,7 @@ img { display: block; max-width: 100%; }
   }
   .pr-grid::-webkit-scrollbar { display: none; }
   .pr-card { flex: 0 0 43vw; scroll-snap-align: start; }
+  .pr-img { aspect-ratio: 4 / 5.5; }
   .pr-meta { padding: 10px 12px 20px; }
 
   .ed-grid { grid-template-columns: 1fr; }
