@@ -29,8 +29,8 @@ em, i, cite, var, dfn, address, blockquote { font-style: normal; }
 :root {
   /* Color */
   --white:    #ffffff;
-  --paper:    #f6f3ee;
-  --cream:    #ebe6dd;
+  --paper:    #ffffff;
+  --cream:    #ffffff;
   --rule:     #e4dfd7;
   --ink:      #141414;
   --ink-mid:  #6e6a64;
