@@ -411,6 +411,8 @@ img { display: block; max-width: 100%; }
   transition: background .3s;
 }
 .ed-panel:hover::after { background: rgba(0,0,0,.10); }
+/* full-cover link so the whole editorial tile / banner is clickable */
+.ed-cover { position: absolute; inset: 0; z-index: 3; }
 
 .ed-text {
   position: absolute;

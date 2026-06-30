@@ -20,6 +20,7 @@ const style = image
   : '';
 ---
 <div class="ed-panel" style={style}>
+  {href && href !== '#' && <a class="ed-cover" href={href} aria-label={`Shop ${title}${emphasis ? ' ' + emphasis : ''}`}></a>}
   <div class="ed-text">
     <h2>{heading}{emphasis && <em>{emphasis}</em>}</h2>
     <a href={href}>{cta}</a>

@@ -60,27 +60,6 @@ const lightProducts = products.map((p) => ({
     </p>
   </nav>
 
-  <section class="cat-row" aria-label="Shop by category">
-    <div class="cat-row__grid">
-      {[
-        { cat: 'crossbody-bags', num: 'i.',   label: 'Crossbody' },
-        { cat: 'handbags',       num: 'ii.',  label: 'Handbag' },
-        { cat: 'shoulder-bags',  num: 'iii.', label: 'Shoulder' },
-        { cat: 'mini-bags',      num: 'iv.',  label: 'Mini' },
-        { cat: 'clutches',       num: 'v.',   label: 'Clutch' },
-        { cat: 'duffel-bags',    num: 'vi.',  label: 'Duffel' },
-        { cat: 'tote-bags',      num: 'vii.', label: 'Tote' },
-      ].map((c) => (
-        <button class="cat-tile" data-cat={c.cat} type="button">
-          <div class="cat-tile__img" style="background:linear-gradient(170deg,#f0ede8 0%,#e0ddd8 100%);">
-            <span class="cat-tile__num" style="color:rgba(20,20,20,.45);">{c.num}</span>
-          </div>
-          <span class="cat-tile__label">{c.label}</span>
-        </button>
-      ))}
-    </div>
-  </section>
-
   <section class="shop-grid" id="shopGrid"></section>
   <div class="grid-sentinel" id="gridSentinel" aria-hidden="true"></div>
 

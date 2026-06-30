@@ -9,6 +9,7 @@ import { getProductsByCollection, getAllProducts } from '~/lib/shopify/queries';
 
 const { market, marketConfig } = Astro.locals;
 const country = marketConfig.countryCode;
+const prefix = marketConfig.urlPrefix;
 
 const HOMEPAGE_COLLECTIONS = {
   row1: 'new-arrivals',
@@ -58,23 +59,24 @@ if (needsFallback) {
   <ProductRow products={ROW_1} />
 
   <section class="ed-grid">
-    <EditorialPanel image="/home/d2.avif" imageMobile="/home/m2.avif" title="New" emphasis="arrivals" cta="Shop now" />
-    <EditorialPanel image="/home/d3.avif" imageMobile="/home/m3.avif" title="For this" emphasis="summer" cta="Shop now" />
+    <EditorialPanel image="/home/d2.avif" imageMobile="/home/m2.avif" title="New" emphasis="arrivals" cta="Shop now" href={`${prefix}/products/tory-bag-black`} />
+    <EditorialPanel image="/home/d3.avif" imageMobile="/home/m3.avif" title="For this" emphasis="summer" cta="Shop now" href={`${prefix}/products/bucky-bag-tan`} />
   </section>
 
   <ProductRow products={ROW_2} />
 
   <section class="ed-grid">
-    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="Bestsellers" cta="Shop now" />
-    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" title="Top" emphasis="handle" cta="Shop now" />
+    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="Bestsellers" cta="Shop now" href={`${prefix}/products/weaver-tote-cherry-red`} />
+    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" title="Top" emphasis="handle" cta="Shop now" href={`${prefix}/products/braidey-cherry-red`} />
   </section>
 
   <ProductRow products={ROW_3} />
 
   <section class="full-banner" style="--bg-d:url('/home/d6.avif'); --bg-m:url('/home/m6.avif');">
+    <a class="ed-cover" href={`${prefix}/products/braidey-metallic-silver`} aria-label="Shop now"></a>
     <div class="ed-text">
       <h2>New <em>clothing</em></h2>
-      <a href="#">Shop now</a>
+      <a href={`${prefix}/products/braidey-metallic-silver`}>Shop now</a>
     </div>
   </section>
 
