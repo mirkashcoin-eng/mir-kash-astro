@@ -185,33 +185,11 @@ const lightProducts = products.map((p) => ({
   const BATCH = 8;
   let renderIndex = 0;
   let currentFilter = 'all';
-  let storyInserted = false;
 
   function getFiltered() {
     return currentFilter === 'all'
       ? CATALOG.slice()
       : CATALOG.filter(p => p.cat === currentFilter);
-  }
-
-  function insertStoryRow() {
-    const story = document.createElement('div');
-    story.className = 'shop-story';
-    story.setAttribute('aria-label', 'The Orchardcraft story');
-    story.innerHTML = `
-      <div class="shop-story__img" aria-hidden="true"></div>
-      <div class="shop-story__inner">
-        <span class="shop-story__eyebrow">Orchardcraft · The material</span>
-        <h2 class="shop-story__h2">She was <em>made</em><br>from apples.</h2>
-        <p class="shop-story__body">
-          Apple pomace — the skin and pulp left from South Tyrol's juice harvest — pressed, dried, and laid flat. The softness of calf leather. The carbon footprint of recovered waste. Hurts nothing.
-        </p>
-        <a href="#" class="shop-story__link">
-          What she's made of
-          <svg width="14" height="10" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="0" y1="6" x2="22" y2="6"/><polyline points="16 1 22 6 16 11"/></svg>
-        </a>
-      </div>
-    `;
-    grid.appendChild(story);
   }
 
   function renderBatch() {
@@ -221,16 +199,11 @@ const lightProducts = products.map((p) => ({
       grid.appendChild(renderCard(items[i]));
     }
     renderIndex = end;
-    if (!storyInserted && renderIndex >= 8 && currentFilter === 'all') {
-      insertStoryRow();
-      storyInserted = true;
-    }
   }
 
   function resetGrid() {
     grid.innerHTML = '';
     renderIndex = 0;
-    storyInserted = false;
     renderBatch();
   }
 
@@ -1032,87 +1005,6 @@ const lightProducts = products.map((p) => ({
     border: 1px solid rgba(0,0,0,.12);
   }
 
-  .shop-story {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    background: var(--plum);
-    color: #f3eae6;
-    gap: 0;
-    min-height: clamp(380px, 38vw, 560px);
-    align-items: stretch;
-  }
-  .shop-story__img {
-    position: relative;
-    background: linear-gradient(170deg, #8a4f3a 0%, #5c2d3e 60%, #2c1a0e 100%);
-    overflow: hidden;
-  }
-  .shop-story__img::after {
-    content: 'orchard / craft film placeholder';
-    position: absolute;
-    bottom: 18px; left: 22px;
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 10.5px;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.45);
-  }
-  .shop-story__inner {
-    padding: clamp(36px, 4.5vw, 72px) clamp(28px, 4vw, 72px);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 22px;
-  }
-  .shop-story__eyebrow {
-    font-size: 10.5px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    color: rgba(243, 234, 230, .65);
-    font-weight: 500;
-  }
-  .shop-story__h2 {
-    font-family: var(--serif);
-    font-weight: 300;
-    font-style: normal;
-    font-size: clamp(36px, 4.6vw, 64px);
-    line-height: 1.02;
-    letter-spacing: -0.005em;
-    color: #fff;
-  }
-  .shop-story__h2 em {
-    font-style: normal;
-    color: var(--earth);
-  }
-  .shop-story__body {
-    font-family: var(--serif);
-    font-weight: 300;
-    font-size: clamp(15px, 1.25vw, 18px);
-    line-height: 1.55;
-    color: rgba(243,234,230,.85);
-    max-width: 48ch;
-  }
-  .shop-story__link {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 6px;
-    font-size: 11px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    font-weight: 500;
-    color: #fff;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255,255,255,.55);
-    transition: color .2s, border-color .2s, gap .2s;
-  }
-  .shop-story__link:hover {
-    color: var(--earth);
-    border-color: var(--earth);
-    gap: 20px;
-  }
-
   .hdr--solid .ann-bar { letter-spacing: var(--tr-caps); }
   .ann-center .ann-serif {
     font-family: var(--serif);
@@ -1368,10 +1260,6 @@ const lightProducts = products.map((p) => ({
       transform: none;
     }
     .shop-card__meta { padding: 14px 14px 22px; }
-
-    .shop-story { grid-template-columns: 1fr; }
-    .shop-story__img { min-height: 280px; }
-    .shop-story__inner { padding: 36px 24px; }
 
     .ann-center .ann-serif { display: none; }
     .foot-brandline { padding: 48px 24px; }
