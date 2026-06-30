@@ -9,9 +9,9 @@ const cartCount = getCartCount(Astro.cookies, market);
 
 const navItems = [
   { word: 'Shop All',  href: `${prefix}/shop` },
-  { word: 'Materials', href: `${homeHref}#orchardcraft` },
+  { word: 'Materials', href: `${prefix}/pages/materials` },
   { word: 'Journal',   href: `${homeHref}#journal` },
-  { word: 'About',     href: `${homeHref}#about` },
+  { word: 'About',     href: `${prefix}/pages/about` },
 ];
 ---
 <div class="page-header hdr--solid">
