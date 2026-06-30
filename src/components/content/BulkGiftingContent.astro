@@ -1,0 +1,61 @@
+---
+import LegalPage from '../LegalPage.astro';
+---
+<LegalPage eyebrow="Gifting" heading="Bulk Gifting" lede="Some gifts say thank you. Some say we see you. The best ones say both.">
+  <p>Mir Kash bags make for gifts people actually remember &mdash; considered, well-made, and different from what everyone else is giving. People remember a gift like this.</p>
+
+  <h2>Who we work with</h2>
+  <ul>
+    <li>Corporate teams and employee gifting</li>
+    <li>Client and partner appreciation</li>
+    <li>Wedding favours and trousseau gifting</li>
+    <li>Events and brand activations</li>
+    <li>Founders who care about what they put their name on</li>
+  </ul>
+
+  <h2>What we offer</h2>
+  <p>Bulk orders across our existing range, with options to discuss packaging customisation for larger orders. Every bag arrives in our standard gift-ready packaging &mdash; no extra effort needed on your end.</p>
+
+  <h2>Why Mir Kash</h2>
+  <p>A vegan bag is a gift with a point of view. It&rsquo;s beautiful, considered, and tells the person receiving it that you thought about it. For brands and founders who want their values to show up in the details &mdash; this is that detail.</p>
+
+  <h2>Get in touch</h2>
+  <p>Share your requirement and we&rsquo;ll take it from there &mdash; order size, timeline, occasion. We&rsquo;ll come back with options. Write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> or fill in the form below.</p>
+
+  <form class="mk-form" id="bulkForm">
+    <div class="mk-row">
+      <label class="mk-field"><span>Name</span><input type="text" name="name" required /></label>
+      <label class="mk-field"><span>Company</span><input type="text" name="company" /></label>
+    </div>
+    <div class="mk-row">
+      <label class="mk-field"><span>Email</span><input type="email" name="email" required /></label>
+      <label class="mk-field"><span>Phone</span><input type="tel" name="phone" /></label>
+    </div>
+    <div class="mk-row">
+      <label class="mk-field"><span>Occasion</span><input type="text" name="occasion" /></label>
+      <label class="mk-field"><span>Quantity</span><input type="text" name="quantity" /></label>
+    </div>
+    <label class="mk-field"><span>Category / Product</span><input type="text" name="product" /></label>
+    <label class="mk-field"><span>Message</span><textarea name="message" rows="4"></textarea></label>
+    <button type="submit" class="mk-submit">Submit</button>
+  </form>
+
+  <script is:inline>
+    document.getElementById('bulkForm')?.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.currentTarget;
+      var subject = encodeURIComponent('Bulk gifting enquiry — ' + (f.name.value || '').trim());
+      var body = encodeURIComponent(
+        'Name: ' + (f.name.value || '').trim() +
+        '\nCompany: ' + (f.company.value || '').trim() +
+        '\nEmail: ' + (f.email.value || '').trim() +
+        '\nPhone: ' + (f.phone.value || '').trim() +
+        '\nOccasion: ' + (f.occasion.value || '').trim() +
+        '\nQuantity: ' + (f.quantity.value || '').trim() +
+        '\nCategory/Product: ' + (f.product.value || '').trim() +
+        '\n\n' + (f.message.value || '').trim()
+      );
+      window.location.href = 'mailto:order@mirkash.com?subject=' + subject + '&body=' + body;
+    });
+  </script>
+</LegalPage>

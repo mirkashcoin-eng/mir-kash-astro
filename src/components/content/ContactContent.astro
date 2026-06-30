@@ -1,0 +1,38 @@
+---
+import LegalPage from '../LegalPage.astro';
+---
+<LegalPage eyebrow="Contact" heading="Contact" lede="Questions, feedback, gifting enquiries, or just want to know more &mdash; we&rsquo;re here.">
+  <p>Fill in the form or write to us directly at <a href="mailto:info@mirkash.com">info@mirkash.com</a>. We reply within 1&ndash;2 business days.</p>
+
+  <form class="mk-form" id="contactForm">
+    <div class="mk-row">
+      <label class="mk-field"><span>Name</span><input type="text" name="name" required /></label>
+      <label class="mk-field"><span>Email</span><input type="email" name="email" required /></label>
+    </div>
+    <label class="mk-field"><span>Phone Number</span><input type="tel" name="phone" /></label>
+    <label class="mk-field"><span>Message</span><textarea name="message" rows="5" required></textarea></label>
+    <button type="submit" class="mk-submit">Send</button>
+  </form>
+
+  <h2>Other ways to reach us</h2>
+  <p>For orders and returns: <a href="mailto:order@mirkash.com">order@mirkash.com</a><br />
+  For press and collaborations: <a href="mailto:press@mirkash.com">press@mirkash.com</a></p>
+
+  <h2>Find us</h2>
+  <p>New York, USA<br />Mumbai, India<br />Hong Kong</p>
+
+  <script is:inline>
+    document.getElementById('contactForm')?.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.currentTarget;
+      var subject = encodeURIComponent('Mir Kash enquiry — ' + (f.name.value || '').trim());
+      var body = encodeURIComponent(
+        'Name: ' + (f.name.value || '').trim() +
+        '\nEmail: ' + (f.email.value || '').trim() +
+        '\nPhone: ' + (f.phone.value || '').trim() +
+        '\n\n' + (f.message.value || '').trim()
+      );
+      window.location.href = 'mailto:info@mirkash.com?subject=' + subject + '&body=' + body;
+    });
+  </script>
+</LegalPage>

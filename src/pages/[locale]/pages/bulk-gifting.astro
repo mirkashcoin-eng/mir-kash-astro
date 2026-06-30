@@ -1,0 +1,11 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import BulkGiftingContent from '~/components/content/BulkGiftingContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+---
+<BaseLayout title="Bulk Gifting — Mir Kash" path="/pages/bulk-gifting" description="Mir Kash bulk and corporate gifting — considered, well-made vegan bags for teams, clients, weddings, and events.">
+  <BulkGiftingContent />
+</BaseLayout>

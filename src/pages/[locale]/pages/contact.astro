@@ -1,0 +1,11 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ContactContent from '~/components/content/ContactContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+---
+<BaseLayout title="Contact — Mir Kash" path="/pages/contact" description="Get in touch with Mir Kash — questions, feedback, gifting enquiries. We reply within 1–2 business days.">
+  <ContactContent />
+</BaseLayout>

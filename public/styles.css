@@ -414,6 +414,18 @@ img { display: block; max-width: 100%; }
 /* full-cover link so the whole editorial tile / banner is clickable */
 .ed-cover { position: absolute; inset: 0; z-index: 3; }
 
+/* ── shared form styling for content pages (contact, bulk gifting, returns) ── */
+.mk-form { max-width: 540px; margin: 4px 0 8px; }
+.mk-form .mk-field { display: block; margin-bottom: 18px; }
+.mk-form .mk-field > span { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink, #141414); margin-bottom: 8px; font-weight: 500; }
+.mk-form input, .mk-form textarea, .mk-form select { width: 100%; padding: 12px 14px; border: 1px solid var(--rule, #e4dfd7); background: #fff; font-family: inherit; font-size: 14px; color: var(--ink, #141414); border-radius: 0; }
+.mk-form textarea { resize: vertical; }
+.mk-form input:focus, .mk-form textarea:focus, .mk-form select:focus { outline: none; border-color: #1a1a1a; }
+.mk-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+@media (max-width: 560px) { .mk-row { grid-template-columns: 1fr; } }
+.mk-submit { background: #1a1a1a; color: #fff; border: none; padding: 14px 32px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; transition: background .2s; }
+.mk-submit:hover { background: #8B1A1A; }
+
 .ed-text {
   position: absolute;
   top: 28px;
