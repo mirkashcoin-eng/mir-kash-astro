@@ -79,7 +79,12 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
 
 <header class="hdr">
   <div class="hdr__wrap">
-    <div class="hdr__left" aria-hidden="true"></div>
+    <nav class="hdr__nav" aria-label="Primary">
+      <a href={shopHref}>Shop All</a>
+      <a href={`${homeHref}#orchardcraft`}>Materials</a>
+      <a href={`${homeHref}#journal`}>Journal</a>
+      <a href={`${homeHref}#about`}>About</a>
+    </nav>
     <a href={homeHref} class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
     <div class="hdr__right">
       <a class="hdr__btn hdr__bag" href={cartHref} aria-label="Bag">
@@ -620,6 +625,9 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .hdr__btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; color: var(--depth); font-size: 11px; letter-spacing: .08em; font-weight: 500; transition: opacity .2s; }
   .hdr__btn:hover { opacity: .55; }
   .hdr__bag .bag-count { font-size: 12px; }
+  .hdr__nav { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 22px; }
+  .hdr__nav a { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; color: var(--depth); transition: opacity .2s; }
+  .hdr__nav a:hover { opacity: .55; }
 
   .bc { font-size: 12px; letter-spacing: .02em; font-weight: 400; color: var(--mid); }
   .bc a:hover { color: var(--cherry); }
@@ -632,7 +640,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb.is-active { border-color: var(--depth); }
   .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; }
-  .gimg { width: 100%; aspect-ratio: 5/6; overflow: hidden; background: #f8f8f8; }
+  .gimg { width: 100%; aspect-ratio: 4/5; overflow: hidden; background: #f8f8f8; }
   .gimg img { width: 100%; height: 100%; object-fit: cover; }
   .pdp__info { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; border-left: 1px solid var(--rule); padding: 44px 48px 48px; }
   .pdp__info::-webkit-scrollbar { display: none; }
@@ -667,24 +675,18 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
   .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
 
-  .acc-item { border: 1px solid var(--rule); border-radius: 14px; margin-bottom: 10px; overflow: hidden; background: #fff; transition: border-color .3s, box-shadow .35s, transform .35s cubic-bezier(.2,.7,.2,1), background-color .35s; }
-  .acc-item:last-child { margin-bottom: 0; }
-  .acc-item:hover { border-color: #d9d2c6; box-shadow: 0 12px 28px -16px rgba(44,26,14,.28); transform: translateY(-2px); }
-  .acc-item.is-open { background: #fbf9f5; border-color: rgba(44,26,14,.18); box-shadow: 0 12px 28px -18px rgba(44,26,14,.18); transform: none; }
-  .acc-btn { width: 100%; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); text-align: left; transition: color .25s; }
+  .acc-item { border-bottom: 1px solid var(--rule); }
+  .acc-btn { width: 100%; padding: 18px 2px; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 13px; font-weight: 500; letter-spacing: .01em; color: var(--depth); text-align: left; transition: color .2s; }
   .acc-btn:hover { color: var(--cherry); }
-  /* Circular toggle: thin + that spins into a filled × on open */
-  .acc-icon { position: relative; width: 28px; height: 28px; flex-shrink: 0; font-size: 0; border-radius: 50%; border: 1px solid var(--rule); background: transparent; transition: background-color .35s, border-color .3s, transform .5s cubic-bezier(.2,.7,.2,1); }
-  .acc-icon::before, .acc-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: 10px; height: 1.5px; background: var(--depth); transform: translate(-50%, -50%); transition: background-color .3s; }
-  .acc-icon::after { transform: translate(-50%, -50%) rotate(90deg); }
-  .acc-btn:hover .acc-icon { border-color: var(--cherry); }
-  .acc-btn:hover .acc-icon::before, .acc-btn:hover .acc-icon::after { background: var(--cherry); }
-  .acc-item.is-open .acc-icon { background: var(--depth); border-color: var(--depth); transform: rotate(135deg); }
-  .acc-item.is-open .acc-icon::before, .acc-item.is-open .acc-icon::after { background: #fff; }
-  .acc-body { max-height: 0; overflow: hidden; transition: max-height .45s cubic-bezier(.2,.7,.2,1); }
+  /* Thin chevron that rotates from down (closed) to up (open) */
+  .acc-icon { position: relative; width: 14px; height: 14px; flex-shrink: 0; font-size: 0; color: var(--mid); transition: color .2s; }
+  .acc-icon::before { content: ''; position: absolute; left: 50%; top: 40%; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translate(-50%, -50%) rotate(45deg); transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+  .acc-item.is-open .acc-icon::before { transform: translate(-50%, -20%) rotate(225deg); }
+  .acc-btn:hover .acc-icon { color: var(--cherry); }
+  .acc-item.is-open .acc-icon { color: var(--depth); }
+  .acc-body { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
   .acc-item.is-open .acc-body { max-height: 500px; }
-  .acc-inner { padding: 0 18px 18px; font-size: 13px; line-height: 1.85; color: var(--mid); opacity: 0; transform: translateY(-6px); transition: opacity .4s ease .06s, transform .4s ease .06s; }
-  .acc-item.is-open .acc-inner { opacity: 1; transform: none; }
+  .acc-inner { padding: 0 2px 18px; font-size: 13px; line-height: 1.85; color: var(--mid); }
   .acc-inner ul { list-style: disc; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
 
   .mob-gal { display: none; position: relative; background: #f5f2ed; }
@@ -778,6 +780,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
 
   @media (max-width: 900px) {
     .pdp { display: none; }
+    .hdr__nav { display: none; }
     .mob-gal { display: block; }
     .mob-info { display: block; }
     .mob-bar { display: flex; }

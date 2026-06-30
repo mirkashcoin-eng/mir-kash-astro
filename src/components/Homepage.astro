@@ -100,7 +100,7 @@ if (needsFallback) {
      ══════════════════════════════════════ */
 
   :root {
-    --serif:  'Cormorant Garamond', 'Times New Roman', serif;
+    --serif:  'Jost', -apple-system, 'Helvetica Neue', sans-serif;
     --cherry: #8B1A1A;
     --plum:   #5C2D3E;
     --earth:  #C8895A;
@@ -509,7 +509,7 @@ if (needsFallback) {
     overflow: hidden;
   }
   .manifesto-band__body {
-    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-family: var(--serif);
     font-weight: 400;
     font-style: normal;
     font-size: clamp(28px, 4.4vw, 72px);
@@ -521,7 +521,7 @@ if (needsFallback) {
     text-wrap: balance;
   }
   .manifesto-band__body em {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: var(--serif);
     font-style: normal;
     color: #f5e8e0;
     font-weight: 400;
