@@ -20,6 +20,8 @@ const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path
 
 // Jost is self-hosted via /fonts/jost.css (imported in styles.css) — no Google Fonts request.
 const fontsUrl = fontsHref ?? '';
+// Cache-bust the static stylesheet per deploy so design changes reach browsers immediately.
+const buildId = (typeof process !== 'undefined' ? process.env.VERCEL_GIT_COMMIT_SHA : undefined)?.slice(0, 8) || 'dev';
 
 const orgJsonLd = {
   '@context': 'https://schema.org',
@@ -62,7 +64,7 @@ const orgJsonLd = {
       </>
     )}
 
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href={`/styles.css?v=${buildId}`} />
 
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
 
