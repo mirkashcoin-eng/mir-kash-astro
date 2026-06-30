@@ -65,9 +65,11 @@ if (needsFallback) {
 
   <ProductRow products={ROW_2} />
 
+  <h2 class="home-section-title">The Woven Edit</h2>
+
   <section class="ed-grid">
-    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="Bestsellers" cta="Shop now" href={`${prefix}/products/weaver-tote-cherry-red`} />
-    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" title="Top" emphasis="handle" cta="Shop now" href={`${prefix}/products/braidey-cherry-red`} />
+    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="New Arrivals" cta="Shop now" href={`${prefix}/products/weaver-tote-cherry-red`} />
+    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" title="Bestsellers" cta="Shop now" href={`${prefix}/products/braidey-cherry-red`} />
   </section>
 
   <ProductRow products={ROW_3} />
@@ -105,6 +107,17 @@ if (needsFallback) {
   }
 
   body { background: var(--paper); color: var(--depth); }
+
+  .home-section-title {
+    text-align: center;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(22px, 3.2vw, 34px);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--depth);
+    padding: clamp(2.5rem, 6vw, 5rem) var(--gutter, clamp(20px,4vw,56px)) clamp(1.4rem, 3vw, 2.4rem);
+  }
 
   /* ══════════════════════════════════
      FIXED BRAND TICKER — cherry marquee
