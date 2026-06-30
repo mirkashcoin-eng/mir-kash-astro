@@ -802,10 +802,10 @@ img { display: block; max-width: 100%; }
   .pr-meta { padding: 10px 12px 20px; }
 
   .ed-grid { grid-template-columns: 1fr; }
-  .ed-panel { height: 88vh; aspect-ratio: unset; width: 100%; background-size: cover !important; background-image: var(--bg-m, var(--bg-d, none)); }
+  .ed-panel { aspect-ratio: 9 / 16; width: 100%; background-size: cover !important; background-image: var(--bg-m, var(--bg-d, none)); }
   .ed-text  { top: 22px; left: 20px; }
 
-  .full-banner { height: 78vh; aspect-ratio: unset; background-image: var(--bg-m, var(--bg-d, none)); }
+  .full-banner { aspect-ratio: 9 / 16; background-image: var(--bg-m, var(--bg-d, none)); }
   .spacer { height: 40px; }
 
   .footer-info {
