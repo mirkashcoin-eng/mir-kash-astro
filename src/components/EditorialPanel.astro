@@ -3,9 +3,9 @@ interface Props {
   image?: string;
   imageMobile?: string;
   background?: string;
-  title: string;
+  title?: string;
   emphasis?: string;
-  cta: string;
+  cta?: string;
   href?: string;
 }
 
@@ -20,9 +20,11 @@ const style = image
   : '';
 ---
 <div class="ed-panel" style={style}>
-  {href && href !== '#' && <a class="ed-cover" href={href} aria-label={`Shop ${title}${emphasis ? ' ' + emphasis : ''}`}></a>}
-  <div class="ed-text">
-    <h2>{heading}{emphasis && <em>{emphasis}</em>}</h2>
-    <a href={href}>{cta}</a>
-  </div>
+  {href && href !== '#' && <a class="ed-cover" href={href} aria-label={title ? `Shop ${title}${emphasis ? ' ' + emphasis : ''}` : 'Shop now'}></a>}
+  {(title || cta) && (
+    <div class="ed-text">
+      {title && <h2>{heading}{emphasis && <em>{emphasis}</em>}</h2>}
+      {cta && <a href={href}>{cta}</a>}
+    </div>
+  )}
 </div>
