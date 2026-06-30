@@ -80,6 +80,7 @@ const clientData = { variants: variantData, colorName: colorOption?.name ?? null
 // editorial sections back on every product page.
 const SHOW_STORY = false;
 const SHOW_FULLBLEED = false;
+const SHOW_REELS = false;
 ---
 
 <header class="hdr">
@@ -337,7 +338,8 @@ const SHOW_FULLBLEED = false;
   </div>
   )}
 
-  <!-- ══ REELS ══ -->
+  <!-- ══ REELS ══ — hidden via SHOW_REELS until content is ready -->
+  {SHOW_REELS && (
   <section class="reels reveal">
     <div class="reels__head">
       <p class="reels__eye">Reels</p>
@@ -355,6 +357,7 @@ const SHOW_FULLBLEED = false;
       ))}
     </div>
   </section>
+  )}
 </main>
 
 <!-- ══ STICKY MOBILE BAR ══ -->
