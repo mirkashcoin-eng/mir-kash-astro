@@ -332,6 +332,8 @@ img { display: block; max-width: 100%; }
 .pr-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 0 var(--gutter);
 }
 
 .pr-card { cursor: pointer; }
@@ -810,6 +812,9 @@ img { display: block; max-width: 100%; }
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    gap: 12px;
+    padding: 0 var(--gutter);
+    scroll-padding-left: var(--gutter);
   }
   .pr-grid::-webkit-scrollbar { display: none; }
   .pr-card { flex: 0 0 43vw; scroll-snap-align: start; }
