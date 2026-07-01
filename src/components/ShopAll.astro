@@ -843,8 +843,8 @@ const lightProducts = products.map((p) => ({
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     background: var(--paper);
-    gap: 10px;
-    padding: 24px 0 60px;
+    gap: 14px;
+    padding: 24px var(--gutter) 60px;
   }
   @media (min-width: 640px)  { .shop-grid { grid-template-columns: repeat(3, 1fr); } }
   @media (min-width: 1024px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
