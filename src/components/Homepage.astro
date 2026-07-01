@@ -27,18 +27,15 @@ let ROW_1 = row1Raw;
 let ROW_2 = row2Raw;
 let ROW_3 = row3Raw;
 
-const needsFallback = ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0;
-if (needsFallback) {
-  const allProducts = await getAllProducts(market, country, 16);
-  let cursor = 0;
-  const takeNext = (n: number) => {
-    const slice = allProducts.slice(cursor, cursor + n);
-    cursor += n;
-    return slice;
-  };
-  if (ROW_1.length === 0) ROW_1 = takeNext(4);
-  if (ROW_2.length === 0) ROW_2 = takeNext(4);
-  if (ROW_3.length === 0) ROW_3 = takeNext(4);
+// Fallback: if a scroller's collection is missing/empty on this store, fill it from the
+// catalogue so no row is ever blank (cycles if the store has fewer than 12 products).
+if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
+  const allProducts = await getAllProducts(market, country, 24);
+  const pick = (start: number, n: number) =>
+    allProducts.length ? Array.from({ length: n }, (_, i) => allProducts[(start + i) % allProducts.length]) : [];
+  if (ROW_1.length === 0) ROW_1 = pick(0, 4);
+  if (ROW_2.length === 0) ROW_2 = pick(4, 4);
+  if (ROW_3.length === 0) ROW_3 = pick(8, 4);
 }
 ---
 <BrandTicker />
