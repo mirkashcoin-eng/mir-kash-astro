@@ -332,7 +332,7 @@ img { display: block; max-width: 100%; }
 .pr-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
+  gap: 16px;
   padding: 0 var(--gutter);
 }
 
