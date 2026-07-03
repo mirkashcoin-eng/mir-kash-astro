@@ -163,7 +163,7 @@ const ready = firebaseConfigured();
       const orders = data.orders || [];
       if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet. Orders you place will appear here — with a one-tap return option.</p>'; return; }
       const STEPS = ['Ordered', 'Shipped', 'Out for delivery', 'Delivered'];
-      box.innerHTML = orders.map((o: any) => {
+      const renderCard = (o: any) => {
         const fs = String(o.fulfillmentStatus || '').toUpperCase();
         const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
         let action: string;
@@ -197,7 +197,15 @@ const ready = firebaseConfigured();
           ${stepper}
           ${action}
         </div>`;
-      }).join('');
+      };
+
+      // Delivered or cancelled orders move to "Past orders"; everything else stays active.
+      const isPast = (o: any) => !!o.cancelledAt || String(o.shipmentStatus || '').toUpperCase() === 'DELIVERED';
+      const active = orders.filter((o: any) => !isPast(o));
+      const past = orders.filter(isPast);
+      box.innerHTML =
+        (active.length ? active.map(renderCard).join('') : '') +
+        (past.length ? `<h3 class="ord-group__title">Past orders</h3>` + past.map(renderCard).join('') : '');
     } catch {
       box.innerHTML = '<p class="acct__note">Could not load orders.</p>';
     }
@@ -303,6 +311,7 @@ const ready = firebaseConfigured();
   .ord__retbtn:hover, .ord__cancelbtn:hover { border-color: #8B1A1A; color: #8B1A1A; }
   .ord__ret { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #3D6B4F; font-weight: 600; }
   .ord__cancelled { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8B1A1A; font-weight: 600; }
+  .ord-group__title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 10px 0 0; padding-top: 18px; border-top: 1px solid #ececec; }
 
   /* Amazon-style shipment tracker */
   .track { display: flex; margin: 16px 0 4px; }
