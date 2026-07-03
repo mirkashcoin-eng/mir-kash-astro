@@ -162,7 +162,16 @@ const ready = firebaseConfigured();
       const data = await res.json();
       const orders = data.orders || [];
       if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet. Orders you place will appear here — with a one-tap return option.</p>'; return; }
-      box.innerHTML = orders.map((o: any) => `
+      box.innerHTML = orders.map((o: any) => {
+        const fs = String(o.fulfillmentStatus || '').toUpperCase();
+        const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
+        let action: string;
+        if (o.cancelledAt) action = '<span class="ord__cancelled">Cancelled</span>';
+        else if (shipped) action = o.returnRequested
+          ? '<span class="ord__ret">Return requested</span>'
+          : `<button class="ord__retbtn" data-order="${o.id}">Request a return</button>`;
+        else action = `<button class="ord__cancelbtn" data-cancel="${o.id}">Cancel order</button>`;
+        return `
         <div class="ord">
           <div class="ord__top">
             <span class="ord__name">${o.name}</span>
@@ -170,10 +179,9 @@ const ready = firebaseConfigured();
           </div>
           <div class="ord__meta">${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${o.financialStatus} · ${o.fulfillmentStatus}</div>
           <div class="ord__items">${o.items.map((i: any) => `${i.quantity}× ${i.title}`).join(', ')}</div>
-          ${o.returnRequested
-            ? '<span class="ord__ret">Return requested</span>'
-            : `<button class="ord__retbtn" data-order="${o.id}">Request a return</button>`}
-        </div>`).join('');
+          ${action}
+        </div>`;
+      }).join('');
     } catch {
       box.innerHTML = '<p class="acct__note">Could not load orders.</p>';
     }
@@ -193,6 +201,27 @@ const ready = firebaseConfigured();
       if (!res.ok) throw new Error();
       btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__ret', textContent: 'Return requested' }));
     } catch { btn.disabled = false; btn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
+  });
+
+  document.getElementById('orders')?.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-cancel]');
+    if (!btn) return;
+    if (!confirm('Cancel this order? This cannot be undone.')) return;
+    btn.disabled = true; btn.textContent = 'Cancelling…';
+    const token = await getIdToken();
+    try {
+      const res = await fetch('/api/account/cancel-order', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ orderId: btn.dataset.cancel }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || '');
+      btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__cancelled', textContent: 'Cancelled' }));
+      if (data.refundPending) alert('Your order has been cancelled. Your refund will be processed shortly.');
+    } catch (err: any) {
+      btn.disabled = false; btn.textContent = 'Cancel order';
+      alert(err?.message || 'Could not cancel this order. Please try again or contact us.');
+    }
   });
 
   $('googleBtn')?.addEventListener('click', async () => {
@@ -254,7 +283,8 @@ const ready = firebaseConfigured();
   .ord__total { font-size: 15px; }
   .ord__meta { font-size: 12px; color: #6b6b6b; margin: 6px 0; text-transform: capitalize; }
   .ord__items { font-size: 13px; color: #1a1a1a; }
-  .ord__retbtn { margin-top: 12px; background: none; border: 1px solid #e6e6e6; padding: 8px 14px; cursor: pointer; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; transition: border-color .2s; }
-  .ord__retbtn:hover { border-color: #8B1A1A; color: #8B1A1A; }
+  .ord__retbtn, .ord__cancelbtn { margin-top: 12px; background: none; border: 1px solid #e6e6e6; padding: 8px 14px; cursor: pointer; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; transition: border-color .2s, color .2s; }
+  .ord__retbtn:hover, .ord__cancelbtn:hover { border-color: #8B1A1A; color: #8B1A1A; }
   .ord__ret { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #3D6B4F; font-weight: 600; }
+  .ord__cancelled { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8B1A1A; font-weight: 600; }
 </style>

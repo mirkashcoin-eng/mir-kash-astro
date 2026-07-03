@@ -258,6 +258,7 @@ export interface AccountOrder {
   createdAt: string;
   financialStatus: string;
   fulfillmentStatus: string;
+  cancelledAt: string | null;
   total: Money;
   items: Array<{ title: string; quantity: number }>;
   returnRequested: boolean;
@@ -267,7 +268,7 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
   query OrdersByEmail($q: String!) {
     orders(first: 25, query: $q, sortKey: CREATED_AT, reverse: true) {
       edges { node {
-        id name createdAt tags
+        id name createdAt tags cancelledAt
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
         lineItems(first: 20) { edges { node { title quantity } } }
@@ -277,7 +278,7 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
 `;
 
 interface RawOrder {
-  id: string; name: string; createdAt: string; tags: string[];
+  id: string; name: string; createdAt: string; tags: string[]; cancelledAt: string | null;
   displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: Money };
   lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
@@ -295,6 +296,7 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     createdAt: node.createdAt,
     financialStatus: node.displayFinancialStatus ?? '',
     fulfillmentStatus: node.displayFulfillmentStatus ?? '',
+    cancelledAt: node.cancelledAt,
     total: node.totalPriceSet.shopMoney,
     items: node.lineItems.edges.map((e) => ({ title: e.node.title, quantity: e.node.quantity })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
@@ -326,4 +328,40 @@ export async function requestReturn(orderId: string, reason: string): Promise<bo
   const line = `Return requested${reason ? ': ' + reason : ''} (${new Date().toISOString().slice(0, 10)})`;
   await runAdminQuery(ORDER_UPDATE, { input: { id: orderId, note: prev ? prev + '\n' + line : line } });
   return true;
+}
+
+const ORDER_CANCEL = /* GraphQL */ `
+  mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!, $notifyCustomer: Boolean) {
+    orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock, notifyCustomer: $notifyCustomer) {
+      job { id }
+      orderCancelUserErrors { field message }
+    }
+  }
+`;
+
+// Cancels an unfulfilled order at the customer's request (restocks + emails the customer).
+// We never auto-refund through Shopify: a prepaid (Cashfree) order is flagged `refund-pending`
+// with a note so the team pushes the Cashfree refund by hand; a COD order owes nothing.
+export async function cancelOrder(
+  orderId: string,
+  opts: { refundPending?: boolean } = {},
+): Promise<boolean> {
+  if (opts.refundPending) {
+    await runAdminQuery(TAGS_ADD, { id: orderId, tags: ['refund-pending'] });
+    const noteData = await runAdminQuery<{ order: { note: string | null } | null }>(ORDER_NOTE, { id: orderId });
+    const prev = noteData?.order?.note ?? '';
+    const line = `Cancelled by customer — process Cashfree refund (${new Date().toISOString().slice(0, 10)})`;
+    await runAdminQuery(ORDER_UPDATE, { input: { id: orderId, note: prev ? prev + '\n' + line : line } });
+  }
+
+  const data = await runAdminQuery<{
+    orderCancel: { job: { id: string } | null; orderCancelUserErrors: Array<{ message: string }> };
+  }>(ORDER_CANCEL, { orderId, reason: 'CUSTOMER', refund: false, restock: true, notifyCustomer: true });
+
+  const errs = data?.orderCancel?.orderCancelUserErrors;
+  if (errs && errs.length) {
+    console.error('[admin] orderCancel userErrors:', JSON.stringify(errs));
+    return false;
+  }
+  return !!data?.orderCancel?.job;
 }
