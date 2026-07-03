@@ -266,22 +266,35 @@ export interface AccountOrder {
   shipmentStatus: string | null; // Shopify FulfillmentDisplayStatus (IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED…)
   estimatedDeliveryAt: string | null;
   deliveredAt: string | null; // actual delivery date, from the DELIVERED fulfillment event
+  shippedAt: string | null; // fulfillment created date
   tracking: { company: string | null; number: string | null; url: string | null } | null;
+  // Price breakdown + contact/shipping (for the order-summary detail view)
+  subtotal: Money | null;
+  shipping: Money | null;
+  discount: Money | null;
+  email: string | null;
+  phone: string | null;
+  address: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
 }
 
 const ORDERS_BY_EMAIL = /* GraphQL */ `
   query OrdersByEmail($q: String!) {
     orders(first: 25, query: $q, sortKey: CREATED_AT, reverse: true) {
       edges { node {
-        id name createdAt tags cancelledAt
+        id name createdAt tags cancelledAt email phone
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
+        subtotalPriceSet { shopMoney { amount currencyCode } }
+        totalShippingPriceSet { shopMoney { amount currencyCode } }
+        totalDiscountsSet { shopMoney { amount currencyCode } }
+        shippingAddress { name address1 address2 city province zip }
         lineItems(first: 20) { edges { node {
           title quantity
           image { url }
           originalUnitPriceSet { shopMoney { amount currencyCode } }
         } } }
         fulfillments(first: 1) {
+          createdAt
           displayStatus
           estimatedDeliveryAt
           trackingInfo(first: 1) { company number url }
@@ -294,14 +307,20 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
 
 interface RawOrder {
   id: string; name: string; createdAt: string; tags: string[]; cancelledAt: string | null;
+  email: string | null; phone: string | null;
   displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: Money };
+  subtotalPriceSet: { shopMoney: Money } | null;
+  totalShippingPriceSet: { shopMoney: Money } | null;
+  totalDiscountsSet: { shopMoney: Money } | null;
+  shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
   lineItems: { edges: Array<{ node: {
     title: string; quantity: number;
     image: { url: string } | null;
     originalUnitPriceSet: { shopMoney: Money } | null;
   } }> };
   fulfillments: Array<{
+    createdAt: string | null;
     displayStatus: string | null;
     estimatedDeliveryAt: string | null;
     trackingInfo: Array<{ company: string | null; number: string | null; url: string | null }>;
@@ -337,6 +356,22 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     deliveredAt: node.fulfillments?.[0]?.events?.edges?.find(
       (e) => (e.node.status || '').toUpperCase() === 'DELIVERED',
     )?.node.happenedAt ?? null,
+    shippedAt: node.fulfillments?.[0]?.createdAt ?? null,
+    subtotal: node.subtotalPriceSet?.shopMoney ?? null,
+    shipping: node.totalShippingPriceSet?.shopMoney ?? null,
+    discount: node.totalDiscountsSet?.shopMoney ?? null,
+    email: node.email,
+    phone: node.phone ?? null,
+    address: node.shippingAddress
+      ? {
+          name: node.shippingAddress.name,
+          address1: node.shippingAddress.address1,
+          address2: node.shippingAddress.address2,
+          city: node.shippingAddress.city,
+          province: node.shippingAddress.province,
+          zip: node.shippingAddress.zip,
+        }
+      : null,
     tracking: node.fulfillments?.[0]?.trackingInfo?.[0]
       ? {
           company: node.fulfillments[0].trackingInfo[0].company,

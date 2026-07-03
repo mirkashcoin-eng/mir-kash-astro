@@ -1,83 +1,95 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import SiteFooter from '~/components/SiteFooter.astro';
 
 export const prerender = false;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 const oid = Astro.params.id;
 ---
-<BaseLayout title="Order — Mir Kash" path={`/account/orders/${oid}`}>
+<BaseLayout title="Order Summary — Mir Kash" path={`/account/orders/${oid}`}>
   <header class="od-head">
+    <a href="/account" class="od-back" aria-label="Back to my orders">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
     <a href="/" class="od-logo" aria-label="Mir Kash"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
-    <a href="/account" class="od-back">← My orders</a>
+    <span class="od-head__sp"></span>
   </header>
 
   <main class="od">
     <p class="od__msg" id="odLoading">Loading your order…</p>
-
-    <div id="odSignedOut" hidden>
-      <p class="od__msg">Please <a href="/account">sign in</a> to view this order.</p>
-    </div>
-
+    <div id="odSignedOut" hidden><p class="od__msg">Please <a href="/account">sign in</a> to view this order.</p></div>
     <div id="odContent" hidden></div>
   </main>
 
-  <SiteFooter />
-
   <style is:global>
-    :root { --od-green: #3D6B4F; --od-red: #8B1A1A; }
-    .od-head { display: flex; align-items: center; justify-content: space-between; max-width: 640px; margin: 0 auto; padding: 20px 22px 18px; border-bottom: 1px solid #e6e6e6; }
-    .od-logo img { height: 20px; }
-    .od-back { font-size: 12px; letter-spacing: .04em; color: #6b6b6b; text-decoration: none; }
-    .od-back:hover { color: #1a1a1a; }
+    :root { --od-green: #3D6B4F; --od-red: #8B1A1A; --od-line: #efe9e2; --od-soft: #faf7f3; --od-ink: #1a1a1a; --od-mid: #8a8a8a; }
+    .od-head { display: flex; align-items: center; justify-content: space-between; max-width: 560px; margin: 0 auto; padding: 16px 18px; border-bottom: 1px solid var(--od-line); }
+    .od-head__sp { width: 30px; }
+    .od-back { width: 30px; height: 30px; border: 1px solid var(--od-line); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--od-ink); }
+    .od-back:hover { border-color: var(--od-red); color: var(--od-red); }
+    .od-logo img { height: 18px; }
 
-    .od { max-width: 640px; margin: 0 auto; padding: 28px 22px 64px; min-height: 50vh; }
-    .od__msg { font-size: 14px; color: #6b6b6b; text-align: center; padding: 40px 0; }
-    .od__msg a { color: #1a1a1a; }
+    .od { max-width: 560px; margin: 0 auto; padding: 18px 16px 120px; min-height: 60vh; }
+    .od__msg { font-size: 14px; color: var(--od-mid); text-align: center; padding: 48px 0; }
+    .od__msg a { color: var(--od-ink); }
 
-    .od__card { border: 1px solid #e6e6e6; padding: 22px 22px 24px; }
-    .od__top { display: flex; align-items: flex-start; justify-content: space-between; }
-    .od__name { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
-    .od__date { font-size: 12px; color: #6b6b6b; margin-top: 4px; }
-    .od__total { font-size: 18px; }
+    .os-h1 { font-size: 20px; font-weight: 500; margin: 2px 0 16px; }
+    .os-card { background: #fff; border: 1px solid var(--od-line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
 
-    .od__banner { margin: 18px 0 4px; padding: 12px 14px; background: #f6f5f2; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: #4a4a4a; }
-    .od__banner--done { background: #eef3ef; color: var(--od-green); }
-    .od__banner--cancel { background: #f7eeee; color: var(--od-red); }
+    /* Vertical status timeline */
+    .os-track { padding: 4px 16px; }
+    .os-step { display: flex; align-items: flex-start; gap: 14px; position: relative; padding: 14px 0; }
+    .os-step:not(:last-child)::before { content: ''; position: absolute; left: 17px; top: 40px; bottom: -8px; width: 2px; background: var(--od-line); }
+    .os-step.done:not(:last-child)::before { background: var(--od-green); }
+    .os-step__ico { width: 36px; height: 36px; border-radius: 50%; background: var(--od-soft); display: flex; align-items: center; justify-content: center; color: #c3b6a6; flex-shrink: 0; z-index: 1; }
+    .os-step.done .os-step__ico { color: var(--od-red); background: #f7eeee; }
+    .os-step__body { flex: 1; padding-top: 5px; }
+    .os-step__lbl { font-size: 14px; font-weight: 500; color: #a9a9a9; }
+    .os-step.done .os-step__lbl { color: var(--od-ink); }
+    .os-step__time { font-size: 12px; color: var(--od-mid); margin-top: 3px; }
+    .os-step__chk { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--od-line); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; margin-top: 7px; flex-shrink: 0; }
+    .os-step.done .os-step__chk { background: var(--od-green); border-color: var(--od-green); }
 
-    /* Shipment tracker */
-    .track { display: flex; margin: 18px 0 4px; }
-    .track__step { flex: 1; text-align: center; position: relative; }
-    .track__step:not(:first-child)::before { content: ''; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px; background: #e6e6e6; z-index: 0; }
-    .track__step.done:not(:first-child)::before { background: var(--od-green); }
-    .track__dot { position: relative; z-index: 1; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #e6e6e6; }
-    .track__step.done .track__dot { background: var(--od-green); }
-    .track__lbl { display: block; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: #9a9a9a; margin-top: 6px; }
-    .track__step.done .track__lbl { color: #1a1a1a; }
-    .track--cancel .track__step.done:not(:first-child)::before { background: #d3a2a2; }
-    .track--cancel .track__step.done .track__dot { background: var(--od-red); }
-    .track__eta { font-size: 12px; color: #6b6b6b; margin: 10px 0 2px; }
-    .track__link { display: inline-block; margin-top: 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: #1a1a1a; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; }
-    .track__link:hover { color: var(--od-red); border-color: var(--od-red); }
+    .os-cancel { background: #f7eeee; color: var(--od-red); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; text-align: center; }
+    .os-eta { font-size: 12px; color: var(--od-mid); margin: -2px 0 14px 4px; }
+    .os-trackcard { text-align: center; }
+    .os-tracklink { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--od-ink); border-bottom: 1px solid var(--od-ink); padding-bottom: 2px; text-decoration: none; }
+    .os-tracklink:hover { color: var(--od-red); border-color: var(--od-red); }
 
-    .od__sec-title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 26px 0 10px; padding-top: 20px; border-top: 1px solid #ececec; }
-    .od__item { display: flex; align-items: center; gap: 12px; padding: 8px 0; text-decoration: none; color: inherit; }
-    .od__item-img { width: 46px; height: 58px; object-fit: cover; background: #f4f2ee; flex-shrink: 0; }
-    .od__item-img--ph { display: inline-block; }
-    .od__item-info { flex: 1; }
-    .od__item-title { font-size: 14px; color: #1a1a1a; transition: color .2s; }
-    .od__item:hover .od__item-title { color: var(--od-red); text-decoration: underline; }
-    .od__item-sub { font-size: 12px; color: #6b6b6b; margin-top: 3px; }
-    .od__item-arrow { color: #c0c0c0; font-size: 18px; line-height: 1; }
+    .os-meta { display: flex; align-items: center; justify-content: space-between; }
+    .os-meta__ord { font-size: 14px; font-weight: 600; }
+    .os-meta__date { font-size: 12px; color: var(--od-mid); margin-top: 3px; }
 
-    .od__actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
-    .od__btn { background: none; border: 1px solid #1a1a1a; padding: 12px 22px; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; transition: background .2s, color .2s, border-color .2s; }
-    .od__btn:hover { background: #1a1a1a; color: #fff; }
-    .od__btn--danger { border-color: var(--od-red); color: var(--od-red); }
-    .od__btn--danger:hover { background: var(--od-red); color: #fff; }
-    .od__btn--primary { border-color: #1a1a1a; background: #1a1a1a; color: #fff; }
-    .od__btn--primary:hover { background: var(--od-red); border-color: var(--od-red); }
-    .od__note { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--od-green); }
+    .os-sec { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .os-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; text-decoration: none; color: inherit; border-top: 1px solid var(--od-line); }
+    .os-item:first-of-type { border-top: none; }
+    .os-item__img { width: 46px; height: 58px; object-fit: cover; background: var(--od-soft); border-radius: 6px; flex-shrink: 0; }
+    .os-item__info { flex: 1; }
+    .os-item__title { font-size: 14px; }
+    .os-item:hover .os-item__title { color: var(--od-red); text-decoration: underline; }
+    .os-item__sub { font-size: 12px; color: var(--od-mid); margin-top: 2px; }
+    .os-item__price { font-size: 14px; font-weight: 500; }
+
+    .os-acc { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--od-ink); font-family: inherit; }
+    .os-acc__c { transition: transform .2s; color: var(--od-mid); }
+    .os-card.collapsed .os-acc__c { transform: rotate(180deg); }
+    .os-acc__b { margin-top: 14px; }
+    .os-card.collapsed .os-acc__b { display: none; }
+    .os-row { display: flex; justify-content: space-between; font-size: 13px; color: #4a4a4a; padding: 5px 0; }
+    .os-row--save, .os-free { color: var(--od-green); }
+    .os-row--total { border-top: 1px solid var(--od-line); margin-top: 6px; padding-top: 10px; font-weight: 600; color: var(--od-ink); font-size: 14px; }
+    .os-tax { font-size: 11px; color: #9a9a9a; margin-top: 6px; }
+    .os-dl { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; padding: 6px 0; }
+    .os-dl > span { color: var(--od-mid); flex-shrink: 0; }
+    .os-dl > b { font-weight: 500; text-align: right; color: var(--od-ink); }
+
+    /* Sticky bottom CTA */
+    .os-bar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--od-line); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; z-index: 20; }
+    .os-bar__inner { max-width: 560px; margin: 0 auto; width: 100%; display: flex; gap: 10px; }
+    .os-bar__btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--od-red); color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; cursor: pointer; text-decoration: none; font-family: inherit; transition: opacity .2s; }
+    .os-bar__btn:hover { opacity: .9; }
+    .os-bar__btn--ghost { background: #fff; color: var(--od-red); border: 1px solid var(--od-red); }
+    .os-bar__sub { font-size: 9px; letter-spacing: .05em; text-transform: none; opacity: .85; font-weight: 400; }
+    .os-bar__note { flex: 1; text-align: center; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--od-green); padding: 14px; }
   </style>
 
   <script>
@@ -86,14 +98,22 @@ const oid = Astro.params.id;
     const STEPS = ['Ordered', 'Shipped', 'Out for delivery', 'Delivered'];
     const $ = (id: string) => document.getElementById(id) as HTMLElement;
     const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const fmtDT = (d: string) => new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     function inr(amount: string, currency: string) {
       const n = Math.round(Number(amount));
       try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n); }
       catch { return currency + ' ' + n.toLocaleString('en-IN'); }
     }
+    const money = (m: any) => (m ? inr(m.amount, m.currencyCode) : '—');
     const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
-
     const oid = location.pathname.split('/').pop() || '';
+
+    const IC: Record<string, string> = {
+      order: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>',
+      ship: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>',
+      truck: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="14" height="10" rx="1"/><path d="M15 9h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.6"/><circle cx="18" cy="18.5" r="1.6"/></svg>',
+      home: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10 12 3l9 7"/><path d="M5 10v10h14V10"/><path d="M9 21v-6h6v6"/></svg>',
+    };
 
     function stageOf(o: any) {
       const ship = String(o.shipmentStatus || '').toUpperCase();
@@ -108,57 +128,75 @@ const oid = Astro.params.id;
     function render(o: any) {
       const stage = stageOf(o);
       const cancelled = !!o.cancelledAt;
-      const delivered = stage === 3;
       const fs = String(o.fulfillmentStatus || '').toUpperCase();
       const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
-
-      let banner: string;
-      if (cancelled) banner = `<div class="od__banner od__banner--cancel">Cancelled${o.cancelledAt ? ' on ' + fmtDate(o.cancelledAt) : ''} · was at “${STEPS[stage]}” stage</div>`;
-      else if (delivered) banner = `<div class="od__banner od__banner--done">Delivered${o.deliveredAt ? ' on ' + fmtDate(o.deliveredAt) : ''}</div>`;
-      else banner = `<div class="od__banner">Status · ${STEPS[stage]}</div>`;
-
-      const stepper = `<div class="track${cancelled ? ' track--cancel' : ''}">${STEPS.map((s, i) => `<div class="track__step${i <= stage ? ' done' : ''}"><span class="track__dot"></span><span class="track__lbl">${s}</span></div>`).join('')}</div>`;
-      const eta = (!cancelled && !delivered && o.estimatedDeliveryAt) ? `<div class="track__eta">Estimated delivery: ${fmtDate(o.estimatedDeliveryAt)}</div>` : '';
-      const track = (!cancelled && o.tracking && o.tracking.url) ? `<a class="track__link" href="${esc(o.tracking.url)}" target="_blank" rel="noopener">Track shipment${o.tracking.company ? ' · ' + esc(o.tracking.company) : ''}${o.tracking.number ? ' (' + esc(o.tracking.number) + ')' : ''}</a>` : '';
-
-      let actions = '';
-      if (!cancelled && shipped) actions = o.returnRequested ? `<span class="od__note">Return requested</span>` : `<button class="od__btn" id="returnBtn">Request a return</button>`;
-      else if (!cancelled) actions = `<button class="od__btn od__btn--danger" id="cancelBtn">Cancel order</button>`;
-      const canReorder = o.items.some((i: any) => i.variantId);
-      if (canReorder) actions += `<button class="od__btn od__btn--primary" id="reorderBtn">Buy it again</button>`;
-
-      // Product handle ≈ the slugified title (Mir Kash uses "<name> - <colour>" titles).
       const slugify = (t: string) => String(t).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+      const stepDefs = [
+        { lbl: 'Order Confirmed', time: o.createdAt, ic: IC.order },
+        { lbl: 'Shipped', time: o.shippedAt, ic: IC.ship },
+        { lbl: 'Out for delivery', time: null, ic: IC.truck },
+        { lbl: 'Delivered', time: o.deliveredAt, ic: IC.home },
+      ];
+      const timeline = cancelled ? '' : `<div class="os-card os-track">${stepDefs.map((s, i) => {
+        const done = i <= stage;
+        return `<div class="os-step${done ? ' done' : ''}">
+          <span class="os-step__ico">${s.ic}</span>
+          <div class="os-step__body"><div class="os-step__lbl">${s.lbl}</div>${done && s.time ? `<div class="os-step__time">${fmtDT(s.time)}</div>` : ''}</div>
+          <span class="os-step__chk">${done ? '✓' : ''}</span>
+        </div>`;
+      }).join('')}</div>`;
+
+      const cancelCard = cancelled ? `<div class="os-card os-cancel">Cancelled${o.cancelledAt ? ' on ' + fmtDate(o.cancelledAt) : ''} · was at “${STEPS[stage]}” stage</div>` : '';
+      const eta = (!cancelled && stage < 3 && o.estimatedDeliveryAt) ? `<div class="os-eta">Estimated delivery: ${fmtDate(o.estimatedDeliveryAt)}</div>` : '';
+      const trackCard = (!cancelled && o.tracking && o.tracking.url)
+        ? `<div class="os-card os-trackcard"><a class="os-tracklink" href="${esc(o.tracking.url)}" target="_blank" rel="noopener">Track shipment${o.tracking.company ? ' · ' + esc(o.tracking.company) : ''}</a></div>` : '';
+
+      const itemCount = o.items.reduce((n: number, i: any) => n + i.quantity, 0);
       const items = o.items.map((i: any) => `
-        <a class="od__item" href="/products/${slugify(i.title)}">
-          ${i.image ? `<img class="od__item-img" src="${esc(i.image)}" alt="${esc(i.title)}" loading="lazy" />` : `<span class="od__item-img od__item-img--ph"></span>`}
-          <div class="od__item-info">
-            <div class="od__item-title">${esc(i.title)}</div>
-            <div class="od__item-sub">Qty ${i.quantity}${i.price ? ' · ' + inr(i.price.amount, i.price.currencyCode) : ''}</div>
-          </div>
-          <span class="od__item-arrow" aria-hidden="true">›</span>
+        <a class="os-item" href="/products/${slugify(i.title)}">
+          ${i.image ? `<img class="os-item__img" src="${esc(i.image)}" alt="${esc(i.title)}" loading="lazy" />` : `<span class="os-item__img"></span>`}
+          <div class="os-item__info"><div class="os-item__title">${esc(i.title)}</div><div class="os-item__sub">Qty ${i.quantity}</div></div>
+          ${i.price ? `<div class="os-item__price">${inr(i.price.amount, i.price.currencyCode)}</div>` : ''}
         </a>`).join('');
 
+      const hasShip = o.shipping && Number(o.shipping.amount) > 0;
+      const hasDisc = o.discount && Number(o.discount.amount) > 0;
+      const priceRows = `
+        <div class="os-row"><span>Item MRP</span><span>${money(o.subtotal || o.total)}</span></div>
+        <div class="os-row"><span>Shipping</span><span>${hasShip ? money(o.shipping) : '<span class="os-free">Free</span>'}</span></div>
+        ${hasDisc ? `<div class="os-row os-row--save"><span>Total savings</span><span>(–) ${money(o.discount)}</span></div>` : ''}
+        <div class="os-row os-row--total"><span>Grand total</span><span>${money(o.total)}</span></div>
+        <div class="os-tax">Inclusive of all taxes</div>`;
+
+      const addr = o.address ? [o.address.address1, o.address.address2, [o.address.city, o.address.province, o.address.zip].filter(Boolean).join(', ')].filter(Boolean).join(', ') : '—';
+      const details = `
+        <div class="os-dl"><span>Order Id</span><b>#${esc(o.name)}</b></div>
+        <div class="os-dl"><span>Name</span><b>${esc(o.address?.name || '—')}</b></div>
+        <div class="os-dl"><span>Email</span><b>${esc(o.email || '—')}</b></div>
+        <div class="os-dl"><span>Mobile</span><b>${esc(o.phone || '—')}</b></div>
+        <div class="os-dl"><span>Address</span><b>${esc(addr)}</b></div>`;
+
+      const canReorder = o.items.some((i: any) => i.variantId);
+      let bar = '';
+      if (canReorder) bar += `<button class="os-bar__btn" id="reorderBtn">Reorder<span class="os-bar__sub">view cart on next step</span></button>`;
+      if (!cancelled && !shipped) bar += `<button class="os-bar__btn os-bar__btn--ghost" id="cancelBtn">Cancel order</button>`;
+      else if (!cancelled && shipped) bar += o.returnRequested ? `<div class="os-bar__note">Return requested</div>` : `<button class="os-bar__btn os-bar__btn--ghost" id="returnBtn">Request a return</button>`;
+      if (!bar) bar = `<a class="os-bar__btn" href="/shop">Continue shopping</a>`;
+
       $('odContent').innerHTML = `
-        <div class="od__card">
-          <div class="od__top">
-            <div>
-              <div class="od__name">Order ${esc(o.name)}</div>
-              <div class="od__date">Placed ${fmtDate(o.createdAt)} · ${esc(o.financialStatus)}</div>
-            </div>
-            <div class="od__total">${inr(o.total.amount, o.total.currencyCode)}</div>
-          </div>
-          ${banner}
-          ${stepper}
-          ${eta}
-          ${track}
-          <div class="od__sec-title">Items</div>
-          ${items}
-          <div class="od__actions">${actions}</div>
-        </div>`;
+        <h1 class="os-h1">Order Summary</h1>
+        ${cancelCard}${timeline}${eta}${trackCard}
+        <div class="os-card os-meta"><div><div class="os-meta__ord">Order #${esc(o.name)}</div><div class="os-meta__date">${fmtDT(o.createdAt)}</div></div></div>
+        <div class="os-card"><div class="os-sec">${itemCount} Item${itemCount > 1 ? 's' : ''}</div>${items}</div>
+        <div class="os-card"><button class="os-acc" data-acc type="button">Price Summary <span class="os-acc__c">⌄</span></button><div class="os-acc__b">${priceRows}</div></div>
+        <div class="os-card"><button class="os-acc" data-acc type="button">Order Details <span class="os-acc__c">⌄</span></button><div class="os-acc__b">${details}</div></div>
+        <div class="os-bar"><div class="os-bar__inner">${bar}</div></div>`;
 
       $('odLoading').hidden = true;
       $('odContent').hidden = false;
+
+      document.querySelectorAll('[data-acc]').forEach((b) => b.addEventListener('click', () => b.closest('.os-card')?.classList.toggle('collapsed')));
 
       const cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement | null;
       if (cancelBtn) cancelBtn.addEventListener('click', async () => {
@@ -191,7 +229,7 @@ const oid = Astro.params.id;
             body: JSON.stringify({ orderId: o.id, reason }),
           });
           if (!res.ok) throw new Error();
-          returnBtn.replaceWith(Object.assign(document.createElement('span'), { className: 'od__note', textContent: 'Return requested' }));
+          returnBtn.replaceWith(Object.assign(document.createElement('div'), { className: 'os-bar__note', textContent: 'Return requested' }));
         } catch { returnBtn.disabled = false; returnBtn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
       });
 
@@ -199,7 +237,6 @@ const oid = Astro.params.id;
       if (reorderBtn) reorderBtn.addEventListener('click', async () => {
         reorderBtn.disabled = true; reorderBtn.textContent = 'Adding…';
         try {
-          // Add each item back to the India cart (sequential — the cart cookie is shared).
           for (const i of o.items) {
             if (!i.variantId) continue;
             await fetch('/api/cart/add', {
@@ -208,10 +245,7 @@ const oid = Astro.params.id;
             });
           }
           location.href = '/cart';
-        } catch {
-          reorderBtn.disabled = false; reorderBtn.textContent = 'Buy it again';
-          alert('Could not add to cart. Please try again.');
-        }
+        } catch { reorderBtn.disabled = false; reorderBtn.textContent = 'Reorder'; alert('Could not add to cart. Please try again.'); }
       });
     }
 
