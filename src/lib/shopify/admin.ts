@@ -262,6 +262,10 @@ export interface AccountOrder {
   total: Money;
   items: Array<{ title: string; quantity: number }>;
   returnRequested: boolean;
+  // Shipment tracking (populated once the order is fulfilled)
+  shipmentStatus: string | null; // Shopify FulfillmentDisplayStatus (IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED…)
+  estimatedDeliveryAt: string | null;
+  tracking: { company: string | null; number: string | null; url: string | null } | null;
 }
 
 const ORDERS_BY_EMAIL = /* GraphQL */ `
@@ -272,6 +276,11 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
         lineItems(first: 20) { edges { node { title quantity } } }
+        fulfillments(first: 1) {
+          displayStatus
+          estimatedDeliveryAt
+          trackingInfo(first: 1) { company number url }
+        }
       } }
     }
   }
@@ -282,6 +291,11 @@ interface RawOrder {
   displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: Money };
   lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+  fulfillments: Array<{
+    displayStatus: string | null;
+    estimatedDeliveryAt: string | null;
+    trackingInfo: Array<{ company: string | null; number: string | null; url: string | null }>;
+  }>;
 }
 
 export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
@@ -300,6 +314,15 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     total: node.totalPriceSet.shopMoney,
     items: node.lineItems.edges.map((e) => ({ title: e.node.title, quantity: e.node.quantity })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
+    shipmentStatus: node.fulfillments?.[0]?.displayStatus ?? null,
+    estimatedDeliveryAt: node.fulfillments?.[0]?.estimatedDeliveryAt ?? null,
+    tracking: node.fulfillments?.[0]?.trackingInfo?.[0]
+      ? {
+          company: node.fulfillments[0].trackingInfo[0].company,
+          number: node.fulfillments[0].trackingInfo[0].number,
+          url: node.fulfillments[0].trackingInfo[0].url,
+        }
+      : null,
   }));
 }
 
