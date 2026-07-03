@@ -260,7 +260,7 @@ export interface AccountOrder {
   fulfillmentStatus: string;
   cancelledAt: string | null;
   total: Money;
-  items: Array<{ title: string; quantity: number }>;
+  items: Array<{ title: string; quantity: number; image: string | null; variantId: string | null; price: Money | null }>;
   returnRequested: boolean;
   // Shipment tracking (populated once the order is fulfilled)
   shipmentStatus: string | null; // Shopify FulfillmentDisplayStatus (IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED…)
@@ -276,7 +276,11 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
         id name createdAt tags cancelledAt
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
-        lineItems(first: 20) { edges { node { title quantity } } }
+        lineItems(first: 20) { edges { node {
+          title quantity
+          originalUnitPriceSet { shopMoney { amount currencyCode } }
+          variant { id image { url } product { featuredImage { url } } }
+        } } }
         fulfillments(first: 1) {
           displayStatus
           estimatedDeliveryAt
@@ -292,7 +296,11 @@ interface RawOrder {
   id: string; name: string; createdAt: string; tags: string[]; cancelledAt: string | null;
   displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: Money };
-  lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+  lineItems: { edges: Array<{ node: {
+    title: string; quantity: number;
+    originalUnitPriceSet: { shopMoney: Money } | null;
+    variant: { id: string; image: { url: string } | null; product: { featuredImage: { url: string } | null } | null } | null;
+  } }> };
   fulfillments: Array<{
     displayStatus: string | null;
     estimatedDeliveryAt: string | null;
@@ -315,7 +323,13 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     fulfillmentStatus: node.displayFulfillmentStatus ?? '',
     cancelledAt: node.cancelledAt,
     total: node.totalPriceSet.shopMoney,
-    items: node.lineItems.edges.map((e) => ({ title: e.node.title, quantity: e.node.quantity })),
+    items: node.lineItems.edges.map((e) => ({
+      title: e.node.title,
+      quantity: e.node.quantity,
+      image: e.node.variant?.image?.url ?? e.node.variant?.product?.featuredImage?.url ?? null,
+      variantId: e.node.variant?.id ?? null,
+      price: e.node.originalUnitPriceSet?.shopMoney ?? null,
+    })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
     shipmentStatus: node.fulfillments?.[0]?.displayStatus ?? null,
     estimatedDeliveryAt: node.fulfillments?.[0]?.estimatedDeliveryAt ?? null,

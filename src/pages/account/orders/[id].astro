@@ -61,14 +61,20 @@ const oid = Astro.params.id;
     .track__link:hover { color: var(--od-red); border-color: var(--od-red); }
 
     .od__sec-title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 26px 0 10px; padding-top: 20px; border-top: 1px solid #ececec; }
-    .od__item { font-size: 14px; color: #1a1a1a; padding: 6px 0; }
-    .od__ship { font-size: 13px; color: #4a4a4a; line-height: 1.7; }
+    .od__item { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+    .od__item-img { width: 46px; height: 58px; object-fit: cover; background: #f4f2ee; flex-shrink: 0; }
+    .od__item-img--ph { display: inline-block; }
+    .od__item-info { flex: 1; }
+    .od__item-title { font-size: 14px; color: #1a1a1a; }
+    .od__item-sub { font-size: 12px; color: #6b6b6b; margin-top: 3px; }
 
-    .od__actions { margin-top: 22px; }
-    .od__btn { background: none; border: 1px solid #1a1a1a; padding: 12px 22px; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; transition: background .2s, color .2s; }
+    .od__actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .od__btn { background: none; border: 1px solid #1a1a1a; padding: 12px 22px; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; transition: background .2s, color .2s, border-color .2s; }
     .od__btn:hover { background: #1a1a1a; color: #fff; }
     .od__btn--danger { border-color: var(--od-red); color: var(--od-red); }
     .od__btn--danger:hover { background: var(--od-red); color: #fff; }
+    .od__btn--primary { border-color: #1a1a1a; background: #1a1a1a; color: #fff; }
+    .od__btn--primary:hover { background: var(--od-red); border-color: var(--od-red); }
     .od__note { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--od-green); }
   </style>
 
@@ -116,8 +122,17 @@ const oid = Astro.params.id;
       let actions = '';
       if (!cancelled && shipped) actions = o.returnRequested ? `<span class="od__note">Return requested</span>` : `<button class="od__btn" id="returnBtn">Request a return</button>`;
       else if (!cancelled) actions = `<button class="od__btn od__btn--danger" id="cancelBtn">Cancel order</button>`;
+      const canReorder = o.items.some((i: any) => i.variantId);
+      if (canReorder) actions += `<button class="od__btn od__btn--primary" id="reorderBtn">Buy it again</button>`;
 
-      const items = o.items.map((i: any) => `<div class="od__item">${i.quantity}× ${esc(i.title)}</div>`).join('');
+      const items = o.items.map((i: any) => `
+        <div class="od__item">
+          ${i.image ? `<img class="od__item-img" src="${esc(i.image)}" alt="${esc(i.title)}" loading="lazy" />` : `<span class="od__item-img od__item-img--ph"></span>`}
+          <div class="od__item-info">
+            <div class="od__item-title">${esc(i.title)}</div>
+            <div class="od__item-sub">Qty ${i.quantity}${i.price ? ' · ' + inr(i.price.amount, i.price.currencyCode) : ''}</div>
+          </div>
+        </div>`).join('');
 
       $('odContent').innerHTML = `
         <div class="od__card">
@@ -173,6 +188,25 @@ const oid = Astro.params.id;
           if (!res.ok) throw new Error();
           returnBtn.replaceWith(Object.assign(document.createElement('span'), { className: 'od__note', textContent: 'Return requested' }));
         } catch { returnBtn.disabled = false; returnBtn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
+      });
+
+      const reorderBtn = document.getElementById('reorderBtn') as HTMLButtonElement | null;
+      if (reorderBtn) reorderBtn.addEventListener('click', async () => {
+        reorderBtn.disabled = true; reorderBtn.textContent = 'Adding…';
+        try {
+          // Add each item back to the India cart (sequential — the cart cookie is shared).
+          for (const i of o.items) {
+            if (!i.variantId) continue;
+            await fetch('/api/cart/add', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ merchandiseId: i.variantId, quantity: i.quantity, store: 'india' }),
+            });
+          }
+          location.href = '/cart';
+        } catch {
+          reorderBtn.disabled = false; reorderBtn.textContent = 'Buy it again';
+          alert('Could not add to cart. Please try again.');
+        }
       });
     }
 
