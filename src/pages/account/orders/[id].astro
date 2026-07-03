@@ -61,12 +61,14 @@ const oid = Astro.params.id;
     .track__link:hover { color: var(--od-red); border-color: var(--od-red); }
 
     .od__sec-title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 26px 0 10px; padding-top: 20px; border-top: 1px solid #ececec; }
-    .od__item { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+    .od__item { display: flex; align-items: center; gap: 12px; padding: 8px 0; text-decoration: none; color: inherit; }
     .od__item-img { width: 46px; height: 58px; object-fit: cover; background: #f4f2ee; flex-shrink: 0; }
     .od__item-img--ph { display: inline-block; }
     .od__item-info { flex: 1; }
-    .od__item-title { font-size: 14px; color: #1a1a1a; }
+    .od__item-title { font-size: 14px; color: #1a1a1a; transition: color .2s; }
+    .od__item:hover .od__item-title { color: var(--od-red); text-decoration: underline; }
     .od__item-sub { font-size: 12px; color: #6b6b6b; margin-top: 3px; }
+    .od__item-arrow { color: #c0c0c0; font-size: 18px; line-height: 1; }
 
     .od__actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
     .od__btn { background: none; border: 1px solid #1a1a1a; padding: 12px 22px; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; transition: background .2s, color .2s, border-color .2s; }
@@ -125,14 +127,17 @@ const oid = Astro.params.id;
       const canReorder = o.items.some((i: any) => i.variantId);
       if (canReorder) actions += `<button class="od__btn od__btn--primary" id="reorderBtn">Buy it again</button>`;
 
+      // Product handle ≈ the slugified title (Mir Kash uses "<name> - <colour>" titles).
+      const slugify = (t: string) => String(t).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       const items = o.items.map((i: any) => `
-        <div class="od__item">
+        <a class="od__item" href="/products/${slugify(i.title)}">
           ${i.image ? `<img class="od__item-img" src="${esc(i.image)}" alt="${esc(i.title)}" loading="lazy" />` : `<span class="od__item-img od__item-img--ph"></span>`}
           <div class="od__item-info">
             <div class="od__item-title">${esc(i.title)}</div>
             <div class="od__item-sub">Qty ${i.quantity}${i.price ? ' · ' + inr(i.price.amount, i.price.currencyCode) : ''}</div>
           </div>
-        </div>`).join('');
+          <span class="od__item-arrow" aria-hidden="true">›</span>
+        </a>`).join('');
 
       $('odContent').innerHTML = `
         <div class="od__card">
