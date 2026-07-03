@@ -159,8 +159,8 @@ const DRAFT_ORDER_CREATE = /* GraphQL */ `
 `;
 
 const DRAFT_ORDER_COMPLETE = /* GraphQL */ `
-  mutation DraftOrderComplete($id: ID!) {
-    draftOrderComplete(id: $id, paymentPending: false) {
+  mutation DraftOrderComplete($id: ID!, $paymentPending: Boolean!) {
+    draftOrderComplete(id: $id, paymentPending: $paymentPending) {
       draftOrder { ${DRAFT_FIELDS} }
       userErrors { field message }
     }
@@ -180,11 +180,13 @@ export async function createDraftOrder(args: {
   phone: string;
   discount?: { amount: number; title: string }; // fixed ₹ off, from a cart coupon
   optin?: boolean; // customer agreed to WhatsApp order updates
+  cod?: boolean; // Cash on Delivery (else Cashfree online payment)
 }): Promise<DraftOrderResult | null> {
+  const payTag = args.cod ? 'cod' : 'cashfree';
   const input: Record<string, unknown> = {
     email: args.email,
     phone: args.phone,
-    tags: args.optin ? ['cashfree', 'web-otp', 'wa-optin'] : ['cashfree', 'web-otp'],
+    tags: args.optin ? [payTag, 'web-otp', 'wa-optin'] : [payTag, 'web-otp'],
     // Carries through to the order's note_attributes; the WhatsApp service reads wa_optin.
     customAttributes: args.optin ? [{ key: 'wa_optin', value: 'true' }] : [],
     shippingLine: { title: 'Free Shipping', price: '0' },
@@ -231,13 +233,15 @@ export async function getDraftOrder(id: string): Promise<DraftOrderResult | null
 // Completes the draft → creates the real (paid) order, decrements inventory,
 // sends the Shopify confirmation email. Idempotent: a draft that is already
 // COMPLETED is returned as-is rather than re-completed.
-export async function completeDraftOrder(id: string): Promise<DraftOrderResult | null> {
+// paymentPending=false → real PAID order (online). paymentPending=true → order marked
+// "Payment pending" (Cash on Delivery — collect cash on delivery, then mark paid in Shopify).
+export async function completeDraftOrder(id: string, paymentPending = false): Promise<DraftOrderResult | null> {
   const existing = await getDraftOrder(id);
   if (existing && existing.status === 'COMPLETED') return existing;
 
   const data = await runAdminQuery<{
     draftOrderComplete: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };
-  }>(DRAFT_ORDER_COMPLETE, { id });
+  }>(DRAFT_ORDER_COMPLETE, { id, paymentPending });
 
   const errs = data?.draftOrderComplete?.userErrors;
   if (errs && errs.length) {

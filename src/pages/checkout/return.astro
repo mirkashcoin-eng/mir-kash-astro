@@ -8,11 +8,15 @@ export const prerender = false;
 // Never cache — this finalizes a specific order for a specific buyer.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
+// Cash on Delivery returns here directly (no gateway to verify) with ?cod=1&order=…
+const isCod = Astro.url.searchParams.get('cod') === '1';
+const codOrder = Astro.url.searchParams.get('order') || undefined;
+
 const orderId = Astro.url.searchParams.get('order_id') ?? '';
 let status: FinalizeStatus = 'error';
 let orderName: string | undefined;
 
-if (orderId) {
+if (!isCod && orderId) {
   const result = await finalizeOrder(orderId, Astro.cookies);
   status = result.status;
   orderName = result.orderName;
@@ -37,7 +41,15 @@ const COPY: Record<FinalizeStatus, { title: string; body: string }> = {
   },
 };
 
-const copy = COPY[status];
+// COD reuses the "paid" success styling (green check, Continue shopping) with its own copy.
+const displayStatus: FinalizeStatus = isCod ? 'paid' : status;
+const displayOrder = isCod ? codOrder : orderName;
+const copy = isCod
+  ? {
+      title: 'Order placed',
+      body: 'Your order is confirmed for Cash on Delivery. Please keep the amount ready to pay when your bag is delivered. A confirmation is on its way.',
+    }
+  : COPY[status];
 ---
 <BaseLayout title="Order — Mir Kash" path="/checkout/return">
   <header class="hdr">
@@ -47,15 +59,15 @@ const copy = COPY[status];
   </header>
 
   <main class="ret">
-    <div class={`ret__card ret__card--${status}`}>
-      <span class="ret__mark" aria-hidden="true">{status === 'paid' ? '✓' : status === 'pending' ? '…' : '!'}</span>
+    <div class={`ret__card ret__card--${displayStatus}`}>
+      <span class="ret__mark" aria-hidden="true">{displayStatus === 'paid' ? '✓' : displayStatus === 'pending' ? '…' : '!'}</span>
       <h1 class="ret__title">{copy.title}</h1>
-      {status === 'paid' && orderName && <p class="ret__order">Order {orderName}</p>}
+      {displayStatus === 'paid' && displayOrder && <p class="ret__order">Order {displayOrder}</p>}
       <p class="ret__body">{copy.body}</p>
       <div class="ret__actions">
-        {status === 'paid' ? (
+        {displayStatus === 'paid' ? (
           <a class="ret__btn" href="/shop">Continue shopping</a>
-        ) : status === 'failed' ? (
+        ) : displayStatus === 'failed' ? (
           <a class="ret__btn" href="/checkout">Try again</a>
         ) : (
           <a class="ret__btn" href="/">Back to home</a>

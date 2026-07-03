@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { resolveCheckoutCartId } from '~/lib/cart-session';
+import { resolveCheckoutCartId, clearCart, clearBuyNowCart } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
-import { createDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
+import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { createCashfreeOrder } from '~/lib/cashfree';
 
 export const prerender = false;
@@ -17,6 +17,7 @@ interface Body {
   email?: string;
   buynow?: boolean;
   waOptin?: boolean;
+  paymentMethod?: 'online' | 'cod';
 }
 
 function bad(message: string, status = 400) {
@@ -85,14 +86,29 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     country: 'IN',
   };
 
+  const isCod = body.paymentMethod === 'cod';
+
   const discount = cart.discountAmount > 0
     ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
     : undefined;
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true });
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);
   if (!Number.isFinite(amount) || amount <= 0) return bad('Invalid order total', 502);
+
+  // ── Cash on Delivery: no online payment. Complete the draft as "payment pending"
+  // (a real order with money collected on delivery), clear the cart, and we're done.
+  if (isCod) {
+    const completed = await completeDraftOrder(draft.id, true);
+    if (!completed) return bad('Could not place your order', 502);
+    if (isBuyNow) clearBuyNowCart(cookies, 'india');
+    else clearCart(cookies, 'india');
+    return new Response(
+      JSON.stringify({ cod: true, orderName: completed.orderName ?? completed.name }),
+      { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
+    );
+  }
 
   const orderId = `mk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const cf = await createCashfreeOrder({

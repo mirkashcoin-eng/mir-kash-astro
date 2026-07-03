@@ -249,9 +249,17 @@ const thumbGradients = [
           </div>
         </div>
 
+        <div class="pay-opt" data-pay="cod">
+          <div class="pay-opt-head">
+            <span class="pay-icon"><svg width="22" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6a64" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg></span>
+            <span class="pay-name">Cash on Delivery<span class="pay-desc">Pay in cash when your order arrives</span></span>
+            <span class="pay-radio"></span>
+          </div>
+        </div>
+
         <p class="pay-note">
           <svg width="11" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          You'll complete payment securely with Cashfree (UPI · cards · netbanking).
+          <span id="payNoteTxt">You'll complete payment securely with Cashfree (UPI · cards · netbanking).</span>
         </p>
 
         <p class="co-err" id="err-payment" hidden></p>
@@ -309,7 +317,10 @@ const thumbGradients = [
     const el = $('recap-' + id);
     if (id === 'contact') el.textContent = '+91 ' + phone10();
     else if (id === 'delivery') el.textContent = [val('f-name'), val('f-addr'), val('f-city'), val('f-state')].filter(Boolean).join(' · ') || 'Address added';
-    else if (id === 'payment') el.textContent = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'card' ? 'Card' : 'UPI';
+    else if (id === 'payment') {
+      const pay = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay;
+      el.textContent = pay === 'card' ? 'Card' : pay === 'cod' ? 'Cash on Delivery' : 'UPI';
+    }
   }
 
   // ── Delivery: saved-address card ↔ form ──
@@ -405,8 +416,8 @@ const thumbGradients = [
       }
       $('sumGrand').textContent = inrFmt(data.total);
       $('sumAmt').textContent = inrFmt(data.total);
-      $('placeTxt').textContent = 'She’s yours — pay ' + inrFmt(data.total);
       sheet.dataset.total = String(data.total);
+      syncPayUi();
     } catch {
       showErr('coupon', 'Could not apply the code. Please try again.');
     } finally {
@@ -449,9 +460,23 @@ const thumbGradients = [
   }));
 
   // ── Payment method pick ──
+  const initialPayTxt = $('placeTxt').textContent ?? '';
+  // Keep the pay note + CTA in step with the chosen method (COD skips online payment).
+  function syncPayUi() {
+    const cod = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'cod';
+    const noteEl = document.getElementById('payNoteTxt');
+    if (noteEl) noteEl.textContent = cod
+      ? 'No online payment needed — pay in cash when your order is delivered.'
+      : "You'll complete payment securely with Cashfree (UPI · cards · netbanking).";
+    const total = Number(sheet.dataset.total);
+    const onlineTxt = Number.isFinite(total) && total > 0 ? 'She’s yours — pay ' + inrFmt(total) : initialPayTxt;
+    $('placeTxt').textContent = cod ? 'Place order — Cash on Delivery' : onlineTxt;
+  }
+
   document.querySelectorAll('.pay-opt').forEach((o) => o.addEventListener('click', () => {
     document.querySelectorAll('.pay-opt').forEach((x) => x.classList.remove('sel'));
     o.classList.add('sel');
+    syncPayUi();
     if (done.has('payment')) buildRecap('payment');
   }));
 
@@ -459,8 +484,9 @@ const thumbGradients = [
   $('placeBtn').addEventListener('click', async () => {
     clearErr('payment');
     const btn = $('placeBtn') as HTMLButtonElement;
+    const isCod = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'cod';
     btn.disabled = true;
-    $('placeTxt').textContent = 'Starting secure payment…';
+    $('placeTxt').textContent = isCod ? 'Placing your order…' : 'Starting secure payment…';
     const city = val('f-city'), province = val('f-state');
     // Save details to the customer's account (signed in) or auto-create one
     // (guest → email+password + set-password email). Best-effort; never blocks.
@@ -475,17 +501,23 @@ const thumbGradients = [
           fullName: val('f-name'), address1: val('f-addr'), address2: val('f-apt'),
           city, province, zip: val('f-pin'), email: val('f-email'), phone: phone10(), buynow: buyNow,
           waOptin: ($('waOptin') as HTMLInputElement)?.checked ?? false,
+          paymentMethod: isCod ? 'cod' : 'online',
         }),
       });
       const data = await res.json();
+      if (isCod) {
+        if (!res.ok || !data.cod) throw new Error(data.error || 'Could not place your order');
+        window.location.href = '/checkout/return?cod=1&order=' + encodeURIComponent(data.orderName || '');
+        return;
+      }
       if (!res.ok || !data.paymentSessionId) throw new Error(data.error || 'Could not start payment');
       const cashfree = await load({ mode: data.mode });
       await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' });
     } catch (err) {
       console.error(err);
-      showErr('payment', 'Payment could not be started. Please try again.');
+      showErr('payment', isCod ? 'We couldn’t place your order. Please try again.' : 'Payment could not be started. Please try again.');
       btn.disabled = false;
-      $('placeTxt').textContent = 'She’s yours — pay ' + (sheet.dataset.total ? '₹' + Math.round(Number(sheet.dataset.total)).toLocaleString('en-IN') : '');
+      syncPayUi();
     }
   });
 
