@@ -332,7 +332,7 @@ img { display: block; max-width: 100%; }
 .pr-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 5px;
   padding: 0 var(--gutter);
 }
 
@@ -812,7 +812,7 @@ img { display: block; max-width: 100%; }
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    gap: 16px;
+    gap: 5px;
     padding: 0 var(--gutter);
     scroll-padding-left: var(--gutter);
   }
