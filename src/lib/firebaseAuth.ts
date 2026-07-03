@@ -17,12 +17,15 @@ const JWKS = createRemoteJWKSet(
 );
 
 export async function verifyFirebaseUser(token: string): Promise<{ email: string } | null> {
-  const projectId = getEnv('PUBLIC_FIREBASE_PROJECT_ID');
-  if (!token || !projectId) return null;
+  // Public (non-secret) project id; fall back to the known value so a runtime env
+  // hiccup on the server can't silently break order/account verification.
+  const projectId = getEnv('PUBLIC_FIREBASE_PROJECT_ID') || 'mir-kash-web';
+  if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: `https://securetoken.google.com/${projectId}`,
       audience: projectId,
+      clockTolerance: '120s', // tolerate device/server clock skew so valid tokens aren't rejected
     });
     const email = (payload as { email?: string; email_verified?: boolean }).email;
     return email ? { email } : null;

@@ -155,10 +155,16 @@ const ready = firebaseConfigured();
   }
 
   async function loadOrders() {
-    const token = await getIdToken();
     const box = $('orders');
     try {
-      const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+      let token = await getIdToken();
+      let res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) {
+        // The login token may be stale — force a refresh and retry once.
+        token = await getIdToken(true);
+        res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+      }
+      if (!res.ok) { box.innerHTML = `<p class="acct__note">We couldn’t load your orders right now (error ${res.status}). Please refresh the page — if it keeps happening, let us know.</p>`; return; }
       const data = await res.json();
       const orders = data.orders || [];
       if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet. Orders you place will appear here — with a one-tap return option.</p>'; return; }

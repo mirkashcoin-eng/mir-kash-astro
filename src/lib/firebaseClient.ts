@@ -54,9 +54,9 @@ export function getSessionUser(): Promise<User | null> {
   });
 }
 
-export async function getIdToken(): Promise<string | null> {
+export async function getIdToken(forceRefresh = false): Promise<string | null> {
   if (!init()) return null;
-  return auth!.currentUser ? auth!.currentUser.getIdToken() : null;
+  return auth!.currentUser ? auth!.currentUser.getIdToken(forceRefresh) : null;
 }
 
 export async function signInWithGoogle(): Promise<User | null> {

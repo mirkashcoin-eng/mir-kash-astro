@@ -214,8 +214,10 @@ const oid = Astro.params.id;
       const user = await getSessionUser();
       if (!user) { $('odLoading').hidden = true; $('odSignedOut').hidden = false; return; }
       try {
-        const token = await getIdToken();
-        const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+        let token = await getIdToken();
+        let res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.status === 401) { token = await getIdToken(true); res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } }); }
+        if (!res.ok) { $('odLoading').textContent = `Couldn’t load this order (error ${res.status}). Please refresh.`; return; }
         const data = await res.json();
         const order = (data.orders || []).find((o: any) => String(o.id).split('/').pop() === oid);
         if (!order) { $('odLoading').textContent = 'Order not found.'; return; }
