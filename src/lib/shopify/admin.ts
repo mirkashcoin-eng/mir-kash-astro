@@ -278,8 +278,8 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
         totalPriceSet { shopMoney { amount currencyCode } }
         lineItems(first: 20) { edges { node {
           title quantity
+          image { url }
           originalUnitPriceSet { shopMoney { amount currencyCode } }
-          variant { id image { url } product { featuredImage { url } } }
         } } }
         fulfillments(first: 1) {
           displayStatus
@@ -298,8 +298,8 @@ interface RawOrder {
   totalPriceSet: { shopMoney: Money };
   lineItems: { edges: Array<{ node: {
     title: string; quantity: number;
+    image: { url: string } | null;
     originalUnitPriceSet: { shopMoney: Money } | null;
-    variant: { id: string; image: { url: string } | null; product: { featuredImage: { url: string } | null } | null } | null;
   } }> };
   fulfillments: Array<{
     displayStatus: string | null;
@@ -326,8 +326,9 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     items: node.lineItems.edges.map((e) => ({
       title: e.node.title,
       quantity: e.node.quantity,
-      image: e.node.variant?.image?.url ?? e.node.variant?.product?.featuredImage?.url ?? null,
-      variantId: e.node.variant?.id ?? null,
+      image: e.node.image?.url ?? null,
+      // variant id needs the read_products scope; null until that's added (disables reorder)
+      variantId: null,
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
     })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
