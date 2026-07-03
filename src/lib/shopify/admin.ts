@@ -265,6 +265,7 @@ export interface AccountOrder {
   // Shipment tracking (populated once the order is fulfilled)
   shipmentStatus: string | null; // Shopify FulfillmentDisplayStatus (IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED…)
   estimatedDeliveryAt: string | null;
+  deliveredAt: string | null; // actual delivery date, from the DELIVERED fulfillment event
   tracking: { company: string | null; number: string | null; url: string | null } | null;
 }
 
@@ -280,6 +281,7 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
           displayStatus
           estimatedDeliveryAt
           trackingInfo(first: 1) { company number url }
+          events(first: 20) { edges { node { status happenedAt } } }
         }
       } }
     }
@@ -295,6 +297,7 @@ interface RawOrder {
     displayStatus: string | null;
     estimatedDeliveryAt: string | null;
     trackingInfo: Array<{ company: string | null; number: string | null; url: string | null }>;
+    events: { edges: Array<{ node: { status: string; happenedAt: string } }> };
   }>;
 }
 
@@ -316,6 +319,9 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
     returnRequested: (node.tags ?? []).includes('return-requested'),
     shipmentStatus: node.fulfillments?.[0]?.displayStatus ?? null,
     estimatedDeliveryAt: node.fulfillments?.[0]?.estimatedDeliveryAt ?? null,
+    deliveredAt: node.fulfillments?.[0]?.events?.edges?.find(
+      (e) => (e.node.status || '').toUpperCase() === 'DELIVERED',
+    )?.node.happenedAt ?? null,
     tracking: node.fulfillments?.[0]?.trackingInfo?.[0]
       ? {
           company: node.fulfillments[0].trackingInfo[0].company,

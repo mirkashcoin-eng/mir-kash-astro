@@ -1,0 +1,194 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import SiteFooter from '~/components/SiteFooter.astro';
+
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const oid = Astro.params.id;
+---
+<BaseLayout title="Order — Mir Kash" path={`/account/orders/${oid}`}>
+  <header class="od-head">
+    <a href="/" class="od-logo" aria-label="Mir Kash"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
+    <a href="/account" class="od-back">← My orders</a>
+  </header>
+
+  <main class="od">
+    <p class="od__msg" id="odLoading">Loading your order…</p>
+
+    <div id="odSignedOut" hidden>
+      <p class="od__msg">Please <a href="/account">sign in</a> to view this order.</p>
+    </div>
+
+    <div id="odContent" hidden></div>
+  </main>
+
+  <SiteFooter />
+
+  <style is:global>
+    :root { --od-green: #3D6B4F; --od-red: #8B1A1A; }
+    .od-head { display: flex; align-items: center; justify-content: space-between; max-width: 640px; margin: 0 auto; padding: 20px 22px 18px; border-bottom: 1px solid #e6e6e6; }
+    .od-logo img { height: 20px; }
+    .od-back { font-size: 12px; letter-spacing: .04em; color: #6b6b6b; text-decoration: none; }
+    .od-back:hover { color: #1a1a1a; }
+
+    .od { max-width: 640px; margin: 0 auto; padding: 28px 22px 64px; min-height: 50vh; }
+    .od__msg { font-size: 14px; color: #6b6b6b; text-align: center; padding: 40px 0; }
+    .od__msg a { color: #1a1a1a; }
+
+    .od__card { border: 1px solid #e6e6e6; padding: 22px 22px 24px; }
+    .od__top { display: flex; align-items: flex-start; justify-content: space-between; }
+    .od__name { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+    .od__date { font-size: 12px; color: #6b6b6b; margin-top: 4px; }
+    .od__total { font-size: 18px; }
+
+    .od__banner { margin: 18px 0 4px; padding: 12px 14px; background: #f6f5f2; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: #4a4a4a; }
+    .od__banner--done { background: #eef3ef; color: var(--od-green); }
+    .od__banner--cancel { background: #f7eeee; color: var(--od-red); }
+
+    /* Shipment tracker */
+    .track { display: flex; margin: 18px 0 4px; }
+    .track__step { flex: 1; text-align: center; position: relative; }
+    .track__step:not(:first-child)::before { content: ''; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px; background: #e6e6e6; z-index: 0; }
+    .track__step.done:not(:first-child)::before { background: var(--od-green); }
+    .track__dot { position: relative; z-index: 1; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #e6e6e6; }
+    .track__step.done .track__dot { background: var(--od-green); }
+    .track__lbl { display: block; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: #9a9a9a; margin-top: 6px; }
+    .track__step.done .track__lbl { color: #1a1a1a; }
+    .track--cancel .track__step.done:not(:first-child)::before { background: #d3a2a2; }
+    .track--cancel .track__step.done .track__dot { background: var(--od-red); }
+    .track__eta { font-size: 12px; color: #6b6b6b; margin: 10px 0 2px; }
+    .track__link { display: inline-block; margin-top: 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: #1a1a1a; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; }
+    .track__link:hover { color: var(--od-red); border-color: var(--od-red); }
+
+    .od__sec-title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 26px 0 10px; padding-top: 20px; border-top: 1px solid #ececec; }
+    .od__item { font-size: 14px; color: #1a1a1a; padding: 6px 0; }
+    .od__ship { font-size: 13px; color: #4a4a4a; line-height: 1.7; }
+
+    .od__actions { margin-top: 22px; }
+    .od__btn { background: none; border: 1px solid #1a1a1a; padding: 12px 22px; cursor: pointer; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; transition: background .2s, color .2s; }
+    .od__btn:hover { background: #1a1a1a; color: #fff; }
+    .od__btn--danger { border-color: var(--od-red); color: var(--od-red); }
+    .od__btn--danger:hover { background: var(--od-red); color: #fff; }
+    .od__note { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--od-green); }
+  </style>
+
+  <script>
+    import { getSessionUser, getIdToken } from '~/lib/firebaseClient';
+
+    const STEPS = ['Ordered', 'Shipped', 'Out for delivery', 'Delivered'];
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+    const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    function inr(amount: string, currency: string) {
+      const n = Math.round(Number(amount));
+      try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n); }
+      catch { return currency + ' ' + n.toLocaleString('en-IN'); }
+    }
+    const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+
+    const oid = location.pathname.split('/').pop() || '';
+
+    function stageOf(o: any) {
+      const ship = String(o.shipmentStatus || '').toUpperCase();
+      const fs = String(o.fulfillmentStatus || '').toUpperCase();
+      const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
+      if (ship === 'DELIVERED') return 3;
+      if (['OUT_FOR_DELIVERY', 'ATTEMPTED_DELIVERY', 'READY_FOR_PICKUP', 'PICKED_UP'].includes(ship)) return 2;
+      if (shipped || o.tracking || ['IN_TRANSIT', 'CONFIRMED', 'LABEL_PRINTED', 'SUBMITTED'].includes(ship)) return 1;
+      return 0;
+    }
+
+    function render(o: any) {
+      const stage = stageOf(o);
+      const cancelled = !!o.cancelledAt;
+      const delivered = stage === 3;
+      const fs = String(o.fulfillmentStatus || '').toUpperCase();
+      const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
+
+      let banner: string;
+      if (cancelled) banner = `<div class="od__banner od__banner--cancel">Cancelled${o.cancelledAt ? ' on ' + fmtDate(o.cancelledAt) : ''} · was at “${STEPS[stage]}” stage</div>`;
+      else if (delivered) banner = `<div class="od__banner od__banner--done">Delivered${o.deliveredAt ? ' on ' + fmtDate(o.deliveredAt) : ''}</div>`;
+      else banner = `<div class="od__banner">Status · ${STEPS[stage]}</div>`;
+
+      const stepper = `<div class="track${cancelled ? ' track--cancel' : ''}">${STEPS.map((s, i) => `<div class="track__step${i <= stage ? ' done' : ''}"><span class="track__dot"></span><span class="track__lbl">${s}</span></div>`).join('')}</div>`;
+      const eta = (!cancelled && !delivered && o.estimatedDeliveryAt) ? `<div class="track__eta">Estimated delivery: ${fmtDate(o.estimatedDeliveryAt)}</div>` : '';
+      const track = (!cancelled && o.tracking && o.tracking.url) ? `<a class="track__link" href="${esc(o.tracking.url)}" target="_blank" rel="noopener">Track shipment${o.tracking.company ? ' · ' + esc(o.tracking.company) : ''}${o.tracking.number ? ' (' + esc(o.tracking.number) + ')' : ''}</a>` : '';
+
+      let actions = '';
+      if (!cancelled && shipped) actions = o.returnRequested ? `<span class="od__note">Return requested</span>` : `<button class="od__btn" id="returnBtn">Request a return</button>`;
+      else if (!cancelled) actions = `<button class="od__btn od__btn--danger" id="cancelBtn">Cancel order</button>`;
+
+      const items = o.items.map((i: any) => `<div class="od__item">${i.quantity}× ${esc(i.title)}</div>`).join('');
+
+      $('odContent').innerHTML = `
+        <div class="od__card">
+          <div class="od__top">
+            <div>
+              <div class="od__name">Order ${esc(o.name)}</div>
+              <div class="od__date">Placed ${fmtDate(o.createdAt)} · ${esc(o.financialStatus)}</div>
+            </div>
+            <div class="od__total">${inr(o.total.amount, o.total.currencyCode)}</div>
+          </div>
+          ${banner}
+          ${stepper}
+          ${eta}
+          ${track}
+          <div class="od__sec-title">Items</div>
+          ${items}
+          <div class="od__actions">${actions}</div>
+        </div>`;
+
+      $('odLoading').hidden = true;
+      $('odContent').hidden = false;
+
+      const cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement | null;
+      if (cancelBtn) cancelBtn.addEventListener('click', async () => {
+        if (!confirm('Cancel this order? This cannot be undone.')) return;
+        cancelBtn.disabled = true; cancelBtn.textContent = 'Cancelling…';
+        const token = await getIdToken();
+        try {
+          const res = await fetch('/api/account/cancel-order', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ orderId: o.id }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || '');
+          if (data.refundPending) alert('Your order has been cancelled. Your refund will be processed shortly.');
+          location.reload();
+        } catch (err: any) {
+          cancelBtn.disabled = false; cancelBtn.textContent = 'Cancel order';
+          alert(err?.message || 'Could not cancel this order. Please try again or contact us.');
+        }
+      });
+
+      const returnBtn = document.getElementById('returnBtn') as HTMLButtonElement | null;
+      if (returnBtn) returnBtn.addEventListener('click', async () => {
+        const reason = prompt('Reason for return (optional):') ?? '';
+        returnBtn.disabled = true; returnBtn.textContent = 'Requesting…';
+        const token = await getIdToken();
+        try {
+          const res = await fetch('/api/account/return-request', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ orderId: o.id, reason }),
+          });
+          if (!res.ok) throw new Error();
+          returnBtn.replaceWith(Object.assign(document.createElement('span'), { className: 'od__note', textContent: 'Return requested' }));
+        } catch { returnBtn.disabled = false; returnBtn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
+      });
+    }
+
+    (async () => {
+      const user = await getSessionUser();
+      if (!user) { $('odLoading').hidden = true; $('odSignedOut').hidden = false; return; }
+      try {
+        const token = await getIdToken();
+        const res = await fetch('/api/account/orders', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        const order = (data.orders || []).find((o: any) => String(o.id).split('/').pop() === oid);
+        if (!order) { $('odLoading').textContent = 'Order not found.'; return; }
+        render(order);
+      } catch {
+        $('odLoading').textContent = 'Could not load this order.';
+      }
+    })();
+  </script>
+</BaseLayout>

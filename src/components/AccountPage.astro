@@ -163,40 +163,33 @@ const ready = firebaseConfigured();
       const orders = data.orders || [];
       if (!orders.length) { box.innerHTML = '<p class="acct__note">No orders yet. Orders you place will appear here — with a one-tap return option.</p>'; return; }
       const STEPS = ['Ordered', 'Shipped', 'Out for delivery', 'Delivered'];
+      const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      // Compact, clickable summary row — full tracking/cancel lives on the detail page.
       const renderCard = (o: any) => {
         const fs = String(o.fulfillmentStatus || '').toUpperCase();
         const shipped = fs.includes('FULFILLED') && !fs.includes('UNFULFILLED');
-        let action: string;
-        if (o.cancelledAt) action = '<span class="ord__cancelled">Cancelled</span>';
-        else if (shipped) action = o.returnRequested
-          ? '<span class="ord__ret">Return requested</span>'
-          : `<button class="ord__retbtn" data-order="${o.id}">Request a return</button>`;
-        else action = `<button class="ord__cancelbtn" data-cancel="${o.id}">Cancel order</button>`;
-
-        // Progress stepper — derive the stage from the shipment status (falls back to fulfilled).
         const ship = String(o.shipmentStatus || '').toUpperCase();
         let stage = 0;
         if (ship === 'DELIVERED') stage = 3;
         else if (['OUT_FOR_DELIVERY', 'ATTEMPTED_DELIVERY', 'READY_FOR_PICKUP', 'PICKED_UP'].includes(ship)) stage = 2;
         else if (shipped || o.tracking || ['IN_TRANSIT', 'CONFIRMED', 'LABEL_PRINTED', 'SUBMITTED'].includes(ship)) stage = 1;
-        const stepper = o.cancelledAt ? '' : `
-          <div class="track">
-            ${STEPS.map((s, i) => `<div class="track__step${i <= stage ? ' done' : ''}"><span class="track__dot"></span><span class="track__lbl">${s}</span></div>`).join('')}
-          </div>
-          ${o.estimatedDeliveryAt ? `<div class="track__eta">Estimated delivery: ${new Date(o.estimatedDeliveryAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>` : ''}
-          ${o.tracking && o.tracking.url ? `<a class="track__link" href="${o.tracking.url}" target="_blank" rel="noopener">Track shipment${o.tracking.company ? ' · ' + o.tracking.company : ''}${o.tracking.number ? ' (' + o.tracking.number + ')' : ''}</a>` : ''}`;
 
+        let badge: string;
+        if (o.cancelledAt) badge = `<span class="ord__badge ord__badge--cancel">Cancelled · was at ${STEPS[stage]}</span>`;
+        else if (stage === 3) badge = `<span class="ord__badge ord__badge--done">Delivered${o.deliveredAt ? ' · ' + fmtDate(o.deliveredAt) : ''}</span>`;
+        else badge = `<span class="ord__badge">${STEPS[stage]}</span>`;
+
+        const oid = String(o.id).split('/').pop();
         return `
-        <div class="ord">
+        <a class="ord ord--link" href="/account/orders/${oid}">
           <div class="ord__top">
             <span class="ord__name">${o.name}</span>
             <span class="ord__total">${inr(o.total.amount, o.total.currencyCode)}</span>
           </div>
-          <div class="ord__meta">${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${o.financialStatus} · ${o.fulfillmentStatus}</div>
+          <div class="ord__meta">${fmtDate(o.createdAt)}</div>
           <div class="ord__items">${o.items.map((i: any) => `${i.quantity}× ${i.title}`).join(', ')}</div>
-          ${stepper}
-          ${action}
-        </div>`;
+          <div class="ord__row">${badge}<span class="ord__chev" aria-hidden="true">›</span></div>
+        </a>`;
       };
 
       // Delivered or cancelled orders move to "Past orders"; everything else stays active.
@@ -211,42 +204,6 @@ const ready = firebaseConfigured();
     }
   }
 
-  document.getElementById('orders')?.addEventListener('click', async (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-order]');
-    if (!btn) return;
-    const reason = prompt('Reason for return (optional):') ?? '';
-    btn.disabled = true; btn.textContent = 'Requesting…';
-    const token = await getIdToken();
-    try {
-      const res = await fetch('/api/account/return-request', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ orderId: btn.dataset.order, reason }),
-      });
-      if (!res.ok) throw new Error();
-      btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__ret', textContent: 'Return requested' }));
-    } catch { btn.disabled = false; btn.textContent = 'Request a return'; alert('Could not submit. Try again.'); }
-  });
-
-  document.getElementById('orders')?.addEventListener('click', async (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-cancel]');
-    if (!btn) return;
-    if (!confirm('Cancel this order? This cannot be undone.')) return;
-    btn.disabled = true; btn.textContent = 'Cancelling…';
-    const token = await getIdToken();
-    try {
-      const res = await fetch('/api/account/cancel-order', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ orderId: btn.dataset.cancel }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || '');
-      btn.replaceWith(Object.assign(document.createElement('span'), { className: 'ord__cancelled', textContent: 'Cancelled' }));
-      if (data.refundPending) alert('Your order has been cancelled. Your refund will be processed shortly.');
-    } catch (err: any) {
-      btn.disabled = false; btn.textContent = 'Cancel order';
-      alert(err?.message || 'Could not cancel this order. Please try again or contact us.');
-    }
-  });
 
   $('googleBtn')?.addEventListener('click', async () => {
     try { await signInWithGoogle(); location.reload(); }
@@ -302,27 +259,17 @@ const ready = firebaseConfigured();
   .acct__saved { font-size: 12px; color: #3D6B4F; margin-left: 12px; }
   .acct__orders { display: flex; flex-direction: column; gap: 14px; }
   .ord { border: 1px solid #e6e6e6; padding: 16px 18px; }
+  .ord--link { display: block; text-decoration: none; color: inherit; transition: border-color .2s, box-shadow .2s; }
+  .ord--link:hover { border-color: #cfcfcf; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
   .ord__top { display: flex; justify-content: space-between; align-items: baseline; }
   .ord__name { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
   .ord__total { font-size: 15px; }
   .ord__meta { font-size: 12px; color: #6b6b6b; margin: 6px 0; text-transform: capitalize; }
   .ord__items { font-size: 13px; color: #1a1a1a; }
-  .ord__retbtn, .ord__cancelbtn { margin-top: 12px; background: none; border: 1px solid #e6e6e6; padding: 8px 14px; cursor: pointer; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; transition: border-color .2s, color .2s; }
-  .ord__retbtn:hover, .ord__cancelbtn:hover { border-color: #8B1A1A; color: #8B1A1A; }
-  .ord__ret { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #3D6B4F; font-weight: 600; }
-  .ord__cancelled { display: inline-block; margin-top: 12px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8B1A1A; font-weight: 600; }
+  .ord__row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .ord__badge { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: #6b6b6b; }
+  .ord__badge--done { color: #3D6B4F; }
+  .ord__badge--cancel { color: #8B1A1A; }
+  .ord__chev { font-size: 20px; color: #b4b4b4; line-height: 1; }
   .ord-group__title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9a9a9a; font-weight: 600; margin: 10px 0 0; padding-top: 18px; border-top: 1px solid #ececec; }
-
-  /* Amazon-style shipment tracker */
-  .track { display: flex; margin: 16px 0 4px; }
-  .track__step { flex: 1; text-align: center; position: relative; }
-  .track__step:not(:first-child)::before { content: ''; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px; background: #e6e6e6; z-index: 0; }
-  .track__step.done:not(:first-child)::before { background: #3D6B4F; }
-  .track__dot { position: relative; z-index: 1; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #e6e6e6; }
-  .track__step.done .track__dot { background: #3D6B4F; }
-  .track__lbl { display: block; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: #9a9a9a; margin-top: 6px; }
-  .track__step.done .track__lbl { color: #1a1a1a; }
-  .track__eta { font-size: 12px; color: #6b6b6b; margin: 8px 0 2px; }
-  .track__link { display: inline-block; margin-top: 10px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: #1a1a1a; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; transition: color .2s, border-color .2s; }
-  .track__link:hover { color: #8B1A1A; border-color: #8B1A1A; }
 </style>
