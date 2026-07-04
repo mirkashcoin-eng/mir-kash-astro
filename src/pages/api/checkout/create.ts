@@ -87,11 +87,14 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   };
 
   const isCod = body.paymentMethod === 'cod';
+  // Cashfree order id is generated up front (online only) and stored on the draft so
+  // the reconciler can recover the order if the webhook + return page both miss it.
+  const orderId = isCod ? '' : `mk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   const discount = cart.discountAmount > 0
     ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
     : undefined;
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod });
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod, cfOrderId: orderId || undefined });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);
@@ -110,7 +113,6 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     );
   }
 
-  const orderId = `mk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const cf = await createCashfreeOrder({
     orderId,
     amount,

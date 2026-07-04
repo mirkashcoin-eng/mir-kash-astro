@@ -181,6 +181,7 @@ export async function createDraftOrder(args: {
   discount?: { amount: number; title: string }; // fixed ₹ off, from a cart coupon
   optin?: boolean; // customer agreed to WhatsApp order updates
   cod?: boolean; // Cash on Delivery (else Cashfree online payment)
+  cfOrderId?: string; // Cashfree order id — stored so the reconciler can recover paid-but-open drafts
 }): Promise<DraftOrderResult | null> {
   const payTag = args.cod ? 'cod' : 'cashfree';
   const input: Record<string, unknown> = {
@@ -188,7 +189,10 @@ export async function createDraftOrder(args: {
     phone: args.phone,
     tags: args.optin ? [payTag, 'web-otp', 'wa-optin'] : [payTag, 'web-otp'],
     // Carries through to the order's note_attributes; the WhatsApp service reads wa_optin.
-    customAttributes: args.optin ? [{ key: 'wa_optin', value: 'true' }] : [],
+    customAttributes: [
+      ...(args.optin ? [{ key: 'wa_optin', value: 'true' }] : []),
+      ...(args.cfOrderId ? [{ key: 'cf_order_id', value: args.cfOrderId }] : []),
+    ],
     shippingLine: { title: 'Free Shipping', price: '0' },
     lineItems: args.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
     shippingAddress: {
@@ -443,4 +447,32 @@ export async function cancelOrder(
     return false;
   }
   return !!data?.orderCancel?.job;
+}
+
+// ── Reconciliation: open drafts that carry a Cashfree order id ──────────────────
+export interface OpenDraft {
+  id: string;
+  name: string;
+  cfOrderId: string | null;
+}
+
+const OPEN_DRAFTS = /* GraphQL */ `
+  query OpenDrafts {
+    draftOrders(first: 60, query: "status:open", sortKey: UPDATED_AT, reverse: true) {
+      edges { node { id name customAttributes { key value } } }
+    }
+  }
+`;
+
+// Lists OPEN (uncompleted) draft orders with their stored Cashfree order id, so the
+// reconciler can complete any that were actually paid (e.g. UPI, buyer never returned).
+export async function getOpenDrafts(): Promise<OpenDraft[]> {
+  const data = await runAdminQuery<{
+    draftOrders: { edges: Array<{ node: { id: string; name: string; customAttributes: Array<{ key: string; value: string }> } }> };
+  }>(OPEN_DRAFTS);
+  return (data?.draftOrders?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    name: node.name,
+    cfOrderId: node.customAttributes.find((a) => a.key === 'cf_order_id')?.value ?? null,
+  }));
 }
