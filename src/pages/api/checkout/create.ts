@@ -14,14 +14,16 @@ function envOrigin(): string {
   const fromMeta = import.meta.env.PUBLIC_APP_ORIGIN as string | undefined;
   return (fromProcess || fromMeta || '').replace(/\/$/, '');
 }
+const PROD_ORIGIN = 'https://www.mirkash.com'; // hard guarantee: a payment callback is never localhost
 function publicOrigin(request: Request, url: URL): string {
   const explicit = envOrigin();
   if (explicit) return explicit;
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
   const proto = request.headers.get('x-forwarded-proto') || (url.protocol.replace(':', '')) || 'https';
   if (host && !/^(localhost|127\.0\.0\.1|\[?::1)/.test(host)) return `${proto}://${host}`;
-  const site = (import.meta.env.SITE as string | undefined) || '';
-  return site.replace(/\/$/, '') || url.origin;
+  const site = ((import.meta.env.SITE as string | undefined) || '').replace(/\/$/, '');
+  if (site && !/localhost/.test(site)) return site;
+  return PROD_ORIGIN; // never fall through to url.origin (which can be http://localhost on Vercel)
 }
 
 interface Body {
