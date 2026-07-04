@@ -20,12 +20,6 @@ function adminDomain(): string {
   return getEnv('SHOPIFY_IN_ADMIN_DOMAIN') || getEnv('SHOPIFY_IN_DOMAIN');
 }
 
-export function adminConfigured(): boolean {
-  return Boolean(
-    adminDomain() && getEnv('SHOPIFY_IN_ADMIN_CLIENT_ID') && getEnv('SHOPIFY_IN_ADMIN_CLIENT_SECRET'),
-  );
-}
-
 // The new Shopify Dev Dashboard no longer hands out a static Admin token. Instead
 // we exchange the app's Client ID + Secret for a short-lived (~24h) access token
 // via the client-credentials grant, and cache it until just before it expires.

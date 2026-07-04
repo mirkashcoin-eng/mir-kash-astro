@@ -1,4 +1,4 @@
-import type { Store, Market, MarketConfig } from '~/types/market';
+import type { Store, MarketConfig } from '~/types/market';
 import type { Money } from '~/types/shopify';
 
 export const SITE_ORIGIN = 'https://mirkash.com';
@@ -116,8 +116,6 @@ export const MARKETS: MarketConfig[] = [
   })),
 ];
 
-export const DEFAULT_MARKET = INDIA_MARKET;
-
 export function listMarkets(): MarketConfig[] {
   return MARKETS;
 }
@@ -142,11 +140,6 @@ export function parseLocaleFromPath(pathname: string): string | null {
 export function getMarketByPath(pathname: string): MarketConfig {
   const slug = parseLocaleFromPath(pathname);
   return (slug && getMarketBySlug(slug)) || INDIA_MARKET;
-}
-
-// Path for a market's home, e.g. '/en-gb' or '/'.
-export function getMarketPath(m: MarketConfig): string {
-  return m.urlPrefix || '/';
 }
 
 // Strip any locale prefix → bare path ('/products/bag').
@@ -201,5 +194,3 @@ export function formatPrice(amount: string | number, currencyCode: string): stri
 export function formatMoney(money: Money, _locale?: string): string {
   return formatPrice(money.amount, money.currencyCode);
 }
-
-export type { Store, Market, MarketConfig };
