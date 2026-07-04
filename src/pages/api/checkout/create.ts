@@ -6,6 +6,17 @@ import { createCashfreeOrder } from '~/lib/cashfree';
 
 export const prerender = false;
 
+// On Vercel, `url.origin` can resolve to http://localhost — which would make Cashfree
+// redirect the buyer to a dead localhost page after paying (order never finalizes).
+// Build the public origin from the forwarded host, falling back to the configured site.
+function publicOrigin(request: Request, url: URL): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
+  const proto = request.headers.get('x-forwarded-proto') || (url.protocol.replace(':', '')) || 'https';
+  if (host && !/^(localhost|127\.0\.0\.1|\[?::1)/.test(host)) return `${proto}://${host}`;
+  const site = (import.meta.env.SITE as string | undefined) || '';
+  return site.replace(/\/$/, '') || url.origin;
+}
+
 interface Body {
   fullName?: string;
   address1?: string;
@@ -113,6 +124,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     );
   }
 
+  const origin = publicOrigin(request, url);
   const cf = await createCashfreeOrder({
     orderId,
     amount,
@@ -122,8 +134,8 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       email,
       name: fullName,
     },
-    returnUrl: `${url.origin}/checkout/return`,
-    notifyUrl: `${url.origin}/api/webhooks/cashfree`,
+    returnUrl: `${origin}/checkout/return`,
+    notifyUrl: `${origin}/api/webhooks/cashfree`,
     draftOrderId: draft.id,
     cartKind: isBuyNow ? 'buynow' : 'main',
   });
