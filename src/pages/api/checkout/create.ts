@@ -8,8 +8,15 @@ export const prerender = false;
 
 // On Vercel, `url.origin` can resolve to http://localhost — which would make Cashfree
 // redirect the buyer to a dead localhost page after paying (order never finalizes).
-// Build the public origin from the forwarded host, falling back to the configured site.
+// Order of trust: explicit PUBLIC_APP_ORIGIN env → forwarded host → configured site.
+function envOrigin(): string {
+  const fromProcess = typeof process !== 'undefined' && process.env ? process.env.PUBLIC_APP_ORIGIN : '';
+  const fromMeta = import.meta.env.PUBLIC_APP_ORIGIN as string | undefined;
+  return (fromProcess || fromMeta || '').replace(/\/$/, '');
+}
 function publicOrigin(request: Request, url: URL): string {
+  const explicit = envOrigin();
+  if (explicit) return explicit;
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
   const proto = request.headers.get('x-forwarded-proto') || (url.protocol.replace(':', '')) || 'https';
   if (host && !/^(localhost|127\.0\.0\.1|\[?::1)/.test(host)) return `${proto}://${host}`;
