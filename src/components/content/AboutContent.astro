@@ -17,29 +17,24 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
     <div class="ab-hero__scrim" aria-hidden="true"></div>
     <div class="ab-hero__overlay">
       <p class="ab-eyebrow ab-eyebrow--light">Our Story</p>
-      <h1 class="ab-hero__line">A beautiful bag shouldn&rsquo;t cost the earth. Or anything on it.</h1>
+      <h1 class="ab-display ab-hero__line">A love letter to dreamers &amp; changemakers.</h1>
     </div>
   </section>
 
-  <!-- ══ BELIEF ══ -->
-  <section class="ab-center ab-belief">
-    <p class="ab-lead">Mir Kash was built around a simple belief &mdash; that wanting something beautiful and wanting a kinder world are not in conflict.</p>
-    <p class="ab-body ab-body--wide">Choosing vegan shouldn&rsquo;t mean a wardrobe that looks like a compromise. It should mean the opposite &mdash; every piece reflecting both your taste and your values, with neither undermining the other. We make for women who think about what they buy. Not anxiously. Quietly, certainly &mdash; women who have stopped apologising for having taste.</p>
-  </section>
-
-  <!-- ══ MATERIALS (image + text) ══ -->
-  <section class="ab-split">
-    <div class="ab-split__img">
-      <picture>
-        <source media="(max-width: 768px)" srcset="/home/m6.avif" />
-        <img src="/home/d6.avif" alt="Apple leather bag" loading="lazy" />
-      </picture>
-    </div>
-    <div class="ab-split__text">
-      <p class="ab-eyebrow">The Material</p>
-      <h2 class="ab-h2">Not leather. <em>Better.</em></h2>
-      <p class="ab-body">Our hero material is apple leather from Italy &mdash; made from the pulp and skin left over from the juice industry, dried and bound into supple sheets. No animal hides. No tanning chemicals. Just a material that feels like leather, wears like leather, and leaves nothing behind that shouldn&rsquo;t be there.</p>
-      <a class="ab-link" href={`${prefix}/pages/materials`}>Explore our materials &rarr;</a>
+  <!-- ══ FOUNDER'S LETTER ══ -->
+  <section class="ab-letter">
+    <div class="ab-letter__inner">
+      <p class="ab-eyebrow ab-center-x">From the Founder</p>
+      <p class="ab-display ab-letter__open">In a world always chasing the next new thing &mdash; faster, flashier, more &mdash; I longed to create something fundamentally different. A brand that values patience, purpose and personality as much as beauty. That&rsquo;s how Mir Kash began.</p>
+      <div class="ab-letter__body">
+        <p>Two years and countless sketches, samples and soulful conversations later, I&rsquo;m immensely grateful for the community that has grown around Mir Kash. We&rsquo;re a small but passionate group who care deeply about quality, meaning and mindful living. We don&rsquo;t flood the world with endless products &mdash; instead, we obsess over the details and perfect a few pieces each year, because I truly believe the simplest things are the hardest to get just right.</p>
+        <p>From day one, Mir Kash has been self-funded and independent. This freedom lets us move at our own rhythm and stay true to our values, ensuring every decision echoes our commitment to sustainability and integrity. My hope has always been to create pieces for those who genuinely connect with our story &mdash; pieces that add something thoughtful to your life, and that positively impact every pair of hands, from our craftspeople to you.</p>
+        <p>Mir Kash is my love letter to dreamers and changemakers. We exist to advocate for an inclusive, responsible and inspiring future &mdash; empowering like-minded souls to choose what truly matters. I hope our designs spark joy and offer beauty you can feel proud to carry.</p>
+        <p>Thank you, from the bottom of my heart, for joining us and believing in Mir Kash. If you ever want to chat, my inbox is always open &mdash; I love hearing your stories.</p>
+      </div>
+      <p class="ab-sig-pre">With gratitude,</p>
+      <p class="ab-display ab-sig">Rajul Daga</p>
+      <p class="ab-sig-role">Founder, Mir Kash</p>
     </div>
   </section>
 
@@ -51,36 +46,46 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
     </picture>
   </section>
 
-  <!-- ══ CRAFT ══ -->
-  <section class="ab-center ab-craft">
-    <p class="ab-eyebrow">The Craft</p>
-    <h2 class="ab-h2 ab-h2--center">Made slowly</h2>
-    <p class="ab-body ab-body--wide">Every bag is handmade in our Jaipur atelier. We go through long testing and trialling until the texture, the structure and the weight feel exactly right &mdash; then it is cut, stitched and finished by hand, one piece at a time. We would rather take longer and get it right. Built for years, not seasons, and backed by a one-year warranty.</p>
+  <!-- ══ OUR ETHICS (warm cream) ══ -->
+  <section class="ab-cream">
+    <div class="ab-editorial">
+      <p class="ab-eyebrow">Our Ethics</p>
+      <h2 class="ab-display ab-h2">We will never use <em>animal leather.</em></h2>
+      <p class="ab-body ab-body--wide">At Mir Kash, style should never come at the cost of animals or the planet. Our timeless, luxury bags are crafted from sustainable, cruelty-free materials like apple, cactus and microfibre leathers &mdash; made in small batches with meticulous attention to detail, full transparency and minimal environmental impact. Every bag lets you carry your style with pride and conscience.</p>
+    </div>
   </section>
 
-  <!-- ══ THE THREE VOWS ══ -->
+  <!-- ══ OUR MATERIALS (image + text) ══ -->
+  <section class="ab-split">
+    <div class="ab-split__img">
+      <picture>
+        <source media="(max-width: 768px)" srcset="/home/m6.avif" />
+        <img src="/home/d6.avif" alt="Mir Kash apple-leather bag" loading="lazy" />
+      </picture>
+    </div>
+    <div class="ab-split__text">
+      <p class="ab-eyebrow">Our Materials</p>
+      <h2 class="ab-display ab-h2">Not leather. <em>Better.</em></h2>
+      <p class="ab-body">We craft luxury vegan bags using revolutionary plant-based leathers made from apple peels, cactus leaves and recycled fibres &mdash; waterproof, durable and ultra-luxe materials that outshine traditional leather without harming the planet. We innovate with microfibre suede for a rich finish, and are actively pioneering new materials like mushroom and banana-peel leather.</p>
+      <a class="ab-link" href={`${prefix}/pages/materials`}>Explore our materials &rarr;</a>
+    </div>
+  </section>
+
+  <!-- ══ CREDENTIALS ══ -->
   <section class="ab-vows">
-    <div class="ab-vow"><span class="ab-vow__n">01</span><p>We never use animal products.</p></div>
-    <div class="ab-vow"><span class="ab-vow__n">02</span><p>We never rush a product.</p></div>
-    <div class="ab-vow"><span class="ab-vow__n">03</span><p>We never treat sustainability as a selling point rather than a baseline.</p></div>
-  </section>
-
-  <!-- ══ FOUNDER ══ -->
-  <section class="ab-center ab-founder">
-    <p class="ab-eyebrow">The Founder</p>
-    <p class="ab-founder__quote">Rajul Daga started Mir Kash because she couldn&rsquo;t find a bag she loved that she could also feel good about. The brand is an extension of that &mdash; proof that taste and conscience were never meant to be a trade&#8209;off.</p>
-    <p class="ab-sig">Rajul Daga</p>
-    <p class="ab-sig__role">Founder, Mir Kash</p>
+    <div class="ab-vow"><span class="ab-display ab-vow__n">Cruelty-free</span><p>Every bag, lining and detail. Nothing from an animal, ever.</p></div>
+    <div class="ab-vow"><span class="ab-display ab-vow__n">Small batch</span><p>A few pieces, perfected each year. Never rushed.</p></div>
+    <div class="ab-vow"><span class="ab-display ab-vow__n">Independent</span><p>Self-funded from day one, so our values lead every decision.</p></div>
   </section>
 
   <!-- ══ PULL-QUOTE BAND ══ -->
-  <section class="ab-band">
-    <p class="ab-band__line">Made slowly. Worn forever. <em>Hurts nothing.</em></p>
+  <section class="ab-quote">
+    <p class="ab-display ab-quote__line">The simplest things are the hardest to get <em>just right.</em></p>
   </section>
 
   <!-- ══ CLOSING CTA ══ -->
   <section class="ab-cta">
-    <p class="ab-cta__line">Fewer things. Better made.</p>
+    <p class="ab-display ab-cta__line">Beauty you can feel proud to carry.</p>
     <div class="ab-cta__links">
       <a href={`${prefix}/shop`}>Explore the collection &rarr;</a>
       <a href={`${prefix}/pages/materials`}>Our materials &rarr;</a>
@@ -92,135 +97,118 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
 <SiteFooter />
 
 <style is:global>
-  :root {
-    --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
-    --cherry: #8B1A1A;
-    --depth: #2C1A0E;
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
   body { background: #fff; }
   .hdr-menu-btn { display: none; }
   .site-header--minimal .logo { grid-column: 2; justify-self: center; }
   .site-header--minimal .logo img { height: 22px; }
   .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
-  .about { background: #fff; color: var(--depth); }
+  .about {
+    --serif-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9;
+    --oat: #EBE1D2;
+    --body-ink: #4a4038;
+    background: #fff; color: var(--depth);
+  }
+  /* Elegant serif for every display line; em = cherry accent (never italic) */
+  .ab-display { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; }
   .about em { font-style: normal; color: var(--cherry); }
 
-  /* Shared eyebrow / body */
   .ab-eyebrow {
-    font-size: 11px; letter-spacing: var(--tr-caps, .14em); text-transform: uppercase;
-    font-weight: 500; color: var(--cherry); margin: 0 0 16px;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 500; color: var(--cherry); margin: 0 0 18px;
   }
-  .ab-eyebrow--light { color: #fff; opacity: .85; }
-  .ab-body { font-size: 15px; line-height: 1.8; color: #4a4038; margin: 0; }
-  .ab-body--wide { max-width: 62ch; }
+  .ab-eyebrow--light { color: #fff; opacity: .9; }
+  .ab-center-x { text-align: center; }
+  .ab-body { font-size: 15.5px; line-height: 1.9; color: var(--body-ink); margin: 0; }
+  .ab-body--wide { max-width: 60ch; }
 
   /* ── Hero ───────────────────────────────────────────── */
-  .ab-hero { position: relative; width: 100%; height: clamp(440px, 80vh, 780px); overflow: hidden; }
+  .ab-hero { position: relative; width: 100%; height: clamp(460px, 82vh, 820px); overflow: hidden; }
   .ab-hero picture, .ab-hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .ab-hero__scrim {
     position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.05) 45%, rgba(0,0,0,.5) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,.12) 0%, rgba(0,0,0,.02) 42%, rgba(0,0,0,.5) 100%);
   }
   .ab-hero__overlay {
     position: absolute; inset: 0; z-index: 2;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    text-align: center; padding: 0 var(--gutter) clamp(48px, 8vh, 96px);
+    text-align: center; padding: 0 var(--gutter) clamp(52px, 9vh, 104px);
   }
   .ab-hero__line {
-    font-family: var(--serif); font-weight: 300; color: #fff;
-    font-size: clamp(28px, 4.6vw, 56px); line-height: 1.12; letter-spacing: -0.01em;
-    max-width: 20ch; margin: 0;
+    color: #fff; font-size: clamp(34px, 5.4vw, 76px); line-height: 1.08;
+    max-width: 16ch; margin: 0;
+  }
+  .ab-hero__line em { color: #fff; opacity: .85; }
+
+  /* ── Founder's letter ───────────────────────────────── */
+  .ab-letter { padding: clamp(72px, 12vw, 150px) var(--gutter); }
+  .ab-letter__inner { max-width: 620px; margin: 0 auto; }
+  .ab-letter__open {
+    text-align: center; color: var(--depth);
+    font-size: clamp(25px, 3.4vw, 40px); line-height: 1.34;
+    margin: 0 0 clamp(36px, 5vw, 60px);
+  }
+  .ab-letter__body p { font-size: 15.5px; line-height: 1.95; color: var(--body-ink); margin: 0 0 22px; }
+  .ab-sig-pre { font-size: 15px; color: var(--body-ink); margin: 34px 0 6px; }
+  .ab-sig { font-size: clamp(26px, 3vw, 36px); color: var(--depth); margin: 0; line-height: 1; }
+  .ab-sig-role {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #a8a39c; margin: 12px 0 0;
   }
 
-  /* ── Centered text sections ─────────────────────────── */
-  .ab-center {
-    max-width: 760px; margin: 0 auto; text-align: center;
-    padding: clamp(56px, 10vw, 120px) var(--gutter);
-  }
-  .ab-center .ab-body--wide { margin: 0 auto; }
-  .ab-lead {
-    font-family: var(--serif); font-weight: 300; color: var(--depth);
-    font-size: clamp(22px, 3vw, 34px); line-height: 1.4; letter-spacing: -0.01em;
-    max-width: 24ch; margin: 0 auto 26px;
-  }
-  .ab-belief { padding-bottom: clamp(40px, 7vw, 80px); }
+  /* ── Full-bleed break ───────────────────────────────── */
+  .ab-full { width: 100%; aspect-ratio: 16 / 6.5; overflow: hidden; background: var(--cream); }
+  .ab-full img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-  /* ── Headline ───────────────────────────────────────── */
-  .ab-h2 {
-    font-family: var(--serif); font-weight: 300; color: var(--depth);
-    font-size: clamp(28px, 3.6vw, 46px); line-height: 1.08; letter-spacing: -0.01em;
-    margin: 0 0 20px;
-  }
-  .ab-h2--center { margin-left: auto; margin-right: auto; }
+  /* ── Section headline ───────────────────────────────── */
+  .ab-h2 { color: var(--depth); font-size: clamp(32px, 4.4vw, 56px); line-height: 1.06; margin: 0 0 24px; }
 
-  /* ── Image + text split ─────────────────────────────── */
+  /* ── Ethics (cream, centered) ───────────────────────── */
+  .ab-cream { background: var(--cream); padding: clamp(80px, 13vw, 168px) var(--gutter); }
+  .ab-editorial { max-width: 760px; margin: 0 auto; text-align: center; }
+  .ab-editorial .ab-body--wide { margin: 0 auto; }
+
+  /* ── Materials (image + text split) ─────────────────── */
   .ab-split {
     display: grid; grid-template-columns: 1fr 1fr; align-items: center;
-    gap: clamp(28px, 5vw, 72px); max-width: 1240px; margin: 0 auto;
-    padding: clamp(48px, 8vw, 96px) var(--gutter);
+    gap: clamp(32px, 6vw, 88px); max-width: 1280px; margin: 0 auto;
+    padding: clamp(80px, 12vw, 160px) var(--gutter);
   }
-  .ab-split__img { aspect-ratio: 4 / 5; overflow: hidden; background: #f6f3ee; }
+  .ab-split__img { aspect-ratio: 4 / 5; overflow: hidden; background: var(--cream); }
   .ab-split__img img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .ab-split__text { max-width: 34rem; }
   .ab-link {
-    display: inline-block; margin-top: 22px;
-    font-size: 11px; letter-spacing: var(--tr-caps, .14em); text-transform: uppercase;
+    display: inline-block; margin-top: 26px;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
     font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth);
     padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s;
   }
   .ab-link:hover { color: var(--cherry); border-color: var(--cherry); }
 
-  /* ── Full-bleed break ───────────────────────────────── */
-  .ab-full { width: 100%; aspect-ratio: 16 / 6.5; overflow: hidden; background: #f6f3ee; }
-  .ab-full img { display: block; width: 100%; height: 100%; object-fit: cover; }
-
-  /* ── Three vows ─────────────────────────────────────── */
+  /* ── Credentials ────────────────────────────────────── */
   .ab-vows {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 4vw, 56px);
-    max-width: 1080px; margin: 0 auto; padding: clamp(56px, 9vw, 104px) var(--gutter);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 5vw, 64px);
+    max-width: 1080px; margin: 0 auto; padding: clamp(72px, 11vw, 128px) var(--gutter);
     border-top: 1px solid var(--rule, #e4dfd7); border-bottom: 1px solid var(--rule, #e4dfd7);
+    text-align: center;
   }
-  .ab-vow { text-align: center; }
-  .ab-vow__n {
-    display: block; font-family: var(--serif); font-weight: 300; color: var(--cherry);
-    font-size: 24px; margin-bottom: 14px;
-  }
-  .ab-vow p { font-size: 15px; line-height: 1.7; color: var(--depth); margin: 0; max-width: 26ch; margin-inline: auto; }
+  .ab-vow__n { display: block; color: var(--depth); font-size: 30px; margin-bottom: 14px; }
+  .ab-vow p { font-size: 14.5px; line-height: 1.75; color: var(--body-ink); margin: 0 auto; max-width: 24ch; }
 
-  /* ── Founder ────────────────────────────────────────── */
-  .ab-founder__quote {
-    font-family: var(--serif); font-weight: 300; color: var(--depth);
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.45; letter-spacing: -0.01em;
-    max-width: 30ch; margin: 0 auto 28px;
-  }
-  .ab-sig { font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--depth); margin: 0; }
-  .ab-sig__role {
-    font-size: 11px; letter-spacing: var(--tr-caps, .14em); text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); margin: 6px 0 0;
-  }
-
-  /* ── Pull-quote band ────────────────────────────────── */
-  .ab-band {
-    background: #b09090; text-align: center;
-    padding: clamp(72px, 12vw, 160px) var(--gutter);
-  }
-  .ab-band__line {
-    font-family: var(--serif); font-weight: 300; color: #fff;
-    font-size: clamp(28px, 4.4vw, 54px); line-height: 1.2; letter-spacing: -0.01em;
-    max-width: 18ch; margin: 0 auto;
-  }
-  .ab-band em { color: #fff; opacity: .78; font-style: normal; }
+  /* ── Pull-quote band (oat) ──────────────────────────── */
+  .ab-quote { background: var(--oat); text-align: center; padding: clamp(88px, 15vw, 200px) var(--gutter); }
+  .ab-quote__line { color: var(--depth); font-size: clamp(32px, 5vw, 64px); line-height: 1.18; max-width: 16ch; margin: 0 auto; }
 
   /* ── Closing CTA ────────────────────────────────────── */
-  .ab-cta { text-align: center; padding: clamp(56px, 9vw, 104px) var(--gutter); }
-  .ab-cta__line {
-    font-family: var(--serif); font-weight: 300; color: var(--depth);
-    font-size: clamp(22px, 3vw, 32px); margin: 0 0 26px;
-  }
-  .ab-cta__links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 14px 40px; }
+  .ab-cta { text-align: center; padding: clamp(80px, 12vw, 150px) var(--gutter); }
+  .ab-cta__line { color: var(--depth); font-size: clamp(28px, 3.8vw, 46px); line-height: 1.1; margin: 0 0 30px; }
+  .ab-cta__links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 16px 44px; }
   .ab-cta__links a {
-    font-size: 11px; letter-spacing: var(--tr-caps, .14em); text-transform: uppercase;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
     font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth);
     padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s;
   }
@@ -228,10 +216,10 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
 
   /* ── Mobile ─────────────────────────────────────────── */
   @media (max-width: 768px) {
-    .ab-split { grid-template-columns: 1fr; gap: 24px; }
+    .ab-split { grid-template-columns: 1fr; gap: 28px; }
     .ab-split__text { max-width: none; }
-    .ab-vows { grid-template-columns: 1fr; gap: 34px; text-align: center; }
+    .ab-vows { grid-template-columns: 1fr; gap: 40px; }
     .ab-full { aspect-ratio: 3 / 2; }
-    .ab-body { font-size: 14.5px; }
+    .ab-letter__body p { font-size: 15px; }
   }
 </style>
