@@ -68,14 +68,28 @@ const bags = products
             <span class="bd-edit">Edit</span>
           </button>
           <div class="bd-body"><div class="bd-body-inner">
-            <div class="bd-cal" id="cal"></div>
-            <div class="bd-slots" id="slots" hidden>
-              <p class="bd-slots-label">Choose a time</p>
-              <div class="bd-slot-btns">
-                <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
-                <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
-                <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
+            <div class="bd-when">
+              <div class="bd-when__main">
+                <div class="bd-cal" id="cal"></div>
+                <div class="bd-slots" id="slots" hidden>
+                  <p class="bd-slots-label">Choose a time</p>
+                  <div class="bd-slot-btns">
+                    <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
+                    <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
+                    <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
+                  </div>
+                </div>
               </div>
+              <aside class="bd-when__aside">
+                <p class="bd-aside__quote bd-display">Take your time. Try them in your own light.</p>
+                <ul class="bd-expect">
+                  <li>A personal stylist visits your home</li>
+                  <li>Up to six bags to try, at your own pace</li>
+                  <li>No obligation &mdash; buy only if you love it</li>
+                  <li>Complimentary, across Mumbai</li>
+                </ul>
+                <p class="bd-aside__note">Usually a 30&ndash;45 minute visit. We&rsquo;ll call to confirm your slot.</p>
+              </aside>
             </div>
             <p class="bd-err" id="err-when" hidden></p>
             <button class="bd-cta" type="button" data-next="when" disabled>Continue to bags</button>
@@ -209,6 +223,16 @@ const bags = products
   .bd-cta:disabled { opacity: .38; cursor: not-allowed; }
   .bd-err { color: var(--cherry); font-size: 13px; margin: 14px 0 0; }
 
+  /* Step 1 — calendar + "what to expect" panel */
+  .bd-when { display: grid; grid-template-columns: 1fr 300px; gap: clamp(28px,4vw,52px); align-items: stretch; }
+  .bd-when__main { min-width: 0; }
+  .bd-when__aside { background: var(--cream); padding: 28px 26px; display: flex; flex-direction: column; }
+  .bd-aside__quote { font-size: 23px; line-height: 1.28; color: var(--depth); margin: 0 0 22px; }
+  .bd-expect { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 13px; }
+  .bd-expect li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.55; color: var(--mid); }
+  .bd-expect li::before { content: '\2713'; position: absolute; left: 0; top: 0; color: var(--cherry); font-size: 12px; font-weight: 600; }
+  .bd-aside__note { font-size: 12px; line-height: 1.6; color: #9a938a; margin: auto 0 0; padding-top: 22px; }
+
   /* Calendar */
   .bd-cal { max-width: 380px; }
   .bd-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -263,8 +287,37 @@ const bags = products
   .bd-done__btn { display: inline-flex; height: 50px; align-items: center; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; text-decoration: none; transition: background .3s; }
   .bd-done__btn:hover { background: var(--cherry); }
 
+  /* ── Motion ── */
+  @keyframes bd-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes bd-pop { 0% { transform: scale(.55); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+
+  .bd-hero__inner > * { animation: bd-fade-up .7s ease both; }
+  .bd-hero__title { animation-delay: .08s; }
+  .bd-hero__sub { animation-delay: .18s; }
+
+  .bd-how__item { animation: bd-fade-up .6s ease both; }
+  .bd-how__item:nth-child(2) { animation-delay: .1s; }
+  .bd-how__item:nth-child(3) { animation-delay: .2s; }
+
+  .bd-step[data-state="active"] .bd-when,
+  .bd-step[data-state="active"] .bd-grid,
+  .bd-step[data-state="active"] .bd-fields { animation: bd-fade-up .45s ease both; }
+  .bd-slots:not([hidden]) { animation: bd-fade-up .4s ease both; }
+  .bd-cal__cell.is-sel { animation: bd-pop .3s ease; }
+  .bd-bag.is-sel .bd-bag__check { animation: bd-pop .3s ease; }
+
+  .bd-bag__img img { transition: transform .45s ease; }
+  .bd-bag:hover .bd-bag__img img { transform: scale(1.045); }
+  .bd-cta .arrow, .bd-cta { transition: background .2s ease; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bd *, .bd-hero__inner > *, .bd-how__item { animation: none !important; transition: none !important; }
+  }
+
   @media (max-width: 720px) {
     .bd-how { grid-template-columns: 1fr; gap: 34px; }
+    .bd-when { grid-template-columns: 1fr; }
+    .bd-when__aside { order: 2; }
   }
   @media (max-width: 640px) {
     .bd-fields { grid-template-columns: 1fr; }
