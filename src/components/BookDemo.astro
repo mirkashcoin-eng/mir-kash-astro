@@ -1,0 +1,366 @@
+---
+import SiteHeader from './SiteHeader.astro';
+import SiteFooter from './SiteFooter.astro';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { formatMoney } from '~/lib/markets';
+import { shopifyImage } from '~/lib/shopifyImage';
+
+const { marketConfig } = Astro.locals;
+const products = await getAllProducts('india', 'IN', 48);
+const bags = products
+  .map((p) => ({
+    variantId: p.variants.edges[0]?.node.id ?? '',
+    title: p.title,
+    price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
+    image: shopifyImage(p.featuredImage?.url, 500),
+  }))
+  .filter((b) => b.variantId);
+---
+<SiteHeader />
+
+<main class="bd">
+  <section class="bd-hero">
+    <p class="bd-eyebrow">Mumbai</p>
+    <h1 class="bd-title">Book a Home Demo</h1>
+    <p class="bd-lede">Try our bags in your own space, in your own light. Pick a time, choose up to six pieces, and we&rsquo;ll bring them to you. <strong>No pressure to buy &mdash; ever.</strong></p>
+    <ul class="bd-perks">
+      <li>Up to 6 bags, brought to your door</li>
+      <li>Zero obligation to purchase</li>
+      <li>Mumbai only, for now</li>
+    </ul>
+  </section>
+
+  <div class="bd-flow" id="bdFlow">
+
+    <!-- STEP 1 — DATE & TIME -->
+    <section class="bd-step" data-state="active" id="step-when">
+      <button class="bd-head" type="button" data-edit="when">
+        <span class="bd-marker"><span class="n">1</span><span class="chk">&check;</span></span>
+        <span class="bd-head-txt"><span class="bd-step-title">Date &amp; time</span><span class="bd-recap" id="recap-when"></span></span>
+        <span class="bd-edit">Edit</span>
+      </button>
+      <div class="bd-body"><div class="bd-body-inner">
+        <div class="bd-cal" id="cal"></div>
+        <div class="bd-slots" id="slots" hidden>
+          <p class="bd-slots-label">Choose a time</p>
+          <div class="bd-slot-btns">
+            <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
+            <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
+            <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
+          </div>
+        </div>
+        <p class="bd-err" id="err-when" hidden></p>
+        <button class="bd-cta" type="button" data-next="when" disabled>Continue to bags</button>
+      </div></div>
+    </section>
+
+    <!-- STEP 2 — BAGS -->
+    <section class="bd-step" data-state="todo" id="step-bags">
+      <button class="bd-head" type="button" data-edit="bags">
+        <span class="bd-marker"><span class="n">2</span><span class="chk">&check;</span></span>
+        <span class="bd-head-txt"><span class="bd-step-title">Choose your bags</span><span class="bd-recap" id="recap-bags"></span></span>
+        <span class="bd-edit">Edit</span>
+      </button>
+      <div class="bd-body"><div class="bd-body-inner">
+        <p class="bd-counter"><span id="bagCount">0</span> / 6 selected</p>
+        <div class="bd-grid">
+          {bags.map((b) => (
+            <button type="button" class="bd-bag" data-vid={b.variantId} data-title={b.title}>
+              <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
+              <span class="bd-bag__check" aria-hidden="true">&check;</span>
+              <span class="bd-bag__name">{b.title}</span>
+              <span class="bd-bag__price">{b.price}</span>
+            </button>
+          ))}
+        </div>
+        <p class="bd-err" id="err-bags" hidden></p>
+        <button class="bd-cta" type="button" data-next="bags" disabled>Continue to details</button>
+      </div></div>
+    </section>
+
+    <!-- STEP 3 — DETAILS -->
+    <section class="bd-step" data-state="todo" id="step-you">
+      <button class="bd-head" type="button" data-edit="you">
+        <span class="bd-marker"><span class="n">3</span><span class="chk">&check;</span></span>
+        <span class="bd-head-txt"><span class="bd-step-title">Your details</span><span class="bd-recap" id="recap-you"></span></span>
+        <span class="bd-edit">Edit</span>
+      </button>
+      <div class="bd-body"><div class="bd-body-inner">
+        <div class="bd-fields">
+          <label class="bd-field"><span>Full name</span><input class="bd-input" id="f-name" type="text" autocomplete="name" /></label>
+          <label class="bd-field"><span>Phone</span><input class="bd-input" id="f-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" /></label>
+          <label class="bd-field bd-field--full"><span>Email</span><input class="bd-input" id="f-email" type="email" autocomplete="email" /></label>
+          <label class="bd-field bd-field--full"><span>Address (flat / building / street)</span><input class="bd-input" id="f-addr" type="text" autocomplete="street-address" /></label>
+          <label class="bd-field"><span>Area / locality</span><input class="bd-input" id="f-area" type="text" /></label>
+          <label class="bd-field"><span>PIN code</span><input class="bd-input" id="f-pin" type="text" inputmode="numeric" maxlength="6" placeholder="Mumbai PIN" /></label>
+        </div>
+        <p class="bd-reassure">A stylist brings your selected bags for you to try at home. <strong>There&rsquo;s no pressure to buy anything</strong> &mdash; it&rsquo;s simply a chance to see and feel them in person.</p>
+        <p class="bd-err" id="err-you" hidden></p>
+        <button class="bd-cta" type="button" id="bookBtn">Confirm my home demo</button>
+      </div></div>
+    </section>
+
+  </div>
+
+  <section class="bd-done" id="bdDone" hidden>
+    <span class="bd-done__mark" aria-hidden="true">&check;</span>
+    <h2 class="bd-done__title">Your home demo is booked</h2>
+    <p class="bd-done__body" id="bdDoneBody"></p>
+    <a class="bd-done__btn" href="/shop">Browse the collection</a>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .bd { --mid: #6e6a64; --rule: #e4dfd7; background: #fff; color: var(--depth); }
+
+  .bd-hero { max-width: 720px; margin: 0 auto; padding: clamp(40px,6vw,72px) var(--gutter) clamp(28px,4vw,44px); text-align: center; }
+  .bd-eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--cherry); margin: 0 0 14px; }
+  .bd-title { font-size: clamp(32px,5vw,52px); font-weight: 300; letter-spacing: -.01em; margin: 0 0 18px; }
+  .bd-lede { font-size: 16px; line-height: 1.7; color: var(--mid); max-width: 52ch; margin: 0 auto 24px; }
+  .bd-lede strong { color: var(--depth); }
+  .bd-perks { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; list-style: none; padding: 0; margin: 0; }
+  .bd-perks li { font-size: 12px; letter-spacing: .04em; color: var(--depth); position: relative; padding-left: 18px; }
+  .bd-perks li::before { content: '\2713'; position: absolute; left: 0; color: var(--cherry); }
+
+  .bd-flow { max-width: 720px; margin: 0 auto; padding: 8px var(--gutter) 64px; }
+
+  /* Accordion steps */
+  .bd-step { border-top: 1px solid var(--rule); }
+  .bd-flow .bd-step:last-child { border-bottom: 1px solid var(--rule); }
+  .bd-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 22px 2px; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; }
+  .bd-marker { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; color: var(--depth); }
+  .bd-marker .chk { display: none; }
+  .bd-step[data-state="done"] .bd-marker { background: var(--depth); color: #fff; }
+  .bd-step[data-state="done"] .bd-marker .n { display: none; }
+  .bd-step[data-state="done"] .bd-marker .chk { display: inline; }
+  .bd-step[data-state="todo"] .bd-marker { color: #c3bcb1; border-color: #ddd6c9; }
+  .bd-head-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .bd-step-title { font-size: 15px; font-weight: 500; color: var(--depth); }
+  .bd-step[data-state="todo"] .bd-step-title { color: #b3aca1; }
+  .bd-recap { font-size: 13px; color: var(--mid); }
+  .bd-step[data-state="active"] .bd-recap { display: none; }
+  .bd-edit { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+  .bd-step[data-state="active"] .bd-edit, .bd-step[data-state="todo"] .bd-edit { visibility: hidden; }
+  .bd-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s ease; }
+  .bd-step[data-state="active"] .bd-body { grid-template-rows: 1fr; }
+  .bd-body-inner { overflow: hidden; }
+  .bd-step[data-state="active"] .bd-body-inner { padding-bottom: 28px; }
+
+  .bd-cta { margin-top: 24px; background: var(--depth); color: #fff; border: none; padding: 15px 32px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; transition: background .2s; }
+  .bd-cta:hover:not(:disabled) { background: var(--cherry); }
+  .bd-cta:disabled { opacity: .38; cursor: not-allowed; }
+  .bd-err { color: var(--cherry); font-size: 13px; margin: 14px 0 0; }
+
+  /* Calendar */
+  .bd-cal { max-width: 360px; }
+  .bd-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .bd-cal__month { font-size: 14px; font-weight: 500; color: var(--depth); letter-spacing: .02em; }
+  .bd-cal__nav { width: 32px; height: 32px; border: 1px solid var(--rule); background: #fff; cursor: pointer; font-size: 16px; color: var(--depth); border-radius: 50%; line-height: 1; }
+  .bd-cal__nav:disabled { opacity: .3; cursor: not-allowed; }
+  .bd-cal__grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .bd-cal__dow { text-align: center; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #b3aca1; padding: 4px 0; }
+  .bd-cal__cell { aspect-ratio: 1; border: 1px solid transparent; background: none; font-size: 13px; color: var(--depth); cursor: pointer; border-radius: 50%; font-family: inherit; }
+  .bd-cal__cell:hover:not(:disabled):not(.bd-cal__cell--empty) { border-color: var(--depth); }
+  .bd-cal__cell:disabled { color: #d5cfc4; cursor: not-allowed; }
+  .bd-cal__cell--empty { cursor: default; }
+  .bd-cal__cell.is-sel { background: var(--depth); color: #fff; }
+
+  .bd-slots { margin-top: 26px; }
+  .bd-slots-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); margin: 0 0 12px; font-weight: 500; }
+  .bd-slot-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .bd-slot { flex: 1; min-width: 130px; border: 1px solid var(--rule); background: #fff; padding: 14px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
+  .bd-slot span { font-size: 12px; color: var(--mid); }
+  .bd-slot:hover { border-color: var(--depth); }
+  .bd-slot.is-sel { border-color: var(--depth); background: var(--depth); color: #fff; }
+  .bd-slot.is-sel span { color: rgba(255,255,255,.72); }
+
+  /* Bag grid */
+  .bd-counter { font-size: 13px; color: var(--mid); margin: 0 0 16px; }
+  .bd-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 14px; }
+  .bd-bag { position: relative; border: 1px solid var(--rule); background: #fff; padding: 0 0 12px; cursor: pointer; font-family: inherit; text-align: left; transition: border-color .2s; overflow: hidden; }
+  .bd-bag:hover { border-color: #c8c0b4; }
+  .bd-bag.is-sel { border-color: var(--depth); }
+  .bd-bag__img { display: block; aspect-ratio: 4/5; background: #f6f3ee; overflow: hidden; }
+  .bd-bag__img img { width: 100%; height: 100%; object-fit: cover; }
+  .bd-bag__check { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--depth); color: #fff; display: none; align-items: center; justify-content: center; font-size: 12px; }
+  .bd-bag.is-sel .bd-bag__check { display: flex; }
+  .bd-bag__name { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--depth); margin: 10px 10px 3px; }
+  .bd-bag__price { display: block; font-size: 13px; color: var(--mid); margin: 0 10px; }
+
+  /* Fields */
+  .bd-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 560px; }
+  .bd-field { display: flex; flex-direction: column; gap: 7px; }
+  .bd-field--full { grid-column: 1 / -1; }
+  .bd-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 500; }
+  .bd-input { padding: 12px 14px; border: 1px solid var(--rule); background: #fff; font-family: inherit; font-size: 14px; color: var(--depth); }
+  .bd-input:focus { outline: none; border-color: var(--depth); }
+  .bd-reassure { font-size: 13.5px; color: var(--mid); margin: 22px 0 0; line-height: 1.65; max-width: 560px; }
+  .bd-reassure strong { color: var(--depth); }
+
+  /* Success */
+  .bd-done { max-width: 560px; margin: 0 auto; text-align: center; padding: clamp(60px,10vw,120px) var(--gutter); }
+  .bd-done__mark { width: 56px; height: 56px; border-radius: 50%; background: #2f6b3f; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 22px; }
+  .bd-done__title { font-size: clamp(26px,4vw,38px); font-weight: 300; margin: 0 0 14px; }
+  .bd-done__body { font-size: 15px; line-height: 1.7; color: var(--mid); margin: 0 0 30px; }
+  .bd-done__btn { display: inline-flex; height: 50px; align-items: center; padding: 0 30px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; text-decoration: none; transition: background .3s; }
+  .bd-done__btn:hover { background: var(--cherry); }
+
+  @media (max-width: 640px) {
+    .bd-fields { grid-template-columns: 1fr; }
+    .bd-slot { min-width: 0; }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var ORDER = ['when', 'bags', 'you'];
+    var active = 'when';
+    var done = {};
+    var selectedISO = '', selectedDateLabel = '', selectedSlot = '';
+    var selectedBags = new Map(); // variantId -> title
+
+    var $ = function (id) { return document.getElementById(id); };
+    var val = function (id) { var el = $(id); return el ? (el.value || '').trim() : ''; };
+    var showErr = function (id, msg) { var e = $('err-' + id); if (e) { e.hidden = false; e.textContent = msg; } };
+    var clearErr = function (id) { var e = $('err-' + id); if (e) e.hidden = true; };
+
+    function setState() {
+      ORDER.forEach(function (id) {
+        var sec = $('step-' + id);
+        sec.dataset.state = (id === active) ? 'active' : (done[id] ? 'done' : 'todo');
+      });
+    }
+    function buildRecap(id) {
+      if (id === 'when') $('recap-when').textContent = selectedDateLabel + ' · ' + selectedSlot;
+      else if (id === 'bags') $('recap-bags').textContent = selectedBags.size + ' bag' + (selectedBags.size !== 1 ? 's' : '') + ' selected';
+      else if (id === 'you') $('recap-you').textContent = val('f-name');
+    }
+    function goTo(id) {
+      active = id; setState();
+      var sec = $('step-' + id);
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Calendar ──
+    var cal = $('cal'), slotsEl = $('slots');
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var minDate = new Date(today); minDate.setDate(minDate.getDate() + 1);
+    var maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 45);
+    var viewY = minDate.getFullYear(), viewM = minDate.getMonth();
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function renderCal() {
+      var first = new Date(viewY, viewM, 1);
+      var startDow = first.getDay();
+      var days = new Date(viewY, viewM + 1, 0).getDate();
+      var monthName = first.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      var canPrev = (viewY > minDate.getFullYear()) || (viewY === minDate.getFullYear() && viewM > minDate.getMonth());
+      var canNext = (viewY < maxDate.getFullYear()) || (viewY === maxDate.getFullYear() && viewM < maxDate.getMonth());
+      var h = '<div class="bd-cal__head"><button type="button" class="bd-cal__nav" id="calPrev"' + (canPrev ? '' : ' disabled') + '>‹</button><span class="bd-cal__month">' + monthName + '</span><button type="button" class="bd-cal__nav" id="calNext"' + (canNext ? '' : ' disabled') + '>›</button></div><div class="bd-cal__grid">';
+      ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) { h += '<span class="bd-cal__dow">' + d + '</span>'; });
+      for (var i = 0; i < startDow; i++) h += '<span class="bd-cal__cell bd-cal__cell--empty"></span>';
+      for (var d = 1; d <= days; d++) {
+        var cur = new Date(viewY, viewM, d); cur.setHours(0, 0, 0, 0);
+        var off = cur < minDate || cur > maxDate;
+        var iso = viewY + '-' + pad(viewM + 1) + '-' + pad(d);
+        h += '<button type="button" class="bd-cal__cell' + (selectedISO === iso ? ' is-sel' : '') + '" ' + (off ? 'disabled' : 'data-date="' + iso + '"') + '>' + d + '</button>';
+      }
+      h += '</div>';
+      cal.innerHTML = h;
+      var p = $('calPrev'), n = $('calNext');
+      if (p) p.onclick = function () { if (canPrev) { viewM--; if (viewM < 0) { viewM = 11; viewY--; } renderCal(); } };
+      if (n) n.onclick = function () { if (canNext) { viewM++; if (viewM > 11) { viewM = 0; viewY++; } renderCal(); } };
+      cal.querySelectorAll('[data-date]').forEach(function (btn) {
+        btn.onclick = function () {
+          selectedISO = btn.dataset.date;
+          selectedDateLabel = new Date(selectedISO + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+          renderCal();
+          slotsEl.hidden = false;
+          syncWhen();
+        };
+      });
+    }
+    function syncWhen() { document.querySelector('[data-next="when"]').disabled = !(selectedISO && selectedSlot); }
+    renderCal();
+
+    document.querySelectorAll('.bd-slot').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('.bd-slot').forEach(function (x) { x.classList.remove('is-sel'); });
+        b.classList.add('is-sel');
+        selectedSlot = b.dataset.slot;
+        syncWhen();
+      };
+    });
+
+    // ── Bags ──
+    document.querySelectorAll('.bd-bag').forEach(function (tile) {
+      tile.onclick = function () {
+        var vid = tile.dataset.vid;
+        if (selectedBags.has(vid)) { selectedBags.delete(vid); tile.classList.remove('is-sel'); }
+        else {
+          if (selectedBags.size >= 6) { showErr('bags', 'You can choose up to 6 bags for a home demo.'); return; }
+          selectedBags.set(vid, tile.dataset.title); tile.classList.add('is-sel'); clearErr('bags');
+        }
+        $('bagCount').textContent = String(selectedBags.size);
+        document.querySelector('[data-next="bags"]').disabled = selectedBags.size < 1;
+        if (done['bags']) buildRecap('bags');
+      };
+    });
+
+    // ── Continue buttons ──
+    document.querySelectorAll('[data-next]').forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.dataset.next;
+        if (id === 'when' && !(selectedISO && selectedSlot)) return;
+        if (id === 'bags' && selectedBags.size < 1) { showErr('bags', 'Please select at least one bag.'); return; }
+        done[id] = true; buildRecap(id);
+        goTo(ORDER[ORDER.indexOf(id) + 1]);
+      };
+    });
+    // ── Edit ──
+    document.querySelectorAll('[data-edit]').forEach(function (btn) {
+      btn.onclick = function () { goTo(btn.dataset.edit); };
+    });
+
+    // ── Book ──
+    $('bookBtn').onclick = function () {
+      clearErr('you');
+      var name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
+        addr = val('f-addr'), area = val('f-area'), pin = val('f-pin');
+      if (!name || !phone || !email || !addr) { showErr('you', 'Please fill in your name, phone, email and address.'); return; }
+      if (phone.length !== 10) { showErr('you', 'Please enter a valid 10-digit phone number.'); return; }
+      if (!/^\S+@\S+\.\S+$/.test(email)) { showErr('you', 'Please enter a valid email address.'); return; }
+      if (!/^40\d{4}$/.test(pin)) { showErr('you', 'Home demos are Mumbai-only for now — please enter a Mumbai PIN code.'); return; }
+      var btn = $('bookBtn'); btn.disabled = true; btn.textContent = 'Booking…';
+      var bagList = [];
+      selectedBags.forEach(function (title, vid) { bagList.push({ variantId: vid, title: title }); });
+      fetch('/api/book-demo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDateLabel, slot: selectedSlot, bags: bagList, name: name, phone: phone, email: email, address: addr, area: area, pin: pin })
+      }).then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+      }).then(function (r) {
+        if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your demo.');
+        $('bdFlow').style.display = 'none';
+        document.querySelector('.bd-hero').style.display = 'none';
+        $('bdDoneBody').textContent = 'We’ll call you shortly to confirm your ' + selectedSlot + ' slot on ' + selectedDateLabel + '. Relax — there’s absolutely no pressure to buy.';
+        $('bdDone').hidden = false;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }).catch(function (err) {
+        showErr('you', err.message);
+        btn.disabled = false; btn.textContent = 'Confirm my home demo';
+      });
+    };
+
+    setState();
+  })();
+</script>

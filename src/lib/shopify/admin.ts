@@ -470,3 +470,64 @@ export async function getOpenDrafts(): Promise<OpenDraft[]> {
     cfOrderId: node.customAttributes.find((a) => a.key === 'cf_order_id')?.value ?? null,
   }));
 }
+
+// ── Home-demo booking (Mumbai) ─────────────────────────────────────────────────
+// Records a "book a home demo" request as a tagged DRAFT order (never completed, so
+// no inventory/revenue impact): the selected bags as line items + date/slot/contact in
+// the note + a `home-demo` tag, so the team sees it in Shopify → Orders → Drafts.
+export async function createDemoBooking(args: {
+  bags: Array<{ variantId: string; title: string }>;
+  date: string;
+  slot: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  area: string;
+  zip: string;
+}): Promise<DraftOrderResult | null> {
+  const parts = args.name.trim().split(/\s+/);
+  const firstName = parts.shift() || args.name.trim() || 'Guest';
+  const lastName = parts.join(' ') || firstName;
+  const bagTitles = args.bags.map((b) => b.title).join(', ');
+  const address1 = [args.address, args.area].filter(Boolean).join(', ');
+  const note =
+    `HOME DEMO — ${args.date}, ${args.slot} · Mumbai\n` +
+    `Bags: ${bagTitles}\n` +
+    `Contact: ${args.name} · ${args.phone} · ${args.email}`;
+
+  const input: Record<string, unknown> = {
+    email: args.email,
+    phone: args.phone,
+    tags: ['home-demo'],
+    note,
+    customAttributes: [
+      { key: 'demo_date', value: args.date },
+      { key: 'demo_slot', value: args.slot },
+      { key: 'demo_bags', value: bagTitles },
+    ],
+    lineItems: args.bags.map((b) => ({ variantId: b.variantId, quantity: 1 })),
+    shippingAddress: {
+      firstName,
+      lastName,
+      address1,
+      address2: '',
+      city: 'Mumbai',
+      province: 'Maharashtra',
+      zip: args.zip,
+      phone: args.phone,
+      countryCode: 'IN',
+    },
+  };
+
+  const data = await runAdminQuery<{
+    draftOrderCreate: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };
+  }>(DRAFT_ORDER_CREATE, { input });
+
+  const errs = data?.draftOrderCreate?.userErrors;
+  if (errs && errs.length) {
+    console.error('[admin] createDemoBooking userErrors:', JSON.stringify(errs));
+    return null;
+  }
+  return shape(data?.draftOrderCreate?.draftOrder);
+}
