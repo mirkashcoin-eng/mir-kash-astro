@@ -40,8 +40,7 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
   <!-- ══ FULL-BLEED BREAK ══ -->
   <section class="ab-full">
     <picture>
-      <source media="(max-width: 768px)" srcset="/home/m4.avif" />
-      <img src="/home/d4.avif" alt="" loading="lazy" />
+      <img src="/banner-image.jpeg" alt="Mir Kash woven bag" loading="lazy" />
     </picture>
   </section>
 
@@ -160,8 +159,8 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
   }
 
   /* ── Full-bleed break ───────────────────────────────── */
-  .ab-full { width: 100%; aspect-ratio: 16 / 6.5; overflow: hidden; background: var(--cream); }
-  .ab-full img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .ab-full { width: 100%; aspect-ratio: 2 / 1; overflow: hidden; background: var(--cream); }
+  .ab-full img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
   /* ── Section headline ───────────────────────────────── */
   .ab-h2 { color: var(--depth); font-size: clamp(32px, 4.4vw, 56px); line-height: 1.06; margin: 0 0 24px; }
