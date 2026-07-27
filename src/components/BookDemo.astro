@@ -71,9 +71,10 @@ const bags = products
             <div class="bd-when">
               <div class="bd-when__main">
                 <div class="bd-cal" id="cal"></div>
-                <div class="bd-slots" id="slots" hidden>
+                <div class="bd-slots" id="slots">
                   <p class="bd-slots-label">Choose a time</p>
-                  <div class="bd-slot-btns">
+                  <p class="bd-slots__hint" id="slotHint">Pick a date above to see available times.</p>
+                  <div class="bd-slot-btns" id="slotBtns" hidden>
                     <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
                     <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
                     <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
@@ -231,24 +232,25 @@ const bags = products
   .bd-expect { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 13px; }
   .bd-expect li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.55; color: var(--mid); }
   .bd-expect li::before { content: '\2713'; position: absolute; left: 0; top: 0; color: var(--cherry); font-size: 12px; font-weight: 600; }
-  .bd-aside__note { font-size: 12px; line-height: 1.6; color: #9a938a; margin: auto 0 0; padding-top: 22px; }
+  .bd-aside__note { font-size: 12px; line-height: 1.6; color: #9a938a; margin: auto 0 0; padding-top: 22px; border-top: 1px solid rgba(44,26,14,.09); }
 
   /* Calendar */
-  .bd-cal { max-width: 380px; }
+  .bd-cal { width: 100%; }
   .bd-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .bd-cal__month { font-size: 14px; font-weight: 500; color: var(--depth); letter-spacing: .02em; }
   .bd-cal__nav { width: 34px; height: 34px; border: 1px solid var(--rule); background: #fff; cursor: pointer; font-size: 16px; color: var(--depth); border-radius: 50%; line-height: 1; }
   .bd-cal__nav:disabled { opacity: .3; cursor: not-allowed; }
   .bd-cal__grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
   .bd-cal__dow { text-align: center; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #b3aca1; padding: 4px 0; }
-  .bd-cal__cell { aspect-ratio: 1; border: 1px solid transparent; background: none; font-size: 13px; color: var(--depth); cursor: pointer; border-radius: 50%; font-family: inherit; transition: background .15s, border-color .15s; }
+  .bd-cal__cell { aspect-ratio: 1; border: 1px solid transparent; background: none; font-size: 14px; color: var(--depth); cursor: pointer; border-radius: 50%; font-family: inherit; transition: background .15s, border-color .15s; }
   .bd-cal__cell:hover:not(:disabled):not(.bd-cal__cell--empty) { border-color: var(--depth); }
-  .bd-cal__cell:disabled { color: #d5cfc4; cursor: not-allowed; }
+  .bd-cal__cell:disabled { color: #e2dbcf; cursor: not-allowed; }
   .bd-cal__cell--empty { cursor: default; }
   .bd-cal__cell.is-sel { background: var(--depth); color: #fff; }
 
   .bd-slots { margin-top: 28px; }
   .bd-slots-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); margin: 0 0 12px; font-weight: 500; }
+  .bd-slots__hint { font-size: 13px; color: #a89f92; margin: 0; }
   .bd-slot-btns { display: flex; gap: 10px; flex-wrap: wrap; }
   .bd-slot { flex: 1; min-width: 130px; border: 1px solid var(--rule); background: #fff; padding: 15px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
   .bd-slot span { font-size: 12px; color: var(--mid); }
@@ -356,11 +358,14 @@ const bags = products
     }
 
     // ── Calendar ──
-    var cal = $('cal'), slotsEl = $('slots');
+    var cal = $('cal');
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var minDate = new Date(today); minDate.setDate(minDate.getDate() + 1);
     var maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 45);
     var viewY = minDate.getFullYear(), viewM = minDate.getMonth();
+    // If fewer than ~a week of bookable days remain this month, open on next month.
+    var dim0 = new Date(viewY, viewM + 1, 0).getDate();
+    if (dim0 - minDate.getDate() < 6) { viewM++; if (viewM > 11) { viewM = 0; viewY++; } }
 
     function pad(n) { return (n < 10 ? '0' : '') + n; }
     function renderCal() {
@@ -389,7 +394,8 @@ const bags = products
           selectedISO = btn.dataset.date;
           selectedDateLabel = new Date(selectedISO + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
           renderCal();
-          slotsEl.hidden = false;
+          $('slotHint').hidden = true;
+          $('slotBtns').hidden = false;
           syncWhen();
         };
       });
