@@ -19,19 +19,47 @@ import LegalPage from '../LegalPage.astro';
     <p class="rp-note">Prefer email? Write to <a href="mailto:returns@mirkash.com">returns@mirkash.com</a> with your order number.</p>
   </form>
 
+  <p class="rp-status" id="returnStatus" hidden></p>
+
   <p class="rp-terms">Bags must be unused and returned in their original packaging (box, dust bag, and inserts). Refunds are processed within 14 working days of inspection. See <a href="/pages/shipping-returns">Shipping &amp; Returns</a> for full details.</p>
 
   <script is:inline>
-    document.getElementById('returnForm')?.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var f = e.currentTarget;
-      var order = (f.order.value || '').trim();
-      var email = (f.email.value || '').trim();
-      var reason = (f.reason.value || '').trim();
-      var subject = encodeURIComponent('Return request — order ' + order);
-      var body = encodeURIComponent('Order number: ' + order + '\nEmail: ' + email + '\nReason: ' + (reason || '—') + '\n\nI would like to start a return.');
-      window.location.href = 'mailto:returns@mirkash.com?subject=' + subject + '&body=' + body;
-    });
+    (function () {
+      var form = document.getElementById('returnForm');
+      var statusEl = document.getElementById('returnStatus');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type=submit]');
+        var order = (form.order.value || '').trim();
+        var email = (form.email.value || '').trim();
+        var reason = (form.reason.value || '').trim();
+        if (statusEl) statusEl.hidden = true;
+        btn.disabled = true; btn.textContent = 'Submitting…';
+        fetch('/api/returns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: order, email: email, reason: reason })
+        }).then(function (res) {
+          return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+        }).then(function (r) {
+          if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not submit your return.');
+          form.style.display = 'none';
+          if (statusEl) {
+            statusEl.hidden = false;
+            statusEl.className = 'rp-status rp-status--ok';
+            statusEl.textContent = 'Your return request has been received. We’ll email you the next steps shortly.';
+          }
+        }).catch(function (err) {
+          if (statusEl) {
+            statusEl.hidden = false;
+            statusEl.className = 'rp-status rp-status--err';
+            statusEl.textContent = err.message;
+          }
+          btn.disabled = false; btn.textContent = 'Start return';
+        });
+      });
+    })();
   </script>
 
   <style>
@@ -44,6 +72,9 @@ import LegalPage from '../LegalPage.astro';
     .rp-submit { background: var(--depth); color: #fff; border: none; padding: 14px 30px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; transition: background .2s; }
     .rp-submit:hover { background: var(--cherry); }
     .rp-note { font-size: 13px; color: var(--mid, #6e6a64); margin-top: 16px; }
+    .rp-status { max-width: 460px; font-size: 14px; line-height: 1.6; padding: 14px 16px; margin: 4px 0 8px; }
+    .rp-status--ok { background: #eef3ef; color: #3D6B4F; border: 1px solid #cfe0d4; }
+    .rp-status--err { background: #f7eeee; color: #8B1A1A; border: 1px solid #e6cccc; }
     .rp-terms { font-size: 13px; color: var(--mid, #6e6a64); margin-top: 28px; }
   </style>
 </LegalPage>
