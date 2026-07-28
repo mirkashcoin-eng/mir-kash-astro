@@ -31,9 +31,14 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
         <p>Mir Kash is my love letter to dreamers and changemakers. We exist to advocate for an inclusive, responsible and inspiring future &mdash; empowering like-minded souls to choose what truly matters. I hope our designs spark joy and offer beauty you can feel proud to carry.</p>
         <p>Thank you, from the bottom of my heart, for joining us and believing in Mir Kash. If you ever want to chat, my inbox is always open &mdash; I love hearing your stories.</p>
       </div>
-      <p class="ab-sig-pre">With gratitude,</p>
-      <p class="ab-display ab-sig">Rajul Daga</p>
-      <p class="ab-sig-role">Founder, Mir Kash</p>
+      <div class="ab-signoff">
+        <img class="ab-signoff__photo" src="/rajul-daga.jpg" alt="Rajul Daga, Founder of Mir Kash" loading="lazy" />
+        <div class="ab-signoff__text">
+          <p class="ab-sig-pre">With gratitude,</p>
+          <p class="ab-display ab-sig">Rajul Daga</p>
+          <p class="ab-sig-role">Founder, Mir Kash</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -151,7 +156,13 @@ const prefix = Astro.locals.marketConfig.urlPrefix;
     margin: 0 0 clamp(36px, 5vw, 60px);
   }
   .ab-letter__body p { font-size: 15.5px; line-height: 1.95; color: var(--body-ink); margin: 0 0 22px; }
-  .ab-sig-pre { font-size: 15px; color: var(--body-ink); margin: 34px 0 6px; }
+  .ab-signoff { display: flex; align-items: center; gap: 24px; margin-top: 40px; }
+  .ab-signoff__photo {
+    width: 104px; height: 104px; flex-shrink: 0; border-radius: 50%;
+    object-fit: cover; object-position: 50% 28%;
+    box-shadow: 0 6px 22px rgba(44, 26, 14, 0.14);
+  }
+  .ab-sig-pre { font-size: 15px; color: var(--body-ink); margin: 0 0 6px; }
   .ab-sig { font-size: clamp(26px, 3vw, 36px); color: var(--depth); margin: 0; line-height: 1; }
   .ab-sig-role {
     font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
