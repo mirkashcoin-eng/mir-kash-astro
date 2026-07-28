@@ -25,10 +25,10 @@ function imgFor(post: JournalPost, i: number): string {
 }
 
 const cover = POSTS.find((p) => p.role === 'cover') ?? POSTS[0];
-const grid = POSTS.filter((p) => p.slug !== cover.slug);
-const teasers = grid.slice(0, 3);
-const lead = grid.slice(0, 2);
-const rest = grid.slice(2);
+const rest = POSTS.filter((p) => p.slug !== cover.slug);
+const teasers = rest.slice(0, 3);
+const featured = rest[0];
+const gridPosts = rest.slice(1);
 const issue = formatJournalDate(POSTS[0].date).replace(/^\d+ /, ''); // "Month Year"
 const coverImg = imgFor(cover, 0);
 ---
@@ -67,12 +67,12 @@ const coverImg = imgFor(cover, 0);
     </div>
   </section>
 
-  <!-- ═══════════ SALON GRID ═══════════ -->
+  <!-- ═══════════ STORIES ═══════════ -->
   <section class="jr-salon">
     <div class="jr-shead">
       <div>
         <p class="jr-eyebrow">The Mir Kash Journal</p>
-        <h2 class="jr-display jr-shead__h">A wall of stories, hung with care.</h2>
+        <h2 class="jr-display jr-shead__h">Stories, slowly told.</h2>
       </div>
       <div class="jr-filters" id="jrFilters">
         <button class="on" data-cat="all">All</button>
@@ -80,26 +80,25 @@ const coverImg = imgFor(cover, 0);
       </div>
     </div>
 
-    <div class="jr-mosaic" id="jrMosaic">
-      {lead.map((p, i) => (
-        <a class="jr-tile jr-lead" href={url(p.slug)} data-cat={p.category}>
-          <span class="jr-ph"><span class="jr-ph__z">{imgFor(p, i) && <img src={imgFor(p, i)} alt={p.title} loading="lazy" />}</span></span>
-          <span class="jr-meta"><span class="jr-tag">{p.category}</span><span class="jr-dot"></span><span class="jr-min">{p.readMin} min</span></span>
-          <h3 class="jr-display jr-lead__t">{p.title}</h3>
-          <p class="jr-lead__ex">{p.excerpt}</p>
-        </a>
-      ))}
+    <!-- Featured / latest -->
+    <a class="jr-feature" href={url(featured.slug)}>
+      <span class="jr-ph jr-feature__img"><span class="jr-ph__z">{imgFor(featured, 0) && <img src={imgFor(featured, 0)} alt={featured.title} loading="lazy" />}</span></span>
+      <span class="jr-feature__txt">
+        <span class="jr-meta"><span class="jr-tag">Latest &middot; {featured.category}</span><span class="jr-dot"></span><span class="jr-min">{featured.readMin} min read</span></span>
+        <h3 class="jr-display jr-feature__t">{featured.title}</h3>
+        <span class="jr-feature__ex">{featured.excerpt}</span>
+        <span class="jr-rd">Read the story &rarr;</span>
+      </span>
+    </a>
 
-      <div class="jr-quote" data-cat="_decor">
-        <p class="jr-display">The simplest things are the hardest to get <em>just right.</em></p>
-        <span>From the atelier</span>
-      </div>
-
-      {rest.map((p, i) => (
-        <a class="jr-tile jr-card" href={url(p.slug)} data-cat={p.category}>
-          <span class="jr-ph"><span class="jr-ph__z">{imgFor(p, i + 2) && <img src={imgFor(p, i + 2)} alt={p.title} loading="lazy" />}</span></span>
-          <span class="jr-meta"><span class="jr-tag">{p.category}</span><span class="jr-dot"></span><span class="jr-min">{p.readMin} min</span></span>
+    <!-- Uniform grid -->
+    <div class="jr-grid" id="jrGrid">
+      {gridPosts.map((p, i) => (
+        <a class="jr-card" href={url(p.slug)} data-cat={p.category}>
+          <span class="jr-ph jr-card__img"><span class="jr-ph__z">{imgFor(p, i + 1) && <img src={imgFor(p, i + 1)} alt={p.title} loading="lazy" />}</span></span>
+          <span class="jr-meta"><span class="jr-tag">{p.category}</span><span class="jr-dot"></span><span class="jr-min">{p.readMin} min read</span></span>
           <h3 class="jr-display jr-card__t">{p.title}</h3>
+          <span class="jr-card__ex">{p.excerpt}</span>
         </a>
       ))}
     </div>
@@ -131,16 +130,15 @@ const coverImg = imgFor(cover, 0);
 
   .jr {
     --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-    --cream: #F6F1E9; --sand: #E3D5C0; --ink: #4a4038; --mid: #6f6a63; --faint: #a8a196; --rule: #e3ddd3;
+    --cream: #F6F1E9; --sand: #EFE9DF; --ink: #4a4038; --mid: #6f6a63; --faint: #a8a196; --rule: #e3ddd3;
     background: #fff; color: var(--depth);
   }
   .jr-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
   .jr em { font-style: italic; color: var(--cherry); }
-  .jr-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
-  .jr-eyebrow--rose { color: var(--cherry); }
+  .jr-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
   .jr-meta { display: flex; align-items: center; gap: 10px; }
-  .jr-tag { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--mid); font-weight: 500; }
-  .jr-min { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .jr-tag { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); font-weight: 500; }
+  .jr-min { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-variant-numeric: tabular-nums; }
   .jr-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
   .jr-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth); padding-bottom: 3px; text-decoration: none; display: inline-block; transition: color .2s, border-color .2s; }
   .jr-rd:hover { color: var(--cherry); border-color: var(--cherry); }
@@ -161,7 +159,6 @@ const coverImg = imgFor(cover, 0);
   .jr-cover__rule { height: 1px; background: rgba(255,255,255,.26); margin-top: 16px; }
   .jr-cover__mid { flex: 1; }
   .jr-cover__foot { display: grid; grid-template-columns: 1.55fr 1fr; gap: clamp(24px,4vw,56px); align-items: end; }
-  .jr-eyebrow--rose { color: var(--cherry); }
   .jr-cover__story .jr-eyebrow--rose { color: #e7b7ae; }
   .jr-cover__h { font-size: clamp(34px,5.4vw,68px); line-height: 1; margin: 14px 0 16px; max-width: 15ch; text-wrap: balance; }
   .jr-cover__ex { font-size: 14.5px; line-height: 1.7; color: rgba(255,255,255,.9); max-width: 46ch; margin: 0 0 22px; }
@@ -172,39 +169,39 @@ const coverImg = imgFor(cover, 0);
   .jr-coverlines a:hover { color: #fff; }
   .jr-coverlines a span { display: block; font-family: 'Jost', sans-serif; font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-top: 4px; }
 
-  /* ── Salon ── */
-  .jr-salon { padding: clamp(44px,5vw,72px) clamp(24px,4vw,56px); max-width: 1240px; margin: 0 auto; }
-  .jr-shead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: clamp(26px,3vw,38px); }
-  .jr-shead__h { font-size: clamp(32px,4.2vw,54px); line-height: 1; margin: 10px 0 0; max-width: 16ch; text-wrap: balance; }
+  /* ── Stories ── */
+  .jr-salon { padding: clamp(46px,5.5vw,80px) clamp(24px,4vw,56px); max-width: 1200px; margin: 0 auto; }
+  .jr-shead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: clamp(34px,4vw,52px); }
+  .jr-shead__h { font-size: clamp(32px,4.2vw,52px); line-height: 1; margin: 10px 0 0; text-wrap: balance; }
   .jr-filters { display: flex; gap: 6px; flex-wrap: wrap; }
-  .jr-filters button { font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); background: none; border: 1px solid var(--rule); padding: 8px 15px; border-radius: 999px; cursor: pointer; transition: .2s; }
+  .jr-filters button { font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); background: none; border: 1px solid var(--rule); padding: 9px 16px; border-radius: 999px; cursor: pointer; transition: .2s; }
   .jr-filters button.on, .jr-filters button:hover { background: var(--depth); color: #fff; border-color: var(--depth); }
 
-  .jr-mosaic { display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(16px,2vw,26px); }
+  /* shared image frame */
   .jr-ph { display: block; position: relative; overflow: hidden; background: var(--sand); }
-  .jr-ph__z { position: absolute; inset: 0; transition: transform .6s ease; }
+  .jr-ph__z { position: absolute; inset: 0; transition: transform .55s ease; }
   .jr-ph__z img { width: 100%; height: 100%; object-fit: cover; }
-  .jr-tile { display: block; text-decoration: none; color: inherit; }
-  .jr-tile:hover .jr-ph__z { transform: scale(1.045); }
-  .jr-display.jr-lead__t, .jr-display.jr-card__t { transition: color .2s; }
-  .jr-tile:hover .jr-lead__t, .jr-tile:hover .jr-card__t { color: var(--cherry); }
 
-  .jr-lead { grid-column: span 3; }
-  .jr-lead .jr-ph { aspect-ratio: 16/10; margin-bottom: 18px; }
-  .jr-lead .jr-meta { margin-bottom: 10px; }
-  .jr-lead__t { font-size: clamp(26px,3vw,38px); line-height: 1.06; margin: 0 0 12px; color: var(--depth); text-wrap: balance; }
-  .jr-lead__ex { font-size: 14.5px; line-height: 1.75; color: var(--ink); margin: 0; max-width: 48ch; }
+  /* featured / latest */
+  .jr-feature { display: grid; grid-template-columns: 1.12fr 1fr; gap: clamp(28px,4vw,60px); align-items: center; text-decoration: none; color: inherit; margin-bottom: clamp(42px,5vw,66px); padding-bottom: clamp(42px,5vw,66px); border-bottom: 1px solid var(--rule); }
+  .jr-feature__img { aspect-ratio: 4/3; }
+  .jr-feature:hover .jr-feature__img .jr-ph__z { transform: scale(1.04); }
+  .jr-feature__txt { display: flex; flex-direction: column; align-items: flex-start; }
+  .jr-feature__txt .jr-meta { margin-bottom: 4px; }
+  .jr-feature__t { font-size: clamp(28px,3.4vw,46px); line-height: 1.04; color: var(--depth); margin: 14px 0 16px; text-wrap: balance; transition: color .2s; }
+  .jr-feature:hover .jr-feature__t { color: var(--cherry); }
+  .jr-feature__ex { font-size: 15px; line-height: 1.8; color: var(--ink); margin: 0 0 24px; max-width: 46ch; }
 
-  .jr-card { grid-column: span 2; }
-  .jr-card .jr-ph { aspect-ratio: 4/5; margin-bottom: 14px; }
-  .jr-card .jr-meta { margin-bottom: 8px; }
-  .jr-card__t { font-size: 21px; line-height: 1.12; margin: 0; color: var(--depth); text-wrap: balance; }
-
-  .jr-quote { grid-column: span 2; background: var(--depth); color: #fff; padding: 32px 28px; display: flex; flex-direction: column; justify-content: center; }
-  .jr-quote p { font-family: var(--serif); font-weight: 300; font-size: clamp(22px,2.3vw,28px); line-height: 1.2; margin: 0; }
-  .jr-quote p em { color: #e6b9b0; font-style: normal; }
-  .jr-quote span { font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-top: 18px; }
-  .jr-empty { text-align: center; color: var(--faint); font-size: 14px; padding: 40px 0; }
+  /* uniform grid */
+  .jr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(30px,3.4vw,48px) clamp(24px,2.6vw,38px); }
+  .jr-card { display: block; text-decoration: none; color: inherit; }
+  .jr-card__img { aspect-ratio: 4/5; margin-bottom: 16px; }
+  .jr-card:hover .jr-card__img .jr-ph__z { transform: scale(1.045); }
+  .jr-card .jr-meta { margin-bottom: 10px; }
+  .jr-card__t { font-size: 23px; line-height: 1.13; color: var(--depth); margin: 0 0 10px; text-wrap: balance; transition: color .2s; }
+  .jr-card:hover .jr-card__t { color: var(--cherry); }
+  .jr-card__ex { font-size: 13.5px; line-height: 1.68; color: var(--mid); margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .jr-empty { text-align: center; color: var(--faint); font-size: 14px; padding: 48px 0; }
 
   /* ── Subscribe ── */
   .jr-sub { background: var(--cream); text-align: center; padding: clamp(48px,6vw,84px) 24px; border-top: 1px solid var(--rule); }
@@ -215,20 +212,21 @@ const coverImg = imgFor(cover, 0);
   .jr-sub__form input::placeholder { color: var(--faint); }
   .jr-sub__form button { background: none; border: none; color: var(--depth); font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
 
-  @media (max-width: 860px) {
+  @media (max-width: 900px) {
     .jr-cover__foot { grid-template-columns: 1fr; gap: 24px; }
     .jr-coverlines { border-left: none; border-top: 1px solid rgba(255,255,255,.28); padding-left: 0; padding-top: 20px; }
-    .jr-mosaic { grid-template-columns: repeat(2, 1fr); }
-    .jr-lead, .jr-card, .jr-quote { grid-column: span 2; }
-    .jr-lead .jr-ph { aspect-ratio: 16/10; }
+    .jr-feature { grid-template-columns: 1fr; gap: 22px; }
+    .jr-feature__img { aspect-ratio: 16/10; }
+    .jr-grid { grid-template-columns: 1fr 1fr; }
   }
+  @media (max-width: 560px) { .jr-grid { grid-template-columns: 1fr; } }
   @media (prefers-reduced-motion: reduce) { .jr *, .jr-ph__z { transition: none !important; } }
 </style>
 
 <script is:inline>
   (function () {
     var wrap = document.getElementById('jrFilters');
-    var tiles = Array.prototype.slice.call(document.querySelectorAll('#jrMosaic > [data-cat]'));
+    var tiles = Array.prototype.slice.call(document.querySelectorAll('#jrGrid > [data-cat]'));
     var empty = document.getElementById('jrEmpty');
     if (!wrap) return;
     wrap.addEventListener('click', function (e) {
@@ -238,10 +236,9 @@ const coverImg = imgFor(cover, 0);
       var cat = btn.dataset.cat;
       var shown = 0;
       tiles.forEach(function (t) {
-        var c = t.dataset.cat;
-        var show = cat === 'all' ? true : c === cat;
+        var show = cat === 'all' || t.dataset.cat === cat;
         t.hidden = !show;
-        if (show && c !== '_decor') shown++;
+        if (show) shown++;
       });
       if (empty) empty.hidden = shown > 0;
     });
