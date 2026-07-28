@@ -23,6 +23,16 @@ function imgFor(p: JournalPost, i: number, w = 800): string {
   return f?.featuredImage?.url ? shopifyImage(f.featuredImage.url, w) : '';
 }
 
+// Build an "In this story" contents list from the article's <h2>s and give them anchor ids.
+const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'section';
+const toc: { id: string; text: string }[] = [];
+const bodyWithIds = post.body.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (_m, attrs, inner) => {
+  const text = inner.replace(/<[^>]+>/g, '').trim();
+  const id = 'sec-' + slugify(text);
+  toc.push({ id, text });
+  return `<h2 id="${id}"${attrs}>${inner}</h2>`;
+});
+
 const hero = imgFor(post, 0, 1800);
 const related = relatedPosts(post.slug, 3);
 const shareUrl = Astro.url.href;
@@ -45,11 +55,12 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
 
   {hero && <div class="ja-hero"><img src={hero} alt={post.title} /></div>}
 
-  <!-- ── Body + share rail ── -->
+  <!-- ── Three-column body ── -->
   <div class="ja-shell">
+    <!-- left: share -->
     <aside class="ja-rail">
       <div class="ja-rail__stick">
-        <p class="ja-rail__lbl">Share</p>
+        <p class="ja-side__lbl">Share</p>
         <a class="ja-rail__lnk" href={waHref} target="_blank" rel="noopener">WhatsApp</a>
         <a class="ja-rail__lnk" href={pinHref} target="_blank" rel="noopener">Pinterest</a>
         <a class="ja-rail__lnk" href={fbHref} target="_blank" rel="noopener">Facebook</a>
@@ -57,19 +68,42 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
       </div>
     </aside>
 
+    <!-- middle: prose -->
     <div class="ja-col">
-      <article class="ja-body" set:html={post.body}></article>
+      <article class="ja-body" set:html={bodyWithIds}></article>
       <div class="ja-foot">
         <a class="ja-rd" href={`${prefix}/blog`}>&larr; Back to The Journal</a>
         <a class="ja-rd" href={`${prefix}/shop`}>Shop the collection &rarr;</a>
       </div>
     </div>
+
+    <!-- right: contents + keep reading -->
+    <aside class="ja-side">
+      <div class="ja-side__stick">
+        {toc.length > 1 && (
+          <nav class="ja-toc" aria-label="In this story">
+            <p class="ja-side__lbl">In this story</p>
+            <ol>
+              {toc.map((t) => <li><a href={`#${t.id}`} data-toc={t.id}>{t.text}</a></li>)}
+            </ol>
+          </nav>
+        )}
+        {related.length > 0 && (
+          <div class="ja-more">
+            <p class="ja-side__lbl">Keep reading</p>
+            <ul>
+              {related.map((r) => <li><a href={url(r.slug)}>{r.title}<span>{r.category}</span></a></li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+    </aside>
   </div>
 
-  <!-- ── Related ── -->
+  <!-- ── Related cards ── -->
   {related.length > 0 && (
     <section class="ja-related">
-      <p class="ja-eyebrow ja-related__lbl">Keep reading</p>
+      <p class="ja-eyebrow ja-related__lbl">More from the Journal</p>
       <div class="ja-related__grid">
         {related.map((r, i) => (
           <a class="ja-rcard" href={url(r.slug)}>
@@ -108,11 +142,12 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja {
     --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #3d342b; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
-    background: #fff; color: var(--depth); --measure: 760px;
+    background: #fff; color: var(--depth); --measure: 720px;
   }
   .ja-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
   .ja-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
   .ja-eyebrow--rose { color: #e7b7ae; }
+  .ja-side__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; }
 
   .ja-head { padding: clamp(30px,5vw,60px) 24px clamp(22px,3vw,34px); }
   .ja-head__in { max-width: 900px; margin: 0 auto; text-align: center; }
@@ -127,17 +162,18 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-hero { width: 100%; height: clamp(320px, 56vh, 660px); overflow: hidden; background: var(--cream); }
   .ja-hero img { width: 100%; height: 100%; object-fit: cover; filter: sepia(.4) saturate(.82) brightness(.99) contrast(1.04); }
 
-  /* body + sticky share rail — uses the side space */
-  .ja-shell { max-width: 1180px; margin: clamp(34px,4.5vw,60px) auto 0; padding: 0 clamp(24px,4vw,56px); display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: clamp(28px,4vw,72px); align-items: start; }
-  .ja-rail__stick { position: sticky; top: 100px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
-  .ja-rail__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 4px; }
-  .ja-rail__lnk { font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: .04em; color: var(--mid); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; transition: color .2s; }
+  /* three-column shell — rails hug the edges, prose centered between them */
+  .ja-shell { max-width: 1640px; margin: clamp(34px,4.5vw,62px) auto 0; padding: 0 clamp(24px,4vw,72px); display: grid; grid-template-columns: 190px minmax(0, 1fr) 250px; gap: clamp(28px,3.5vw,72px); align-items: start; }
+  .ja-rail__stick, .ja-side__stick { position: sticky; top: 100px; }
+  .ja-rail__stick { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ja-rail__lnk { font-family: 'Jost', sans-serif; font-size: 12.5px; letter-spacing: .03em; color: var(--mid); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; transition: color .2s; }
   .ja-rail__lnk:hover { color: var(--cherry); }
+
   .ja-col { min-width: 0; }
-  .ja-body { max-width: var(--measure); font-size: 17.5px; line-height: 1.85; color: var(--ink); }
+  .ja-body { max-width: var(--measure); margin: 0 auto; font-size: 17.5px; line-height: 1.85; color: var(--ink); }
   .ja-body > :first-child { margin-top: 0; }
   .ja-body p { margin: 0 0 24px; }
-  .ja-body h2 { font-family: var(--serif); font-weight: 300; font-size: clamp(27px,3.2vw,40px); line-height: 1.12; color: var(--depth); margin: 50px 0 18px; text-wrap: balance; }
+  .ja-body h2 { font-family: var(--serif); font-weight: 300; font-size: clamp(27px,3.2vw,40px); line-height: 1.12; color: var(--depth); margin: 50px 0 18px; text-wrap: balance; scroll-margin-top: 90px; }
   .ja-body h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(21px,2.4vw,28px); line-height: 1.18; color: var(--depth); margin: 40px 0 14px; }
   .ja-body h4 { font-size: 13px; letter-spacing: .04em; font-weight: 600; color: var(--depth); margin: 30px 0 12px; }
   .ja-body a { color: var(--cherry); text-decoration: none; border-bottom: 1px solid rgba(139,26,26,.35); transition: border-color .2s; }
@@ -153,14 +189,26 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-body thead th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); font-weight: 600; border-bottom: 1.5px solid var(--depth); }
   .ja-body table p { margin: 0; }
 
-  .ja-foot { max-width: var(--measure); margin: clamp(44px,5vw,64px) 0 0; padding: clamp(28px,3.5vw,40px) 0 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .ja-foot { max-width: var(--measure); margin: clamp(44px,5vw,64px) auto 0; padding: clamp(28px,3.5vw,40px) 0 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .ja-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--depth); padding-bottom: 3px; transition: color .2s, border-color .2s; }
   .ja-rd:hover { color: var(--cherry); border-color: var(--cherry); }
 
-  /* Related */
-  .ja-related { max-width: 1180px; margin: clamp(52px,6vw,84px) auto 0; padding: 0 clamp(24px,4vw,56px); }
+  /* right rail — contents + keep reading */
+  .ja-side__stick { display: flex; flex-direction: column; gap: 34px; }
+  .ja-toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; counter-reset: t; }
+  .ja-toc a { font-family: var(--serif); font-size: 16px; line-height: 1.25; color: var(--mid); text-decoration: none; display: block; padding-left: 16px; border-left: 2px solid transparent; transition: color .2s, border-color .2s; }
+  .ja-toc a:hover { color: var(--depth); }
+  .ja-toc a.on { color: var(--depth); border-left-color: var(--cherry); }
+  .ja-more ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  .ja-more a { text-decoration: none; color: inherit; display: block; }
+  .ja-more a { font-family: var(--serif); font-size: 17px; line-height: 1.18; color: var(--depth); transition: color .2s; }
+  .ja-more a span { display: block; font-family: 'Jost', sans-serif; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin-bottom: 5px; }
+  .ja-more a:hover { color: var(--cherry); }
+
+  /* Related cards */
+  .ja-related { max-width: 1280px; margin: clamp(52px,6vw,88px) auto 0; padding: 0 clamp(24px,4vw,56px); }
   .ja-related__lbl { text-align: center; margin-bottom: 30px; }
-  .ja-related__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px,2.5vw,36px); }
+  .ja-related__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px,2.5vw,38px); }
   .ja-rcard { text-decoration: none; color: inherit; display: block; }
   .ja-rcard__ph { display: block; aspect-ratio: 4/5; overflow: hidden; background: var(--cream); margin-bottom: 14px; position: relative; }
   .ja-rcard__z { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: transform .55s ease; }
@@ -182,10 +230,16 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-sub__form input::placeholder { color: rgba(255,255,255,.5); }
   .ja-sub__form button { background: none; border: none; color: #fff; font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
 
-  @media (max-width: 860px) {
-    .ja-shell { grid-template-columns: 1fr; gap: 20px; }
+  /* tablet: drop the right rail, keep share on the left */
+  @media (max-width: 1200px) {
+    .ja-shell { grid-template-columns: 150px minmax(0, 1fr); max-width: 1040px; }
+    .ja-side { display: none; }
+  }
+  /* mobile: single column, share becomes a top row */
+  @media (max-width: 800px) {
+    .ja-shell { grid-template-columns: 1fr; gap: 20px; max-width: 760px; }
     .ja-rail__stick { position: static; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: center; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
-    .ja-rail__lbl { margin: 0; }
+    .ja-side__lbl { margin-bottom: 0; }
     .ja-body, .ja-foot { max-width: none; }
     .ja-related__grid { grid-template-columns: 1fr; gap: 28px; }
     .ja-body { font-size: 16.5px; }
@@ -195,12 +249,25 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
 
 <script is:inline>
   (function () {
+    // copy link
     var btn = document.querySelector('.ja-copy');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
+    if (btn) btn.addEventListener('click', function () {
       var u = btn.getAttribute('data-url') || location.href;
       var done = function () { var t = btn.textContent; btn.textContent = 'Link copied'; setTimeout(function () { btn.textContent = t; }, 1800); };
       if (navigator.clipboard) navigator.clipboard.writeText(u).then(done, done); else done();
     });
+
+    // "In this story" scroll highlight
+    var links = Array.prototype.slice.call(document.querySelectorAll('.ja-toc a[data-toc]'));
+    if (!links.length || !('IntersectionObserver' in window)) return;
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('data-toc')] = a; });
+    var heads = links.map(function (a) { return document.getElementById(a.getAttribute('data-toc')); }).filter(Boolean);
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) current = e.target.id; });
+      links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('data-toc') === current); });
+    }, { rootMargin: '-90px 0px -70% 0px', threshold: 0 });
+    heads.forEach(function (h) { io.observe(h); });
   })();
 </script>
