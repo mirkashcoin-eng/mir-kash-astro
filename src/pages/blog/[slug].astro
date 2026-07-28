@@ -1,0 +1,11 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import JournalArticle from '~/components/content/JournalArticle.astro';
+import { getPost } from '~/data/journal';
+
+const post = getPost(Astro.params.slug as string);
+if (!post) return Astro.redirect('/blog');
+---
+<BaseLayout title={`${post.title} — The Journal, Mir Kash`} path={`/blog/${post.slug}`} description={post.excerpt}>
+  <JournalArticle post={post} />
+</BaseLayout>

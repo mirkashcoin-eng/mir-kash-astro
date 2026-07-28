@@ -1,0 +1,168 @@
+---
+import SiteHeader from '../SiteHeader.astro';
+import SiteFooter from '../SiteFooter.astro';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { shopifyImage } from '~/lib/shopifyImage';
+import { relatedPosts, formatJournalDate, type JournalPost } from '~/data/journal';
+
+interface Props { post: JournalPost }
+const { post } = Astro.props;
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const url = (slug: string) => `${prefix}/blog/${slug}`;
+
+const products = await getAllProducts(marketConfig.store, marketConfig.countryCode, 48).catch(() => []);
+const withImg = products.filter((p) => p.featuredImage?.url);
+function imgFor(p: JournalPost, i: number): string {
+  if (p.image) return p.image;
+  if (p.imageMatch) {
+    const m = withImg.find((x) => x.handle.includes(p.imageMatch) || x.title.toLowerCase().includes(p.imageMatch));
+    if (m?.featuredImage?.url) return shopifyImage(m.featuredImage.url, 1600);
+  }
+  const f = withImg[i % Math.max(withImg.length, 1)];
+  return f?.featuredImage?.url ? shopifyImage(f.featuredImage.url, 1600) : '';
+}
+
+const hero = imgFor(post, 0);
+const related = relatedPosts(post.slug, 3);
+---
+<SiteHeader />
+
+<main class="ja">
+  <!-- ── Article header ── -->
+  <header class="ja-head">
+    <div class="ja-head__in">
+      <a class="ja-back" href={`${prefix}/blog`}>&larr; The Journal</a>
+      <p class="ja-eyebrow">{post.category}</p>
+      <h1 class="ja-display ja-title">{post.title}</h1>
+      <div class="ja-meta">
+        <span>{formatJournalDate(post.date)}</span><span class="ja-dot"></span><span>{post.readMin} min read</span>
+      </div>
+    </div>
+  </header>
+
+  {hero && (
+    <div class="ja-hero"><img src={hero} alt={post.title} /></div>
+  )}
+
+  <!-- ── Body ── -->
+  <article class="ja-body" set:html={post.body}></article>
+
+  <!-- ── Foot: share back + subscribe ── -->
+  <div class="ja-foot">
+    <a class="ja-rd" href={`${prefix}/blog`}>&larr; Back to The Journal</a>
+    <a class="ja-rd" href={`${prefix}/shop`}>Shop the collection &rarr;</a>
+  </div>
+
+  <!-- ── Related ── -->
+  {related.length > 0 && (
+    <section class="ja-related">
+      <p class="ja-eyebrow ja-related__lbl">Keep reading</p>
+      <div class="ja-related__grid">
+        {related.map((r, i) => (
+          <a class="ja-rcard" href={url(r.slug)}>
+            <span class="ja-rcard__ph"><span class="ja-rcard__z">{imgFor(r, i + 1) && <img src={imgFor(r, i + 1)} alt={r.title} loading="lazy" />}</span></span>
+            <span class="ja-rcard__cat">{r.category}</span>
+            <h3 class="ja-display ja-rcard__t">{r.title}</h3>
+            <span class="ja-rcard__min">{r.readMin} min read</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- ── Subscribe ── -->
+  <section class="ja-sub">
+    <p class="ja-eyebrow ja-sub__lbl">Letters from the atelier</p>
+    <h2 class="ja-display ja-sub__h">A new story, once a season. Never more.</h2>
+    <form class="ja-sub__form" onsubmit="event.preventDefault();">
+      <input type="email" placeholder="Your email address" aria-label="Email address" required />
+      <button type="submit">Subscribe</button>
+    </form>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .ja {
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9; --ink: #40382f; --mid: #6f6a63; --faint: #a8a196; --rule: #e3ddd3;
+    background: #fff; color: var(--depth); --measure: 720px;
+  }
+  .ja-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
+  .ja-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
+
+  .ja-head { padding: clamp(30px,5vw,60px) 24px clamp(20px,3vw,32px); }
+  .ja-head__in { max-width: var(--measure); margin: 0 auto; text-align: center; }
+  .ja-back { display: inline-block; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--mid); text-decoration: none; margin-bottom: clamp(24px,4vw,40px); transition: color .2s; }
+  .ja-back:hover { color: var(--cherry); }
+  .ja-head .ja-eyebrow { margin-bottom: 16px; }
+  .ja-title { font-size: clamp(32px,5vw,58px); line-height: 1.04; color: var(--depth); margin: 0 auto 20px; max-width: 20ch; text-wrap: balance; }
+  .ja-meta { display: inline-flex; align-items: center; gap: 12px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .ja-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
+
+  .ja-hero { max-width: 1080px; margin: 0 auto clamp(36px,5vw,60px); aspect-ratio: 16/9; overflow: hidden; background: var(--cream); }
+  .ja-hero img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ── Prose ── */
+  .ja-body { max-width: var(--measure); margin: 0 auto; padding: 0 24px; font-size: 17px; line-height: 1.85; color: var(--ink); }
+  .ja-body > :first-child { margin-top: 0; }
+  .ja-body p { margin: 0 0 24px; }
+  .ja-body h2 { font-family: var(--serif); font-weight: 300; font-size: clamp(26px,3.2vw,38px); line-height: 1.12; color: var(--depth); margin: 48px 0 18px; text-wrap: balance; }
+  .ja-body h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(21px,2.4vw,27px); line-height: 1.18; color: var(--depth); margin: 38px 0 14px; }
+  .ja-body h4 { font-size: 13px; letter-spacing: .04em; font-weight: 600; color: var(--depth); margin: 30px 0 12px; }
+  .ja-body a { color: var(--cherry); text-decoration: none; border-bottom: 1px solid rgba(139,26,26,.35); transition: border-color .2s; }
+  .ja-body a:hover { border-color: var(--cherry); }
+  .ja-body strong { font-weight: 600; color: var(--depth); }
+  .ja-body ul, .ja-body ol { margin: 0 0 24px; padding-left: 22px; }
+  .ja-body li { margin-bottom: 10px; }
+  .ja-body img { width: 100%; height: auto; margin: 32px 0; }
+  .ja-body blockquote { margin: 34px 0; padding: 6px 0 6px 26px; border-left: 2px solid var(--cherry); font-family: var(--serif); font-size: clamp(22px,2.4vw,28px); line-height: 1.3; color: var(--depth); }
+  .ja-body hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
+  .ja-body table { width: 100%; border-collapse: collapse; margin: 28px 0; font-size: 15px; }
+  .ja-body th, .ja-body td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .ja-body thead th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); font-weight: 600; border-bottom: 1.5px solid var(--depth); }
+  .ja-body table p { margin: 0; }
+
+  .ja-foot { max-width: var(--measure); margin: clamp(48px,6vw,72px) auto 0; padding: clamp(30px,4vw,44px) 24px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .ja-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--depth); padding-bottom: 3px; transition: color .2s, border-color .2s; }
+  .ja-rd:hover { color: var(--cherry); border-color: var(--cherry); }
+
+  /* ── Related ── */
+  .ja-related { max-width: 1080px; margin: clamp(48px,6vw,80px) auto 0; padding: 0 24px; }
+  .ja-related__lbl { text-align: center; margin-bottom: 30px; }
+  .ja-related__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px,2.5vw,34px); }
+  .ja-rcard { text-decoration: none; color: inherit; display: block; }
+  .ja-rcard__ph { display: block; aspect-ratio: 4/5; overflow: hidden; background: var(--cream); margin-bottom: 14px; }
+  .ja-rcard__z { display: block; width: 100%; height: 100%; transition: transform .55s ease; }
+  .ja-rcard__z img { width: 100%; height: 100%; object-fit: cover; }
+  .ja-rcard:hover .ja-rcard__z { transform: scale(1.045); }
+  .ja-rcard__cat { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--mid); font-weight: 500; }
+  .ja-rcard__t { font-size: 21px; line-height: 1.14; color: var(--depth); margin: 9px 0 8px; text-wrap: balance; transition: color .2s; }
+  .ja-rcard:hover .ja-rcard__t { color: var(--cherry); }
+  .ja-rcard__min { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+
+  /* ── Subscribe ── */
+  .ja-sub { background: var(--cream); text-align: center; margin-top: clamp(56px,7vw,96px); padding: clamp(48px,6vw,84px) 24px; }
+  .ja-sub__lbl { margin-bottom: 12px; }
+  .ja-sub__h { font-size: clamp(26px,3.2vw,42px); line-height: 1.05; color: var(--depth); margin: 0 auto 24px; max-width: 20ch; }
+  .ja-sub__form { display: inline-flex; border-bottom: 1px solid var(--depth); gap: 14px; padding-bottom: 8px; min-width: min(420px, 82vw); }
+  .ja-sub__form input { flex: 1; background: none; border: none; color: var(--depth); font-family: var(--serif); font-size: 17px; outline: none; }
+  .ja-sub__form input::placeholder { color: var(--faint); }
+  .ja-sub__form button { background: none; border: none; color: var(--depth); font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 720px) {
+    .ja-related__grid { grid-template-columns: 1fr; gap: 28px; }
+    .ja-body { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .ja *, .ja-rcard__z { transition: none !important; } }
+</style>

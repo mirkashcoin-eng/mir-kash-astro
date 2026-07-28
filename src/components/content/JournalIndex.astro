@@ -1,0 +1,249 @@
+---
+import SiteHeader from '../SiteHeader.astro';
+import SiteFooter from '../SiteFooter.astro';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { shopifyImage } from '~/lib/shopifyImage';
+import { POSTS, CATEGORIES, formatJournalDate, type JournalPost } from '~/data/journal';
+
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const url = (slug: string) => `${prefix}/blog/${slug}`;
+
+// Shopify product photos stand in for post images (swappable later via post.image).
+const products = await getAllProducts(marketConfig.store, marketConfig.countryCode, 48).catch(() => []);
+const withImg = products.filter((p) => p.featuredImage?.url);
+function imgFor(post: JournalPost, i: number): string {
+  if (post.image) return post.image;
+  if (post.imageMatch) {
+    const m = withImg.find(
+      (p) => p.handle.includes(post.imageMatch) || p.title.toLowerCase().includes(post.imageMatch),
+    );
+    if (m?.featuredImage?.url) return shopifyImage(m.featuredImage.url, 1000);
+  }
+  const f = withImg[i % Math.max(withImg.length, 1)];
+  return f?.featuredImage?.url ? shopifyImage(f.featuredImage.url, 1000) : '';
+}
+
+const cover = POSTS.find((p) => p.role === 'cover') ?? POSTS[0];
+const grid = POSTS.filter((p) => p.slug !== cover.slug);
+const teasers = grid.slice(0, 3);
+const lead = grid.slice(0, 2);
+const rest = grid.slice(2);
+const issue = formatJournalDate(POSTS[0].date).replace(/^\d+ /, ''); // "Month Year"
+const coverImg = imgFor(cover, 0);
+---
+<SiteHeader />
+
+<main class="jr">
+  <!-- ═══════════ COVER ═══════════ -->
+  <section class="jr-cover">
+    <div class="jr-cover__img">{coverImg && <img src={coverImg} alt={cover.title} />}</div>
+    <div class="jr-cover__scrim" aria-hidden="true"></div>
+    <div class="jr-cover__frame" aria-hidden="true"></div>
+    <div class="jr-cover__in">
+      <div class="jr-cover__top">
+        <span class="jr-side">Mumbai &middot; Est. 2024</span>
+        <span class="jr-mast">THE JOURNAL</span>
+        <span class="jr-side jr-side--r">No.&nbsp;01 &middot; {issue}</span>
+      </div>
+      <div class="jr-cover__rule" aria-hidden="true"></div>
+      <div class="jr-cover__mid"></div>
+      <div class="jr-cover__foot">
+        <div class="jr-cover__story">
+          <p class="jr-eyebrow jr-eyebrow--rose">The Cover Story &middot; {cover.category}</p>
+          <h1 class="jr-display jr-cover__h">{cover.title}</h1>
+          <p class="jr-cover__ex">{cover.excerpt}</p>
+          <a class="jr-rd jr-rd--light" href={url(cover.slug)}>Read the cover story &rarr;</a>
+        </div>
+        <div class="jr-coverlines">
+          <p class="jr-coverlines__lbl">Also in this issue</p>
+          <ul>
+            {teasers.map((t) => (
+              <li><a href={url(t.slug)}>{t.title}<span>{t.category}</span></a></li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ SALON GRID ═══════════ -->
+  <section class="jr-salon">
+    <div class="jr-shead">
+      <div>
+        <p class="jr-eyebrow">The Mir Kash Journal</p>
+        <h2 class="jr-display jr-shead__h">A wall of stories, hung with care.</h2>
+      </div>
+      <div class="jr-filters" id="jrFilters">
+        <button class="on" data-cat="all">All</button>
+        {CATEGORIES.map((c) => <button data-cat={c}>{c}</button>)}
+      </div>
+    </div>
+
+    <div class="jr-mosaic" id="jrMosaic">
+      {lead.map((p, i) => (
+        <a class="jr-tile jr-lead" href={url(p.slug)} data-cat={p.category}>
+          <span class="jr-ph"><span class="jr-ph__z">{imgFor(p, i) && <img src={imgFor(p, i)} alt={p.title} loading="lazy" />}</span></span>
+          <span class="jr-meta"><span class="jr-tag">{p.category}</span><span class="jr-dot"></span><span class="jr-min">{p.readMin} min</span></span>
+          <h3 class="jr-display jr-lead__t">{p.title}</h3>
+          <p class="jr-lead__ex">{p.excerpt}</p>
+        </a>
+      ))}
+
+      <div class="jr-quote" data-cat="_decor">
+        <p class="jr-display">The simplest things are the hardest to get <em>just right.</em></p>
+        <span>From the atelier</span>
+      </div>
+
+      {rest.map((p, i) => (
+        <a class="jr-tile jr-card" href={url(p.slug)} data-cat={p.category}>
+          <span class="jr-ph"><span class="jr-ph__z">{imgFor(p, i + 2) && <img src={imgFor(p, i + 2)} alt={p.title} loading="lazy" />}</span></span>
+          <span class="jr-meta"><span class="jr-tag">{p.category}</span><span class="jr-dot"></span><span class="jr-min">{p.readMin} min</span></span>
+          <h3 class="jr-display jr-card__t">{p.title}</h3>
+        </a>
+      ))}
+    </div>
+    <p class="jr-empty" id="jrEmpty" hidden>No stories in this section yet.</p>
+  </section>
+
+  <!-- ═══════════ SUBSCRIBE ═══════════ -->
+  <section class="jr-sub">
+    <p class="jr-eyebrow jr-eyebrow--rose">Letters from the atelier</p>
+    <h2 class="jr-display jr-sub__h">A new story, once a season. Never more.</h2>
+    <p class="jr-sub__p">Slow reading for slow fashion &mdash; materials, making, and the quiet craft behind every Mir Kash piece.</p>
+    <form class="jr-sub__form" onsubmit="event.preventDefault();">
+      <input type="email" placeholder="Your email address" aria-label="Email address" required />
+      <button type="submit">Subscribe</button>
+    </form>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .jr {
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9; --sand: #E3D5C0; --ink: #4a4038; --mid: #6f6a63; --faint: #a8a196; --rule: #e3ddd3;
+    background: #fff; color: var(--depth);
+  }
+  .jr-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
+  .jr em { font-style: italic; color: var(--cherry); }
+  .jr-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
+  .jr-eyebrow--rose { color: var(--cherry); }
+  .jr-meta { display: flex; align-items: center; gap: 10px; }
+  .jr-tag { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--mid); font-weight: 500; }
+  .jr-min { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .jr-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
+  .jr-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth); padding-bottom: 3px; text-decoration: none; display: inline-block; transition: color .2s, border-color .2s; }
+  .jr-rd:hover { color: var(--cherry); border-color: var(--cherry); }
+  .jr-rd--light { color: #fff; border-color: rgba(255,255,255,.7); }
+  .jr-rd--light:hover { color: #fff; border-color: #fff; }
+
+  /* ── Cover ── */
+  .jr-cover { position: relative; height: clamp(520px, 82vh, 760px); color: #fff; overflow: hidden; }
+  .jr-cover__img, .jr-cover__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .jr-cover__img { background: #2C1D12; }
+  .jr-cover__scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,9,3,.52) 0%, rgba(18,9,3,.12) 32%, rgba(18,9,3,.2) 55%, rgba(18,9,3,.74) 100%); }
+  .jr-cover__frame { position: absolute; inset: clamp(16px,1.6vw,22px); border: 1px solid rgba(255,255,255,.28); z-index: 2; pointer-events: none; }
+  .jr-cover__in { position: absolute; inset: clamp(28px,4vw,56px); z-index: 3; display: flex; flex-direction: column; }
+  .jr-cover__top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+  .jr-side { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.78); }
+  .jr-side--r { text-align: right; }
+  .jr-mast { font-family: var(--serif); font-weight: 300; font-size: clamp(20px,2.8vw,34px); letter-spacing: .42em; text-indent: .42em; white-space: nowrap; }
+  .jr-cover__rule { height: 1px; background: rgba(255,255,255,.26); margin-top: 16px; }
+  .jr-cover__mid { flex: 1; }
+  .jr-cover__foot { display: grid; grid-template-columns: 1.55fr 1fr; gap: clamp(24px,4vw,56px); align-items: end; }
+  .jr-eyebrow--rose { color: var(--cherry); }
+  .jr-cover__story .jr-eyebrow--rose { color: #e7b7ae; }
+  .jr-cover__h { font-size: clamp(34px,5.4vw,68px); line-height: 1; margin: 14px 0 16px; max-width: 15ch; text-wrap: balance; }
+  .jr-cover__ex { font-size: 14.5px; line-height: 1.7; color: rgba(255,255,255,.9); max-width: 46ch; margin: 0 0 22px; }
+  .jr-coverlines { border-left: 1px solid rgba(255,255,255,.28); padding-left: 22px; }
+  .jr-coverlines__lbl { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); margin: 0 0 16px; }
+  .jr-coverlines ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .jr-coverlines a { font-family: var(--serif); font-size: clamp(17px,1.7vw,21px); line-height: 1.15; color: rgba(255,255,255,.94); text-decoration: none; transition: color .2s; }
+  .jr-coverlines a:hover { color: #fff; }
+  .jr-coverlines a span { display: block; font-family: 'Jost', sans-serif; font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-top: 4px; }
+
+  /* ── Salon ── */
+  .jr-salon { padding: clamp(44px,5vw,72px) clamp(24px,4vw,56px); max-width: 1240px; margin: 0 auto; }
+  .jr-shead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: clamp(26px,3vw,38px); }
+  .jr-shead__h { font-size: clamp(32px,4.2vw,54px); line-height: 1; margin: 10px 0 0; max-width: 16ch; text-wrap: balance; }
+  .jr-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .jr-filters button { font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); background: none; border: 1px solid var(--rule); padding: 8px 15px; border-radius: 999px; cursor: pointer; transition: .2s; }
+  .jr-filters button.on, .jr-filters button:hover { background: var(--depth); color: #fff; border-color: var(--depth); }
+
+  .jr-mosaic { display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(16px,2vw,26px); }
+  .jr-ph { display: block; position: relative; overflow: hidden; background: var(--sand); }
+  .jr-ph__z { position: absolute; inset: 0; transition: transform .6s ease; }
+  .jr-ph__z img { width: 100%; height: 100%; object-fit: cover; }
+  .jr-tile { display: block; text-decoration: none; color: inherit; }
+  .jr-tile:hover .jr-ph__z { transform: scale(1.045); }
+  .jr-display.jr-lead__t, .jr-display.jr-card__t { transition: color .2s; }
+  .jr-tile:hover .jr-lead__t, .jr-tile:hover .jr-card__t { color: var(--cherry); }
+
+  .jr-lead { grid-column: span 3; }
+  .jr-lead .jr-ph { aspect-ratio: 16/10; margin-bottom: 18px; }
+  .jr-lead .jr-meta { margin-bottom: 10px; }
+  .jr-lead__t { font-size: clamp(26px,3vw,38px); line-height: 1.06; margin: 0 0 12px; color: var(--depth); text-wrap: balance; }
+  .jr-lead__ex { font-size: 14.5px; line-height: 1.75; color: var(--ink); margin: 0; max-width: 48ch; }
+
+  .jr-card { grid-column: span 2; }
+  .jr-card .jr-ph { aspect-ratio: 4/5; margin-bottom: 14px; }
+  .jr-card .jr-meta { margin-bottom: 8px; }
+  .jr-card__t { font-size: 21px; line-height: 1.12; margin: 0; color: var(--depth); text-wrap: balance; }
+
+  .jr-quote { grid-column: span 2; background: var(--depth); color: #fff; padding: 32px 28px; display: flex; flex-direction: column; justify-content: center; }
+  .jr-quote p { font-family: var(--serif); font-weight: 300; font-size: clamp(22px,2.3vw,28px); line-height: 1.2; margin: 0; }
+  .jr-quote p em { color: #e6b9b0; font-style: normal; }
+  .jr-quote span { font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-top: 18px; }
+  .jr-empty { text-align: center; color: var(--faint); font-size: 14px; padding: 40px 0; }
+
+  /* ── Subscribe ── */
+  .jr-sub { background: var(--cream); text-align: center; padding: clamp(48px,6vw,84px) 24px; border-top: 1px solid var(--rule); }
+  .jr-sub__h { font-size: clamp(27px,3.4vw,44px); line-height: 1.05; margin: 12px auto 10px; max-width: 20ch; color: var(--depth); }
+  .jr-sub__p { font-size: 14px; color: var(--mid); max-width: 44ch; margin: 0 auto 24px; line-height: 1.7; }
+  .jr-sub__form { display: inline-flex; border-bottom: 1px solid var(--depth); gap: 14px; padding-bottom: 8px; min-width: min(420px, 82vw); }
+  .jr-sub__form input { flex: 1; background: none; border: none; color: var(--depth); font-family: var(--serif); font-size: 17px; outline: none; }
+  .jr-sub__form input::placeholder { color: var(--faint); }
+  .jr-sub__form button { background: none; border: none; color: var(--depth); font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 860px) {
+    .jr-cover__foot { grid-template-columns: 1fr; gap: 24px; }
+    .jr-coverlines { border-left: none; border-top: 1px solid rgba(255,255,255,.28); padding-left: 0; padding-top: 20px; }
+    .jr-mosaic { grid-template-columns: repeat(2, 1fr); }
+    .jr-lead, .jr-card, .jr-quote { grid-column: span 2; }
+    .jr-lead .jr-ph { aspect-ratio: 16/10; }
+  }
+  @media (prefers-reduced-motion: reduce) { .jr *, .jr-ph__z { transition: none !important; } }
+</style>
+
+<script is:inline>
+  (function () {
+    var wrap = document.getElementById('jrFilters');
+    var tiles = Array.prototype.slice.call(document.querySelectorAll('#jrMosaic > [data-cat]'));
+    var empty = document.getElementById('jrEmpty');
+    if (!wrap) return;
+    wrap.addEventListener('click', function (e) {
+      var btn = e.target.closest('button'); if (!btn) return;
+      wrap.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+      btn.classList.add('on');
+      var cat = btn.dataset.cat;
+      var shown = 0;
+      tiles.forEach(function (t) {
+        var c = t.dataset.cat;
+        var show = cat === 'all' ? true : c === cat;
+        t.hidden = !show;
+        if (show && c !== '_decor') shown++;
+      });
+      if (empty) empty.hidden = shown > 0;
+    });
+  })();
+</script>

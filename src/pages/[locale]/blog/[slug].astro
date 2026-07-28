@@ -1,0 +1,15 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import JournalArticle from '~/components/content/JournalArticle.astro';
+import { getMarketBySlug } from '~/lib/markets';
+import { getPost } from '~/data/journal';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+
+const post = getPost(Astro.params.slug as string);
+if (!post) return Astro.redirect(`${market.urlPrefix}/blog`);
+---
+<BaseLayout title={`${post.title} — The Journal, Mir Kash`} path={`/blog/${post.slug}`} description={post.excerpt}>
+  <JournalArticle post={post} />
+</BaseLayout>
