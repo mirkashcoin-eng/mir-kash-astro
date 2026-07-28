@@ -99,7 +99,7 @@ const leadImg = imgFor(cover, 0, 900);
 <style is:global>
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
-  body { background: #EFE6D6; }
+  body { background: #FCFAF5; }
   .hdr-menu-btn { display: none; }
   .site-header--minimal .logo { grid-column: 2; justify-self: center; }
   .site-header--minimal .logo img { height: 22px; }
@@ -107,7 +107,7 @@ const leadImg = imgFor(cover, 0, 900);
 
   .jr {
     --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-    --ground: #EFE6D6; --cream: #F6F1E9; --ink: #3d342b; --mid: #6a655d; --faint: #a79f92; --rule: #ddd4c3;
+    --ground: #FCFAF5; --cream: #F6F1E9; --ink: #3d342b; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
     background: var(--ground); color: var(--depth);
   }
   .jr-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
@@ -116,9 +116,9 @@ const leadImg = imgFor(cover, 0, 900);
   .jr-eyebrow--rose { color: #e7b7ae; }
   .jr-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1.5px solid var(--cherry); padding-bottom: 3px; display: inline-block; transition: color .2s; }
 
-  /* Paper sheet on a warm ground — fills the bare side margins, adds print warmth */
-  .jr-paper { max-width: 1080px; margin: clamp(20px,3.5vw,48px) auto; background: #fff; box-shadow: 0 22px 60px rgba(44,26,14,.13); }
-  .jr-rv { padding: clamp(38px,4.5vw,64px) clamp(26px,5vw,68px) clamp(24px,3vw,36px); }
+  /* Full-bleed: use the whole viewport, only capping on ultra-wide screens */
+  .jr-paper { max-width: 1760px; margin: 0 auto; }
+  .jr-rv { padding: clamp(34px,4vw,60px) clamp(24px,5vw,104px) clamp(24px,3vw,36px); }
 
   /* ── Masthead ── */
   .jr-mast { text-align: center; border-bottom: 2px solid var(--depth); padding-bottom: 20px; }
@@ -173,8 +173,11 @@ const leadImg = imgFor(cover, 0, 900);
   .jr-sub__form input::placeholder { color: rgba(255,255,255,.5); }
   .jr-sub__form button { background: none; border: none; color: #fff; font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
 
+  /* wide screens: fill the width with a third column */
+  @media (min-width: 1180px) { .jr-index { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1500px) { .jr-lead__ex, .jr-item__ex { max-width: 46ch; } }
+
   @media (max-width: 820px) {
-    .jr-paper { margin: 0; box-shadow: none; }
     .jr-lead { grid-template-columns: 1fr; gap: 22px; }
     .jr-lead__img { aspect-ratio: 3/2; order: -1; }
     .jr-index { grid-template-columns: 1fr; gap: 0; }
