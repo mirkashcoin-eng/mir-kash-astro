@@ -80,7 +80,7 @@ const bagData = Object.fromEntries(
         <section class="bd-sec">
           <div class="bd-sec__head"><span class="bd-sec__n">2</span><h2 class="bd-sec__t">Choose your bags</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
           <p class="bd-choose-hint">Tap a bag to see it up close, or the <span class="bd-choose-plus">+</span> to add it straight to your visit.</p>
-          <p class="bd-maxmsg" id="maxMsg" hidden>You can bring up to 6 bags — remove one to add another.</p>
+          <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already added 6 bags — remove one to add another.</p>
           <div class="bd-grid">
             {bags.map((b) => (
               <div class="bd-bag" data-vid={b.variantId}>
@@ -152,6 +152,7 @@ const bagData = Object.fromEntries(
           <p class="bd-modal__price" id="mv-price"></p>
           <p class="bd-modal__desc" id="mv-desc"></p>
           <button class="bd-cta bd-modal__add" type="button" id="mv-add"></button>
+          <p class="bd-modal__msg" id="mv-msg" hidden>You’ve already added 6 bags — remove one to add another.</p>
           <a class="bd-modal__full" id="mv-full" href="#" target="_blank" rel="noopener">View the entire product &rarr;</a>
         </div>
       </div>
@@ -295,6 +296,7 @@ const bagData = Object.fromEntries(
   .bd-modal__price { font-size: 17px; color: var(--depth); margin: 0 0 22px; }
   .bd-modal__desc { font-size: 14px; line-height: 1.75; color: var(--mid); margin: 0 0 28px; white-space: pre-line; }
   .bd-modal__add { align-self: flex-start; }
+  .bd-modal__msg { font-size: 13px; color: var(--cherry); margin: 12px 0 0; }
   .bd-modal__full { margin-top: 20px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth); padding-bottom: 2px; text-decoration: none; align-self: flex-start; }
   .bd-modal__full:hover { color: var(--cherry); border-color: var(--cherry); }
 
@@ -419,6 +421,7 @@ const bagData = Object.fromEntries(
         });
       }
       syncModalBtn();
+      $('mv-msg').hidden = true;
       modal.hidden = false;
       document.body.style.overflow = 'hidden';
     }
@@ -432,7 +435,13 @@ const bagData = Object.fromEntries(
     document.querySelectorAll('.bd-bag__view').forEach(function (btn) {
       btn.addEventListener('click', function () { openModal(btn.dataset.open); });
     });
-    $('mv-add').addEventListener('click', function () { toggleBag(modalVid); syncModalBtn(); });
+    $('mv-add').addEventListener('click', function () {
+      var wasAdded = selectedBags.has(modalVid);
+      var ok = toggleBag(modalVid);
+      // Adding was blocked because 6 are already selected.
+      $('mv-msg').hidden = !(!wasAdded && ok === false);
+      syncModalBtn();
+    });
     modal.querySelectorAll('[data-close]').forEach(function (el) { el.addEventListener('click', closeModal); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
 
