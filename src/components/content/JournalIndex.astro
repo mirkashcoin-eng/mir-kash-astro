@@ -1,50 +1,19 @@
 ---
 import SiteHeader from '../SiteHeader.astro';
 import SiteFooter from '../SiteFooter.astro';
-import { getAllProducts } from '~/lib/shopify/queries';
-import { shopifyImage } from '~/lib/shopifyImage';
-import { POSTS, CATEGORIES, type JournalPost } from '~/data/journal';
+import { POSTS, CATEGORIES } from '~/data/journal';
 
 const { marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 const url = (slug: string) => `${prefix}/blog/${slug}`;
-const cardDate = (iso: string) =>
+const longDate = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
-// Shopify product photos stand in for post images (swappable later via post.image).
-const products = await getAllProducts(marketConfig.store, marketConfig.countryCode, 48).catch(() => []);
-const withImg = products.filter((p) => p.featuredImage?.url);
-
-// Posts naming a product get that photo; the rest walk the remaining catalogue, so no
-// two cards on the page show the same bag.
-const match = (m: string) =>
-  withImg.find((x) => x.handle.includes(m) || x.title.toLowerCase().includes(m));
-const claimed = new Set(
-  POSTS.filter((p) => !p.image && p.imageMatch).map((p) => match(p.imageMatch)?.handle).filter(Boolean) as string[],
-);
-const spare = withImg.filter((p) => !claimed.has(p.handle));
-const used = new Set<string>();
-let spareAt = 0;
-const imageFor = new Map<string, string>();
-for (const p of POSTS) {
-  if (p.image) { imageFor.set(p.slug, p.image); continue; }
-  let pick = p.imageMatch ? match(p.imageMatch) : undefined;
-  if (!pick || used.has(pick.handle)) pick = spare.length ? spare[spareAt++ % spare.length] : pick;
-  if (pick?.featuredImage?.url) {
-    used.add(pick.handle);
-    imageFor.set(p.slug, pick.featuredImage.url);
-  }
-}
-const imgFor = (post: JournalPost, w: number) => {
-  const src = imageFor.get(post.slug);
-  if (!src) return '';
-  return src.startsWith('/') ? src : shopifyImage(src, w);
-};
 
 const byNewest = [...POSTS].sort((a, b) => b.date.localeCompare(a.date));
 const featured = byNewest.find((p) => p.role === 'cover') ?? byNewest[0];
 const stories = byNewest.filter((p) => p.slug !== featured.slug);
 const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) => p.category === c).length]));
+const pad = (n: number) => String(n).padStart(2, '0');
 ---
 <SiteHeader />
 
@@ -52,28 +21,29 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
 
   <!-- ══ MASTHEAD ══ -->
   <section class="jr-mast">
-    <p class="jr-eyebrow">The Journal</p>
-    <h1 class="jr-display jr-mast__h">Notes on craft, material and <em>living slowly.</em></h1>
+    <div class="jr-mast__l">
+      <p class="jr-eyebrow">The Journal</p>
+      <h1 class="jr-display jr-mast__h">Notes on craft, material and <em>living slowly.</em></h1>
+    </div>
     <p class="jr-mast__p">Stories from inside the atelier &mdash; how our bags are made, what they&rsquo;re made of, and how to wear them for years rather than seasons.</p>
   </section>
 
   <!-- ══ FEATURED STORY ══ -->
   <section class="jr-feat">
-    <a class="jr-feat__img" href={url(featured.slug)} tabindex="-1" aria-hidden="true">
-      {imgFor(featured, 1000)
-        ? <img src={imgFor(featured, 1000)} alt="" />
-        : <span class="jr-mk">MK</span>}
-    </a>
-    <div class="jr-feat__text">
+    <div class="jr-feat__in">
       <p class="jr-eyebrow">Featured &middot; {featured.category}</p>
-      <h2 class="jr-display jr-feat__h"><a href={url(featured.slug)}>{featured.title}</a></h2>
-      <p class="jr-body">{featured.excerpt}</p>
-      <p class="jr-meta">{cardDate(featured.date)} &middot; {featured.readMin} min read</p>
-      <a class="jr-link" href={url(featured.slug)}>Read the story &rarr;</a>
+      <div class="jr-feat__grid">
+        <h2 class="jr-display jr-feat__h"><a href={url(featured.slug)}>{featured.title}</a></h2>
+        <p class="jr-feat__ex">{featured.excerpt}</p>
+      </div>
+      <div class="jr-feat__foot">
+        <a class="jr-link" href={url(featured.slug)}>Read the story &rarr;</a>
+        <p class="jr-meta">{longDate(featured.date)} &middot; {featured.readMin} min read</p>
+      </div>
     </div>
   </section>
 
-  <!-- ══ ALL STORIES ══ -->
+  <!-- ══ INDEX ══ -->
   <section class="jr-all">
     <div class="jr-bar">
       <h2 class="jr-display jr-bar__h">All stories</h2>
@@ -83,25 +53,28 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
           <button type="button" data-cat={c} aria-pressed="false">{c}</button>
         ))}
       </div>
+      <p class="jr-count" id="jrCount" aria-live="polite">{stories.length} stories</p>
     </div>
 
-    <p class="jr-count" id="jrCount" aria-live="polite">{stories.length} stories</p>
-
-    <div class="jr-grid" id="jrGrid">
-      {stories.map((p) => (
-        <a class="jr-card" href={url(p.slug)} data-cat={p.category}>
-          <span class="jr-card__img">
-            {imgFor(p, 700)
-              ? <img src={imgFor(p, 700)} alt="" loading="lazy" />
-              : <span class="jr-mk jr-mk--sm">MK</span>}
-          </span>
-          <span class="jr-card__cat">{p.category}</span>
-          <h3 class="jr-display jr-card__h">{p.title}</h3>
-          <span class="jr-card__ex">{p.excerpt}</span>
-          <span class="jr-meta">{cardDate(p.date)} &middot; {p.readMin} min read</span>
-        </a>
+    <ol class="jr-list" id="jrList">
+      {stories.map((p, i) => (
+        <li class="jr-row" data-cat={p.category}>
+          <a href={url(p.slug)}>
+            <span class="jr-display jr-row__n">{pad(i + 1)}</span>
+            <span class="jr-row__body">
+              <span class="jr-row__cat">{p.category}</span>
+              <span class="jr-display jr-row__t">{p.title}</span>
+              <span class="jr-row__ex">{p.excerpt}</span>
+            </span>
+            <span class="jr-row__meta">
+              <span class="jr-row__date">{longDate(p.date)}</span>
+              <span class="jr-row__min">{p.readMin} min read</span>
+            </span>
+            <span class="jr-row__arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
       ))}
-    </div>
+    </ol>
 
     <p class="jr-empty" id="jrEmpty" hidden>No stories in this topic yet.</p>
   </section>
@@ -132,6 +105,7 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
   .jr {
     --serif-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9;
+    --oat: #EBE1D2;
     --body-ink: #4a4038;
     background: #fff; color: var(--depth);
   }
@@ -143,10 +117,9 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
     font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
     font-weight: 500; color: var(--cherry); margin: 0 0 18px;
   }
-  .jr-body { font-size: 15.5px; line-height: 1.9; color: var(--body-ink); margin: 0; }
   .jr-meta {
     font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); margin: 0;
+    color: var(--ink-soft, #a8a39c); margin: 0; font-variant-numeric: tabular-nums;
   }
   .jr-link {
     display: inline-block;
@@ -156,54 +129,49 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
   }
   .jr-link:hover { color: var(--cherry); border-color: var(--cherry); }
 
-  /* Placeholder mark for posts with no photo yet */
-  .jr-mk {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
-    font-family: var(--serif-display); font-weight: 300;
-    font-size: clamp(30px, 3vw, 46px); letter-spacing: .12em; color: #cbb79b;
-  }
-  .jr-mk--sm { font-size: 26px; }
-
-  /* ── Masthead ────────────────────────────────────────── */
+  /* ── Masthead — headline left, intro right, edge to edge ─ */
   .jr-mast {
-    max-width: 800px; margin: 0 auto; text-align: center;
-    padding: clamp(52px, 8vw, 108px) var(--gutter) clamp(28px, 3.5vw, 48px);
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: end; gap: clamp(24px, 5vw, 96px);
+    padding: clamp(52px, 8vw, 116px) var(--gutter) clamp(34px, 4vw, 54px);
   }
   .jr-mast__h {
-    color: var(--depth); font-size: clamp(34px, 5vw, 62px); line-height: 1.08;
-    margin: 0 auto 24px; max-width: 16ch; text-wrap: balance;
+    color: var(--depth); font-size: clamp(38px, 6.4vw, 104px); line-height: 1.02;
+    margin: 0; text-wrap: balance;
   }
-  .jr-mast__p { font-size: 15.5px; line-height: 1.9; color: var(--body-ink); margin: 0 auto; max-width: 54ch; }
+  .jr-mast__p {
+    font-size: clamp(14.5px, 1.1vw, 17px); line-height: 1.85; color: var(--body-ink);
+    margin: 0; max-width: 46ch; justify-self: end; padding-bottom: 8px;
+  }
 
-  /* ── Featured story ──────────────────────────────────── */
-  .jr-feat {
-    display: grid; grid-template-columns: 1fr 1fr; align-items: center;
-    gap: clamp(32px, 6vw, 88px); max-width: 1280px; margin: 0 auto;
-    padding: clamp(8px, 2vw, 28px) var(--gutter) clamp(72px, 11vw, 132px);
+  /* ── Featured story — full-bleed cream band ──────────── */
+  .jr-feat { background: var(--cream); padding: clamp(52px, 7vw, 108px) var(--gutter); }
+  .jr-feat__grid {
+    display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: end; gap: clamp(24px, 5vw, 88px);
   }
-  .jr-feat__img {
-    display: block; aspect-ratio: 4 / 5; overflow: hidden;
-    background: var(--cream); position: relative;
-  }
-  .jr-feat__img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
-  .jr-feat__img:hover img { transform: scale(1.03); }
-  .jr-feat__text { max-width: 34rem; }
-  .jr-feat__h { font-size: clamp(30px, 4vw, 50px); line-height: 1.08; margin: 0 0 22px; text-wrap: balance; }
+  .jr-feat__h { font-size: clamp(32px, 4.6vw, 76px); line-height: 1.05; margin: 0; max-width: 20ch; text-wrap: balance; }
   .jr-feat__h a { color: var(--depth); text-decoration: none; transition: color .2s; }
   .jr-feat__h a:hover { color: var(--cherry); }
-  .jr-feat .jr-meta { margin: 22px 0 0; }
-  .jr-feat .jr-link { margin-top: 26px; }
-
-  /* ── All stories ─────────────────────────────────────── */
-  .jr-all { max-width: 1280px; margin: 0 auto; padding: 0 var(--gutter) clamp(72px, 11vw, 128px); }
-  .jr-bar {
-    display: flex; align-items: baseline; justify-content: space-between;
-    flex-wrap: wrap; gap: 18px 40px;
-    padding-bottom: 18px; border-bottom: 1px solid var(--rule, #e4dfd7);
+  .jr-feat__ex {
+    font-size: clamp(15px, 1.15vw, 18px); line-height: 1.85; color: var(--body-ink);
+    margin: 0; max-width: 52ch; justify-self: end; padding-bottom: 6px;
   }
-  .jr-bar__h { font-size: clamp(26px, 3vw, 36px); line-height: 1; color: var(--depth); margin: 0; }
-  .jr-filters { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+  .jr-feat__foot {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 18px 40px; margin-top: clamp(30px, 3.5vw, 46px);
+    padding-top: clamp(24px, 3vw, 36px); border-top: 1px solid rgba(44, 26, 14, 0.16);
+  }
+
+  /* ── Index bar ───────────────────────────────────────── */
+  .jr-all { padding: clamp(48px, 6vw, 86px) var(--gutter) clamp(64px, 9vw, 120px); }
+  .jr-bar {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 16px clamp(24px, 4vw, 64px);
+    padding-bottom: 20px; border-bottom: 2px solid var(--depth);
+  }
+  .jr-bar .jr-count { margin-left: clamp(8px, 2vw, 40px); }
+  .jr-bar__h { font-size: clamp(26px, 3vw, 40px); line-height: 1; color: var(--depth); margin: 0; margin-right: auto; }
+  .jr-filters { display: flex; flex-wrap: wrap; gap: 10px clamp(18px, 2vw, 32px); }
   .jr-filters button {
     font-family: inherit; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
     font-weight: 500; color: var(--ink-mid, #6e6a64);
@@ -213,42 +181,60 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
   .jr-filters button:hover { color: var(--depth); }
   .jr-filters button.is-on { color: var(--depth); border-bottom-color: var(--cherry); font-weight: 600; }
   .jr-filters button:focus-visible { outline: 1px solid var(--cherry); outline-offset: 4px; }
-
   .jr-count {
     font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); margin: 18px 0 clamp(30px, 4vw, 46px);
+    color: var(--ink-soft, #a8a39c); margin: 0; white-space: nowrap;
   }
 
-  .jr-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: clamp(40px, 5vw, 68px) clamp(24px, 3vw, 44px);
+  /* ── Index rows — full width, contents-page rhythm ───── */
+  .jr-list { list-style: none; margin: 0; padding: 0; }
+  .jr-row { border-bottom: 1px solid var(--rule, #e4dfd7); }
+  .jr-row.is-hidden { display: none; }
+  .jr-row > a {
+    display: grid; align-items: start;
+    grid-template-columns: clamp(56px, 6vw, 104px) minmax(0, 1fr) auto clamp(32px, 3vw, 56px);
+    gap: clamp(16px, 2.5vw, 48px);
+    padding: clamp(26px, 3.2vw, 44px) clamp(8px, 1.2vw, 22px);
+    margin: 0 clamp(-8px, -1.2vw, -22px);
+    color: inherit; text-decoration: none;
+    transition: background-color .25s ease;
   }
-  .jr-card { display: block; color: inherit; text-decoration: none; }
-  .jr-card.is-hidden { display: none; }
-  .jr-card__img {
-    display: block; aspect-ratio: 4 / 5; overflow: hidden;
-    background: var(--cream); margin-bottom: 22px;
+  .jr-row > a:hover { background-color: var(--cream); }
+  .jr-row__n {
+    font-size: clamp(18px, 1.7vw, 26px); line-height: 1.4; color: var(--ink-soft, #a8a39c);
+    font-variant-numeric: lining-nums tabular-nums; transition: color .25s;
   }
-  .jr-card__img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
-  .jr-card:hover .jr-card__img img { transform: scale(1.03); }
-  .jr-card__cat {
-    display: block; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  .jr-row > a:hover .jr-row__n { color: var(--cherry); }
+  .jr-row__body { display: block; min-width: 0; }
+  .jr-row__cat {
+    display: block; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
     font-weight: 500; color: var(--cherry); margin-bottom: 12px;
   }
-  .jr-card__h {
-    font-size: clamp(21px, 1.9vw, 25px); line-height: 1.18; color: var(--depth);
-    margin: 0 0 12px; text-wrap: balance; transition: color .2s;
+  .jr-row__t {
+    display: block; font-size: clamp(24px, 2.6vw, 40px); line-height: 1.12; color: var(--depth);
+    max-width: 38ch; text-wrap: balance; transition: color .25s;
   }
-  .jr-card:hover .jr-card__h { color: var(--cherry); }
-  .jr-card__ex {
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-    font-size: 14.5px; line-height: 1.8; color: var(--body-ink); margin-bottom: 14px;
+  .jr-row > a:hover .jr-row__t { color: var(--cherry); }
+  .jr-row__ex {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: 14.5px; line-height: 1.8; color: var(--body-ink); margin-top: 12px; max-width: 96ch;
   }
-  .jr-empty { text-align: center; font-size: 15px; color: var(--ink-soft, #a8a39c); padding: 60px 0; }
+  .jr-row__meta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft, #a8a39c); white-space: nowrap; padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .jr-row__arrow {
+    justify-self: end; font-size: 18px; color: var(--ink-soft, #a8a39c); line-height: 1.2;
+    transition: transform .25s ease, color .25s;
+  }
+  .jr-row > a:hover .jr-row__arrow { transform: translateX(6px); color: var(--cherry); }
+  .jr-empty { text-align: center; font-size: 15px; color: var(--ink-soft, #a8a39c); padding: 64px 0; }
 
-  /* ── Closing CTA (cream) ─────────────────────────────── */
-  .jr-cta { background: var(--cream); text-align: center; padding: clamp(80px, 12vw, 150px) var(--gutter); }
-  .jr-cta__line { color: var(--depth); font-size: clamp(28px, 3.8vw, 46px); line-height: 1.1; margin: 0 0 30px; }
+  /* ── Closing CTA (oat) ───────────────────────────────── */
+  .jr-cta { background: var(--oat); text-align: center; padding: clamp(80px, 12vw, 156px) var(--gutter); }
+  .jr-cta__line { color: var(--depth); font-size: clamp(28px, 4vw, 52px); line-height: 1.1; margin: 0 0 30px; }
   .jr-cta__links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 16px 44px; }
   .jr-cta__links a {
     font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -258,37 +244,52 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) =
   .jr-cta__links a:hover { color: var(--cherry); border-color: var(--cherry); }
 
   /* ── Responsive ──────────────────────────────────────── */
-  @media (max-width: 1024px) {
-    .jr-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1100px) {
+    .jr-row > a { grid-template-columns: clamp(46px, 6vw, 72px) minmax(0, 1fr) clamp(28px, 4vw, 40px); }
+    .jr-row__meta {
+      grid-column: 2; flex-direction: row; align-items: baseline; gap: 14px;
+      justify-content: flex-start; padding-top: 14px;
+    }
+    .jr-row__t { max-width: none; }
   }
-  @media (max-width: 768px) {
-    .jr-feat { grid-template-columns: 1fr; gap: 28px; }
-    .jr-feat__text { max-width: none; }
-    .jr-grid { grid-template-columns: 1fr; gap: 52px; }
-    .jr-bar { flex-direction: column; align-items: flex-start; gap: 16px; }
+  @media (max-width: 860px) {
+    .jr-mast { grid-template-columns: 1fr; align-items: start; gap: 22px; }
+    .jr-mast__p { justify-self: start; max-width: none; padding-bottom: 0; }
+    .jr-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
+    .jr-bar__h { margin-right: 0; }
+    .jr-bar .jr-count { margin-left: 0; }
+    .jr-feat__grid { grid-template-columns: 1fr; align-items: start; gap: 22px; }
+    .jr-feat__ex { justify-self: start; max-width: none; padding-bottom: 0; }
+    .jr-feat__foot { flex-direction: column; align-items: flex-start; gap: 16px; }
+  }
+  @media (max-width: 560px) {
+    .jr-row > a { grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding-left: 0; padding-right: 0; margin: 0; }
+    .jr-row__n { font-size: 15px; line-height: 1.6; }
+    .jr-row__arrow { display: none; }
+    .jr-row__ex { -webkit-line-clamp: 3; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .jr-feat__img img, .jr-card__img img { transition: none; }
-    .jr-feat__img:hover img, .jr-card:hover .jr-card__img img { transform: none; }
+    .jr-row > a, .jr-row__arrow { transition: none; }
+    .jr-row > a:hover .jr-row__arrow { transform: none; }
   }
 </style>
 
 <script is:inline>
   (function () {
     var bar = document.getElementById('jrFilters');
-    var grid = document.getElementById('jrGrid');
+    var list = document.getElementById('jrList');
     var count = document.getElementById('jrCount');
     var empty = document.getElementById('jrEmpty');
-    if (!bar || !grid) return;
+    if (!bar || !list) return;
 
     var buttons = Array.prototype.slice.call(bar.querySelectorAll('button'));
-    var cards = Array.prototype.slice.call(grid.querySelectorAll('.jr-card'));
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.jr-row'));
 
     function apply(cat, push) {
       var shown = 0;
-      cards.forEach(function (c) {
-        var show = cat === 'all' || c.dataset.cat === cat;
-        c.classList.toggle('is-hidden', !show);
+      rows.forEach(function (r) {
+        var show = cat === 'all' || r.dataset.cat === cat;
+        r.classList.toggle('is-hidden', !show);
         if (show) shown++;
       });
       buttons.forEach(function (b) {
