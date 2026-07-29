@@ -55,22 +55,31 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
 
   {hero && <div class="ja-hero"><img src={hero} alt={post.title} /></div>}
 
-  <!-- ── Three-column body ── -->
+  <!-- ── Body ── -->
   <div class="ja-shell">
-    <!-- left: share -->
-    <aside class="ja-rail">
-      <div class="ja-rail__stick">
-        <p class="ja-side__lbl">Share</p>
-        <a class="ja-rail__lnk" href={waHref} target="_blank" rel="noopener">WhatsApp</a>
-        <a class="ja-rail__lnk" href={pinHref} target="_blank" rel="noopener">Pinterest</a>
-        <a class="ja-rail__lnk" href={fbHref} target="_blank" rel="noopener">Facebook</a>
-        <button class="ja-rail__lnk ja-copy" type="button" data-url={shareUrl}>Copy link</button>
-      </div>
-    </aside>
-
-    <!-- middle: prose -->
+    <!-- left: prose -->
     <div class="ja-col">
       <article class="ja-body" set:html={bodyWithIds}></article>
+
+      <div class="ja-share">
+        <p class="ja-share__lbl">Share this story</p>
+        <div class="ja-share__row">
+          <a class="ja-ico" href={waHref} target="_blank" rel="noopener" aria-label="Share on WhatsApp" title="WhatsApp">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+          </a>
+          <a class="ja-ico" href={pinHref} target="_blank" rel="noopener" aria-label="Save to Pinterest" title="Pinterest">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.53.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0Z"/></svg>
+          </a>
+          <a class="ja-ico" href={fbHref} target="_blank" rel="noopener" aria-label="Share on Facebook" title="Facebook">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073Z"/></svg>
+          </a>
+          <button class="ja-ico ja-copy" type="button" data-url={shareUrl} aria-label="Copy link" title="Copy link">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </button>
+          <span class="ja-share__done" id="jaCopied" role="status" hidden>Link copied</span>
+        </div>
+      </div>
+
       <div class="ja-foot">
         <a class="ja-rd" href={`${prefix}/blog`}>&larr; Back to The Journal</a>
         <a class="ja-rd" href={`${prefix}/shop`}>Shop the collection &rarr;</a>
@@ -141,7 +150,7 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja {
     --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #3d342b; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
-    background: #fff; color: var(--depth); --measure: 720px;
+    background: #fff; color: var(--depth); --measure: 820px;
   }
   .ja-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
   .ja-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
@@ -160,12 +169,9 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-hero { width: 100%; height: clamp(320px, 56vh, 660px); overflow: hidden; background: var(--cream); }
   .ja-hero img { width: 100%; height: 100%; object-fit: cover; }
 
-  /* three-column shell — rails hug the edges, prose centered between them */
-  .ja-shell { max-width: 1640px; margin: clamp(34px,4.5vw,62px) auto 0; padding: 0 clamp(24px,4vw,72px); display: grid; grid-template-columns: 190px minmax(0, 1fr) 250px; gap: clamp(28px,3.5vw,72px); align-items: start; }
-  .ja-rail__stick, .ja-side__stick { position: sticky; top: 100px; }
-  .ja-rail__stick { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
-  .ja-rail__lnk { font-family: 'Jost', sans-serif; font-size: 12.5px; letter-spacing: .03em; color: var(--mid); text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; transition: color .2s; }
-  .ja-rail__lnk:hover { color: var(--cherry); }
+  /* two-column shell — prose fills the width, contents rail hugs the right edge */
+  .ja-shell { max-width: 1400px; margin: clamp(34px,4.5vw,62px) auto 0; padding: 0 var(--gutter); display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: clamp(32px,5vw,96px); align-items: start; }
+  .ja-side__stick { position: sticky; top: 100px; }
 
   .ja-col { min-width: 0; }
   .ja-body { max-width: var(--measure); margin: 0 auto; font-size: 17.5px; line-height: 1.85; color: var(--ink); }
@@ -187,7 +193,26 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-body thead th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); font-weight: 600; border-bottom: 1.5px solid var(--depth); }
   .ja-body table p { margin: 0; }
 
-  .ja-foot { max-width: var(--measure); margin: clamp(44px,5vw,64px) auto 0; padding: clamp(28px,3.5vw,40px) 0 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  /* Share — sits with the other end-of-article actions, not in a floating rail */
+  .ja-share {
+    max-width: var(--measure); margin: clamp(44px,5vw,64px) auto 0;
+    padding: clamp(24px,3vw,34px) 0 0; border-top: 1px solid var(--rule);
+    display: flex; align-items: center; flex-wrap: wrap; gap: 14px 24px;
+  }
+  .ja-share__lbl { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--mid); margin: 0; }
+  .ja-share__row { display: flex; align-items: center; gap: 12px; }
+  .ja-ico {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--rule); background: none; padding: 0; cursor: pointer;
+    color: var(--depth); text-decoration: none;
+    transition: background-color .2s, color .2s, border-color .2s;
+  }
+  .ja-ico:hover { background: var(--cherry); border-color: var(--cherry); color: #fff; }
+  .ja-ico:focus-visible { outline: 1px solid var(--cherry); outline-offset: 3px; }
+  .ja-share__done { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--cherry); }
+
+  .ja-foot { max-width: var(--measure); margin: clamp(28px,3vw,38px) auto 0; padding: clamp(24px,3vw,34px) 0 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .ja-rd { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--depth); padding-bottom: 3px; transition: color .2s, border-color .2s; }
   .ja-rd:hover { color: var(--cherry); border-color: var(--cherry); }
 
@@ -225,17 +250,14 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-cta__links a { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth); padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s; }
   .ja-cta__links a:hover { color: var(--cherry); border-color: var(--cherry); }
 
-  /* tablet: drop the right rail, keep share on the left */
-  @media (max-width: 1200px) {
-    .ja-shell { grid-template-columns: 150px minmax(0, 1fr); max-width: 1040px; }
+  /* tablet: drop the contents rail, prose takes the full shell */
+  @media (max-width: 1100px) {
+    .ja-shell { grid-template-columns: minmax(0, 1fr); max-width: 940px; }
     .ja-side { display: none; }
   }
-  /* mobile: single column, share becomes a top row */
   @media (max-width: 800px) {
-    .ja-shell { grid-template-columns: 1fr; gap: 20px; max-width: 760px; }
-    .ja-rail__stick { position: static; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: center; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
-    .ja-side__lbl { margin-bottom: 0; }
-    .ja-body, .ja-foot { max-width: none; }
+    .ja-shell { gap: 20px; }
+    .ja-body, .ja-foot, .ja-share { max-width: none; }
     .ja-related__grid { grid-template-columns: 1fr; gap: 28px; }
     .ja-body { font-size: 16.5px; }
   }
@@ -244,11 +266,17 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
 
 <script is:inline>
   (function () {
-    // copy link
+    // copy link — the button is an icon, so confirm in the adjacent status text
     var btn = document.querySelector('.ja-copy');
+    var flag = document.getElementById('jaCopied');
     if (btn) btn.addEventListener('click', function () {
       var u = btn.getAttribute('data-url') || location.href;
-      var done = function () { var t = btn.textContent; btn.textContent = 'Link copied'; setTimeout(function () { btn.textContent = t; }, 1800); };
+      var done = function () {
+        if (!flag) return;
+        flag.hidden = false;
+        clearTimeout(flag._t);
+        flag._t = setTimeout(function () { flag.hidden = true; }, 2200);
+      };
       if (navigator.clipboard) navigator.clipboard.writeText(u).then(done, done); else done();
     });
 

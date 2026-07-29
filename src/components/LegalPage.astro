@@ -12,10 +12,18 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
 <SiteHeader />
 
 <main class="legal">
-  <div class="legal__inner">
-    <p class="legal__eyebrow">{eyebrow}</p>
-    <h1 class="legal__title">{heading}</h1>
-    {lede && <p class="legal__lede">{lede}</p>}
+  <div class="legal__shell">
+    <aside class="legal__side">
+      <div class="legal__stick">
+        <p class="legal__eyebrow">{eyebrow}</p>
+        <h1 class="legal__title">{heading}</h1>
+        {lede && <p class="legal__lede">{lede}</p>}
+        <nav class="legal__toc" id="legalToc" aria-label="On this page" hidden>
+          <p class="legal__toc-lbl">On this page</p>
+          <ol></ol>
+        </nav>
+      </div>
+    </aside>
     <div class="legal__body">
       <slot />
     </div>
@@ -23,6 +31,43 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
 </main>
 
 <SiteFooter />
+
+<script is:inline>
+  // Fill the sidebar contents list from whatever h2s the page actually rendered,
+  // and highlight the one currently in view. Pages with fewer than two keep it hidden.
+  (function () {
+    var nav = document.getElementById('legalToc');
+    var body = document.querySelector('.legal__body');
+    if (!nav || !body) return;
+
+    var heads = Array.prototype.slice.call(body.querySelectorAll('h2'));
+    if (heads.length < 2) return;
+
+    var list = nav.querySelector('ol');
+    var links = heads.map(function (h, i) {
+      var text = (h.textContent || '').trim();
+      if (!h.id) {
+        h.id = 'sec-' + (text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || i);
+      }
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = text;
+      var li = document.createElement('li');
+      li.appendChild(a);
+      list.appendChild(li);
+      return a;
+    });
+    nav.hidden = false;
+
+    if (!('IntersectionObserver' in window)) return;
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) current = e.target.id; });
+      links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + current); });
+    }, { rootMargin: '-130px 0px -70% 0px', threshold: 0 });
+    heads.forEach(function (h) { io.observe(h); });
+  })();
+</script>
 
 <style is:global>
   :root {
@@ -45,7 +90,14 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
     color: var(--depth);
     padding: clamp(40px, 6vw, 88px) var(--gutter) clamp(64px, 8vw, 120px);
   }
-  .legal__inner { max-width: 760px; margin: 0 auto; }
+  /* Title block left, content right — fills the width instead of one narrow
+     centred column with dead margins on both sides. */
+  .legal__shell {
+    max-width: 1280px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(240px, 400px) minmax(0, 1fr);
+    gap: clamp(36px, 5vw, 92px); align-items: start;
+  }
+  .legal__stick { position: sticky; top: 132px; }
   .legal__eyebrow {
     font-size: 11px;
     letter-spacing: var(--tr-caps);
@@ -57,10 +109,11 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
   .legal__title {
     font-family: var(--serif);
     font-weight: 300;
-    font-size: clamp(40px, 6vw, 72px);
-    line-height: 1;
+    font-size: clamp(38px, 4.4vw, 60px);
+    line-height: 1.02;
     letter-spacing: -0.01em;
     color: var(--depth);
+    text-wrap: balance;
   }
   .legal__title::after {
     content: '';
@@ -68,7 +121,7 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
     width: 56px;
     height: 1px;
     background: var(--cherry);
-    margin: clamp(20px, 3vw, 32px) 0 clamp(28px, 4vw, 48px);
+    margin: clamp(18px, 2.4vw, 26px) 0 clamp(20px, 2.6vw, 28px);
   }
 
   .legal__lede {
@@ -77,18 +130,32 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
     font-size: clamp(19px, 2.2vw, 26px);
     line-height: 1.45;
     color: var(--depth);
-    max-width: 36ch;
-    margin: 0 0 32px;
+    max-width: 30ch;
+    margin: 0;
   }
 
-  .legal__body { font-size: 15px; line-height: 1.7; color: #3a3128; }
+  /* Contents list — built from the page's own h2s, so long pages are navigable */
+  .legal__toc { margin-top: clamp(28px, 3.5vw, 40px); }
+  .legal__toc[hidden] { display: none; }
+  .legal__toc-lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-soft, #a8a39c); margin: 0 0 14px; }
+  .legal__toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .legal__toc a {
+    display: block; font-size: 13.5px; line-height: 1.35; color: var(--ink-mid, #6e6a64);
+    text-decoration: none; padding-left: 14px; border-left: 1px solid transparent;
+    transition: color .2s, border-color .2s;
+  }
+  .legal__toc a:hover { color: var(--depth); }
+  .legal__toc a.on { color: var(--depth); border-left-color: var(--cherry); }
+
+  .legal__body { font-size: 16px; line-height: 1.8; color: #3a3128; max-width: 740px; }
   .legal__body h2 {
     font-family: var(--serif);
     font-weight: 400;
     font-size: clamp(20px, 2.4vw, 26px);
     color: var(--depth);
     letter-spacing: 0;
-    margin: 38px 0 12px;
+    margin: 44px 0 14px;
+    scroll-margin-top: 130px;
   }
   .legal__body h2:first-child { margin-top: 0; }
   .legal__body h3 {
@@ -111,7 +178,14 @@ const { heading, eyebrow = 'Legal', lede } = Astro.props;
   }
   .legal__body a:hover { opacity: .7; }
 
+  @media (max-width: 1000px) {
+    .legal__shell { grid-template-columns: 1fr; gap: clamp(28px, 4vw, 44px); }
+    .legal__stick { position: static; }
+    .legal__lede { max-width: 46ch; }
+    .legal__toc { display: none; }
+    .legal__body { max-width: none; }
+  }
   @media (max-width: 768px) {
-    .legal__body { font-size: 14.5px; }
+    .legal__body { font-size: 15px; }
   }
 </style>
