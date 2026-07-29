@@ -202,6 +202,10 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-body { max-width: var(--measure); margin: 0 auto; font-size: 17.5px; line-height: 1.85; color: var(--ink); }
   .ja-body > :first-child { margin-top: 0; }
   .ja-body p { margin: 0 0 24px; }
+  /* Some posts use <div><b>LABEL</b></div> as a section heading rather than <h2>;
+     without images between them they need their own spacing. */
+  .ja-body div { margin: 0 0 18px; }
+  .ja-body div:has(> b:only-child) { margin-top: 36px; }
   .ja-body h2 { font-family: var(--serif); font-weight: 300; font-size: clamp(27px,3.2vw,40px); line-height: 1.12; color: var(--depth); margin: 50px 0 18px; text-wrap: balance; scroll-margin-top: 90px; }
   .ja-body h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(21px,2.4vw,28px); line-height: 1.18; color: var(--depth); margin: 40px 0 14px; }
   .ja-body h4 { font-size: 13px; letter-spacing: .04em; font-weight: 600; color: var(--depth); margin: 30px 0 12px; }
