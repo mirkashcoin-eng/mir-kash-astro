@@ -117,14 +117,13 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
     </section>
   )}
 
-  <!-- ── Subscribe ── -->
-  <section class="ja-sub">
-    <p class="ja-eyebrow ja-eyebrow--rose ja-sub__lbl">Letters from the atelier</p>
-    <h2 class="ja-display ja-sub__h">A new story, once a season. Never more.</h2>
-    <form class="ja-sub__form" onsubmit="event.preventDefault();">
-      <input type="email" placeholder="Your email address" aria-label="Email address" required />
-      <button type="submit">Subscribe</button>
-    </form>
+  <!-- ── Closing CTA ── -->
+  <section class="ja-cta">
+    <p class="ja-display ja-cta__line">Beauty you can feel proud to carry.</p>
+    <div class="ja-cta__links">
+      <a href={`${prefix}/shop`}>Explore the collection &rarr;</a>
+      <a href={`${prefix}/pages/materials`}>Our materials &rarr;</a>
+    </div>
   </section>
 </main>
 
@@ -146,7 +145,6 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   }
   .ja-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
   .ja-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
-  .ja-eyebrow--rose { color: #e7b7ae; }
   .ja-side__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; }
 
   .ja-head { padding: clamp(30px,5vw,60px) 24px clamp(22px,3vw,34px); }
@@ -160,7 +158,7 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
 
   /* full-bleed cinematic hero */
   .ja-hero { width: 100%; height: clamp(320px, 56vh, 660px); overflow: hidden; background: var(--cream); }
-  .ja-hero img { width: 100%; height: 100%; object-fit: cover; filter: sepia(.4) saturate(.82) brightness(.99) contrast(1.04); }
+  .ja-hero img { width: 100%; height: 100%; object-fit: cover; }
 
   /* three-column shell — rails hug the edges, prose centered between them */
   .ja-shell { max-width: 1640px; margin: clamp(34px,4.5vw,62px) auto 0; padding: 0 clamp(24px,4vw,72px); display: grid; grid-template-columns: 190px minmax(0, 1fr) 250px; gap: clamp(28px,3.5vw,72px); align-items: start; }
@@ -212,23 +210,20 @@ const pinHref = `https://pinterest.com/pin/create/button/?url=${encodeURICompone
   .ja-rcard { text-decoration: none; color: inherit; display: block; }
   .ja-rcard__ph { display: block; aspect-ratio: 4/5; overflow: hidden; background: var(--cream); margin-bottom: 14px; position: relative; }
   .ja-rcard__z { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: transform .55s ease; }
-  .ja-rcard__z img { width: 100%; height: 100%; object-fit: cover; filter: sepia(.44) saturate(.74) brightness(1.0) contrast(1.04); transition: filter .7s ease; }
+  .ja-rcard__z img { width: 100%; height: 100%; object-fit: cover; }
   .ja-rcard__mk { font-family: var(--serif); font-size: 30px; letter-spacing: .12em; color: #cbb79b; }
-  .ja-rcard:hover .ja-rcard__z { transform: scale(1.045); }
-  .ja-rcard:hover .ja-rcard__z img { filter: none; }
-  .ja-rcard__cat { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--mid); font-weight: 500; }
+  .ja-rcard:hover .ja-rcard__z { transform: scale(1.03); }
+  .ja-rcard__cat { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--cherry); font-weight: 500; }
   .ja-rcard__t { font-size: 22px; line-height: 1.14; color: var(--depth); margin: 9px 0 8px; text-wrap: balance; transition: color .2s; }
   .ja-rcard:hover .ja-rcard__t { color: var(--cherry); }
   .ja-rcard__min { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
 
-  /* Subscribe */
-  .ja-sub { background: var(--depth); color: #fff; text-align: center; margin-top: clamp(56px,7vw,96px); padding: clamp(52px,6.5vw,92px) 24px; }
-  .ja-sub__lbl { margin-bottom: 14px; }
-  .ja-sub__h { font-size: clamp(27px,3.4vw,44px); line-height: 1.05; color: #fff; margin: 0 auto 24px; max-width: 20ch; }
-  .ja-sub__form { display: inline-flex; border-bottom: 1px solid rgba(255,255,255,.5); gap: 14px; padding-bottom: 8px; min-width: min(420px, 82vw); }
-  .ja-sub__form input { flex: 1; background: none; border: none; color: #fff; font-family: var(--serif); font-size: 17px; outline: none; }
-  .ja-sub__form input::placeholder { color: rgba(255,255,255,.5); }
-  .ja-sub__form button { background: none; border: none; color: #fff; font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; cursor: pointer; }
+  /* Closing CTA (cream) — matches the Journal index and About page */
+  .ja-cta { background: var(--cream); text-align: center; margin-top: clamp(56px,7vw,96px); padding: clamp(72px,11vw,140px) var(--gutter); }
+  .ja-cta__line { color: var(--depth); font-size: clamp(28px,3.8vw,46px); line-height: 1.1; margin: 0 0 30px; }
+  .ja-cta__links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 16px 44px; }
+  .ja-cta__links a { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth); padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s; }
+  .ja-cta__links a:hover { color: var(--cherry); border-color: var(--cherry); }
 
   /* tablet: drop the right rail, keep share on the left */
   @media (max-width: 1200px) {
