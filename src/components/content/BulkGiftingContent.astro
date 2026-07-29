@@ -2,19 +2,45 @@
 import LegalPage from '../LegalPage.astro';
 ---
 <LegalPage eyebrow="Gifting" heading="Bulk Gifting" lede="Some gifts say thank you. Some say we see you. The best ones say both.">
-  <p>Mir Kash bags make for gifts people actually remember &mdash; considered, well-made, and different from what everyone else is giving. People remember a gift like this.</p>
+  <p>Mir Kash bags make for gifts people actually remember &mdash; considered, well-made, and different from what everyone else is giving. Cruelty-free, quietly luxurious, and arriving gift-ready, they turn a routine gesture into one that lingers.</p>
+
+  <figure class="bulk-fig">
+    <img src="/banner.webp" alt="A Mir Kash vegan handbag styled with flowers" loading="lazy" />
+    <figcaption>Gift-ready by design &mdash; every piece arrives in our signature packaging.</figcaption>
+  </figure>
 
   <h2>Who we work with</h2>
   <ul>
     <li>Corporate teams and employee gifting</li>
     <li>Client and partner appreciation</li>
     <li>Wedding favours and trousseau gifting</li>
-    <li>Events and brand activations</li>
+    <li>Events, conferences and brand activations</li>
+    <li>Festive and Diwali hampers</li>
     <li>Founders who care about what they put their name on</li>
   </ul>
 
+  <h2>How it works</h2>
+  <ol class="bulk-steps">
+    <li><strong>Tell us what you need.</strong> Share the occasion, quantity, budget and date &mdash; a quick note is enough to start.</li>
+    <li><strong>We propose.</strong> We come back with bag options, packaging choices and a clear quote, tailored to your order.</li>
+    <li><strong>We deliver.</strong> Your gifts arrive packed, protected and ready to hand over &mdash; on time, with nothing left for you to do.</li>
+  </ol>
+
   <h2>What we offer</h2>
-  <p>Bulk orders across our existing range, with options to discuss packaging customisation for larger orders. Every bag arrives in our standard gift-ready packaging &mdash; no extra effort needed on your end.</p>
+  <ul>
+    <li><strong>Our full range</strong> &mdash; choose a single signature style for everyone, or a curated mix across recipients.</li>
+    <li><strong>Gift-ready packaging</strong> &mdash; every bag comes in our standard dust bag and gift box, no extra effort on your end.</li>
+    <li><strong>Personalisation</strong> &mdash; for larger orders we can discuss custom notecards, branded inserts and bespoke packaging.</li>
+    <li><strong>A dedicated point of contact</strong> &mdash; one person to guide your order from enquiry to delivery.</li>
+  </ul>
+
+  <div class="bulk-duo">
+    <img src="/ed-tophandle.jpeg" alt="Mir Kash top-handle bag" loading="lazy" />
+    <img src="/banner-image.jpeg" alt="Mir Kash bag detail" loading="lazy" />
+  </div>
+
+  <h2>Quantities &amp; timelines</h2>
+  <p>We work with runs of every size &mdash; from a small dozen for a close team to several hundred for a large event. Lead times depend on quantity, stock and any personalisation, so the earlier you reach out, the more we can do. Tell us your date and we&rsquo;ll confirm exactly what&rsquo;s possible.</p>
 
   <h2>Why Mir Kash</h2>
   <p>A vegan bag is a gift with a point of view. It&rsquo;s beautiful, considered, and tells the person receiving it that you thought about it. For brands and founders who want their values to show up in the details &mdash; this is that detail.</p>
@@ -58,4 +84,22 @@ import LegalPage from '../LegalPage.astro';
       window.location.href = 'mailto:order@mirkash.com?subject=' + subject + '&body=' + body;
     });
   </script>
+
+  <style is:global>
+    .bulk-fig { margin: clamp(28px,4vw,40px) 0; }
+    .bulk-fig img { width: 100%; height: auto; display: block; border-radius: 2px; }
+    .bulk-fig figcaption { font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: .02em; color: #6e6a64; margin-top: 10px; }
+    .bulk-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: clamp(28px,4vw,40px) 0; }
+    .bulk-duo img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4/5; border-radius: 2px; display: block; }
+    .bulk-steps { list-style: none; padding: 0; margin: 0 0 16px; counter-reset: s; }
+    .bulk-steps li { position: relative; padding-left: 40px; margin: 0 0 16px; }
+    .bulk-steps li::before {
+      counter-increment: s; content: counter(s);
+      position: absolute; left: 0; top: 1px; width: 26px; height: 26px;
+      border: 1px solid var(--cherry); color: var(--cherry); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Jost', sans-serif; font-size: 12px;
+    }
+    @media (max-width: 520px) { .bulk-duo { grid-template-columns: 1fr; } }
+  </style>
 </LegalPage>

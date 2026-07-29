@@ -47,7 +47,7 @@ const prefix = marketConfig.urlPrefix;
         <svg class="fa-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <ul>
-        <li><a href={`${prefix}/blog`}>The Journal</a></li>
+        <li><a href={`${prefix}/blog`}>Journal</a></li>
         <li><a href={`${prefix}/pages/about`}>About</a></li>
         <li><a href={`${prefix}/pages/materials`}>Materials</a></li>
         <li><a href={`${prefix}/pages/faq`}>FAQ</a></li>
@@ -62,7 +62,7 @@ const prefix = marketConfig.urlPrefix;
       <ul>
         <li><a href="/book-demo">Book a home demo</a></li>
         <li><a href={`${prefix}/pages/shipping-returns`}>Shipping &amp; Returns</a></li>
-        <li><a href="#">Track Order</a></li>
+        <li><a href={`${prefix}/account`}>Track Order</a></li>
         <li><a href={`${prefix}/pages/bulk-gifting`}>Bulk Gifting</a></li>
       </ul>
     </details>
@@ -74,8 +74,8 @@ const prefix = marketConfig.urlPrefix;
       <ul>
         <li><a href={`${prefix}/pages/terms-conditions`}>Terms</a></li>
         <li><a href={`${prefix}/pages/privacy-policy`}>Privacy Policy</a></li>
-        <li><a href="#">Sitemap</a></li>
-        <li><a href="#">Accessibility</a></li>
+        <li><a href="/sitemap.xml">Sitemap</a></li>
+        <li><a href={`${prefix}/pages/accessibility`}>Accessibility</a></li>
       </ul>
     </details>
     <details class="fa-col" open>

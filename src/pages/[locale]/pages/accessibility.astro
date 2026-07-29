@@ -1,0 +1,11 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AccessibilityContent from '~/components/legal/AccessibilityContent.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+---
+<BaseLayout title="Web Accessibility — Mir Kash" path="/pages/accessibility" description="Mir Kash is committed to making mirkash.com accessible to as many people as possible. Our accessibility statement and how to reach us.">
+  <AccessibilityContent />
+</BaseLayout>
