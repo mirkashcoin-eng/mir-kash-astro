@@ -687,7 +687,7 @@ const SHOW_REELS = false;
   .thumb { flex-shrink: 0; width: 54px; aspect-ratio: 3/4; overflow: hidden; border: 1.5px solid transparent; background: var(--paper); transition: border-color .2s; padding: 0; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb.is-active { border-color: var(--depth); }
-  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; }
+  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; max-width: 620px; margin: 0 auto; padding: 8px clamp(12px, 2vw, 28px); }
   .gimg { width: 100%; aspect-ratio: 4/5; overflow: hidden; background: #fff; }
   .gimg img { width: 100%; height: 100%; object-fit: cover; }
   .pdp__info { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; border-left: 1px solid var(--rule); padding: 44px 48px 48px; }
