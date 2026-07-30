@@ -44,12 +44,12 @@ const REELS = [
 const isRealOption = (name: string, values: string[]) =>
   !(values.length === 1 && /default title/i.test(values[0]));
 
-const colorOption = product.options.find(
-  (o) => /colou?r/i.test(o.name) && isRealOption(o.name, o.values),
-);
-const sizeOption = product.options.find(
-  (o) => /size/i.test(o.name) && isRealOption(o.name, o.values),
-);
+// Render a selector for EVERY real option (Colour, Size, Style, Material…), not just
+// colour/size — so all products' variants are selectable. Colour-type options draw as
+// swatches; everything else as pill buttons.
+const optionGroups = product.options
+  .filter((o) => isRealOption(o.name, o.values))
+  .map((o) => ({ name: o.name, values: o.values, isColor: /colou?r/i.test(o.name) }));
 
 const variants = product.variants.edges.map((e) => e.node);
 const variantData = variants.map((v) => ({
@@ -57,6 +57,7 @@ const variantData = variants.map((v) => ({
   available: v.availableForSale,
   price: formatMoney(v.price, marketConfig.locale),
   options: Object.fromEntries(v.selectedOptions.map((o) => [o.name, o.value])),
+  image: v.image ? shopifyImage(v.image.url, 1100) : null,
 }));
 const firstVariantId = variants[0]?.id ?? '';
 const startPrice = formatMoney(product.priceRange.minVariantPrice, marketConfig.locale);
@@ -88,7 +89,7 @@ const hexFor = (raw: string) => {
   return '#bdb5a8';
 };
 
-const clientData = { variants: variantData, colorName: colorOption?.name ?? null, sizeName: sizeOption?.name ?? null };
+const clientData = { variants: variantData, options: optionGroups.map((o) => ({ name: o.name, isColor: o.isColor })) };
 
 // Temporarily hidden until real content is ready — flip to true to bring these
 // editorial sections back on every product page.
@@ -144,27 +145,27 @@ const SHOW_REELS = false;
       <p class="info-price" id="infoPrice">{startPrice}</p>
       <div class="info-desc" set:html={product.descriptionHtml || product.description}></div>
 
-      {colorOption && (
-        <div class="sw-group">
-          <p class="sw-label">{colorOption.name} — <em id="swatchName">{colorOption.values[0]}</em></p>
-          <div class="sw-row" id="deskSwatches">
-            {colorOption.values.map((v, i) => (
-              <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-name={v} aria-label={v}></button>
-            ))}
+      {optionGroups.map((opt) => (
+        opt.isColor ? (
+          <div class="sw-group">
+            <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{opt.values[0]}</em></p>
+            <div class="sw-row">
+              {opt.values.map((v, i) => (
+                <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
-      {sizeOption && (
-        <>
-          <p class="size-label">{sizeOption.name}:</p>
-          <div class="size-row" id="deskSizes">
-            {sizeOption.values.map((v, i) => (
-              <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-name={v}>{v}</button>
-            ))}
+        ) : (
+          <div class="size-group">
+            <p class="size-label">{opt.name}:</p>
+            <div class="size-row">
+              {opt.values.map((v, i) => (
+                <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
+              ))}
+            </div>
           </div>
-        </>
-      )}
+        )
+      ))}
 
       <div class="cta-row">
         <button class="btn-atc btn-buy" id="buyNowBtn">Buy Now</button>
@@ -176,6 +177,17 @@ const SHOW_REELS = false;
       <p class="trust">Free Shipping &nbsp;·&nbsp; 1-Year Warranty &nbsp;·&nbsp; Easy Returns</p>
 
       <div>
+        <div class="acc-item">
+          <button class="acc-btn">Product Details &amp; Care <span class="acc-icon">+</span></button>
+          <div class="acc-body"><div class="acc-inner">
+            <ul>
+              <li>Made from cruelty-free vegan leather with gold-tone hardware</li>
+              <li>Considered, functional interior</li>
+              <li>Comes with a protective dust bag</li>
+              <li>Wipe clean with a soft, dry cloth; store in the dust bag when not in use</li>
+            </ul>
+          </div></div>
+        </div>
         <div class="acc-item">
           <button class="acc-btn">Shipping &amp; Returns <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
@@ -221,31 +233,42 @@ const SHOW_REELS = false;
     <div class="bc" style="margin-bottom:14px"><a href={shopHref}>Shop</a><span class="sep">/</span>Bags</div>
     <div class="info-desc" style="border:none;padding:0;margin-bottom:20px" set:html={product.description}></div>
 
-    {colorOption && (
-      <div class="sw-group">
-        <p class="sw-label">{colorOption.name} — <em id="mobSwatchName">{colorOption.values[0]}</em></p>
-        <div class="sw-row" id="mobSwatches">
-          {colorOption.values.map((v, i) => (
-            <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-name={v} aria-label={v}></button>
-          ))}
+    {optionGroups.map((opt) => (
+      opt.isColor ? (
+        <div class="sw-group">
+          <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{opt.values[0]}</em></p>
+          <div class="sw-row">
+            {opt.values.map((v, i) => (
+              <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
+            ))}
+          </div>
         </div>
-      </div>
-    )}
-
-    {sizeOption && (
-      <>
-        <p class="size-label" style="margin-top:4px">{sizeOption.name}:</p>
-        <div class="size-row" id="mobSizes">
-          {sizeOption.values.map((v, i) => (
-            <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-name={v}>{v}</button>
-          ))}
+      ) : (
+        <div class="size-group">
+          <p class="size-label" style="margin-top:4px">{opt.name}:</p>
+          <div class="size-row">
+            {opt.values.map((v, i) => (
+              <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
+            ))}
+          </div>
         </div>
-      </>
-    )}
+      )
+    ))}
 
     <p class="trust">Free Shipping &nbsp;·&nbsp; 1-Year Warranty &nbsp;·&nbsp; Easy Returns</p>
 
     <div class="mob-acc">
+      <div class="acc-item">
+        <button class="acc-btn">Product Details &amp; Care <span class="acc-icon">+</span></button>
+        <div class="acc-body"><div class="acc-inner">
+          <ul>
+            <li>Made from cruelty-free vegan leather with gold-tone hardware</li>
+            <li>Considered, functional interior</li>
+            <li>Comes with a protective dust bag</li>
+            <li>Wipe clean with a soft, dry cloth; store in the dust bag when not in use</li>
+          </ul>
+        </div></div>
+      </div>
       <div class="acc-item">
         <button class="acc-btn">Shipping &amp; Returns <span class="acc-icon">+</span></button>
         <div class="acc-body"><div class="acc-inner">
@@ -389,17 +412,34 @@ const SHOW_REELS = false;
 <script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref, storyImgs: storyImgArr }}>
   const data = JSON.parse(document.getElementById('pdpData').textContent || '{}');
   const variants = data.variants || [];
-  const colorName = data.colorName;
-  const sizeName = data.sizeName;
+  const optionNames = (data.options || []).map((o) => o.name);
 
-  const state = { color: null, size: null, variantId: firstVariantId };
+  const state = { variantId: firstVariantId };
+  const selected = {};
+
+  function esc(name) { return name.replace(/"/g, '\\"'); }
+
+  // Switch the gallery to a variant's own photo when it has one.
+  function showVariantImage(src) {
+    if (!src) return;
+    const imgs = document.querySelectorAll('#mainGallery .gimg img');
+    for (let i = 0; i < imgs.length; i++) {
+      if (imgs[i].getAttribute('src') === src) {
+        const g = imgs[i].closest('.gimg');
+        if (g) {
+          g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const idx = g.dataset.gidx;
+          document.querySelectorAll('#thumbStrip .thumb').forEach((t) => t.classList.toggle('is-active', t.dataset.gidx === idx));
+        }
+        const mobSlide = document.querySelectorAll('#mobTrack .mob-gal__slide')[i];
+        if (mobSlide) mobSlide.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        return;
+      }
+    }
+  }
 
   function resolveVariant() {
-    const match = variants.find((v) => {
-      if (colorName && state.color && v.options[colorName] !== state.color) return false;
-      if (sizeName && state.size && v.options[sizeName] !== state.size) return false;
-      return true;
-    }) || variants[0];
+    const match = variants.find((v) => optionNames.every((n) => !selected[n] || v.options[n] === selected[n])) || variants[0];
     if (!match) return;
     state.variantId = match.id;
     document.querySelectorAll('#infoPrice, #mobPrice').forEach((el) => { el.textContent = match.price; });
@@ -413,45 +453,24 @@ const SHOW_REELS = false;
       btn.textContent = match.available ? 'Buy Now' : 'Sold Out';
       btn.dataset.label = btn.textContent;
     });
+    showVariantImage(match.image);
   }
 
-  // Swatches (desktop + mobile kept in sync)
-  function wireSwatches(rowId, labelId) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-    row.querySelectorAll('.swatch').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.color = btn.dataset.name;
-        document.querySelectorAll('#deskSwatches .swatch, #mobSwatches .swatch').forEach((b) => {
-          b.classList.toggle('is-active', b.dataset.name === state.color);
-        });
-        document.querySelectorAll('#swatchName, #mobSwatchName').forEach((el) => { el.textContent = state.color; });
-        resolveVariant();
-      });
+  // One handler for every option button (colour swatch or pill), desktop + mobile.
+  function selectOption(name, value) {
+    selected[name] = value;
+    document.querySelectorAll('[data-opt="' + esc(name) + '"][data-name]').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.name === value);
     });
+    document.querySelectorAll('.opt-val[data-optval="' + esc(name) + '"]').forEach((el) => { el.textContent = value; });
+    resolveVariant();
   }
-  wireSwatches('deskSwatches');
-  wireSwatches('mobSwatches');
+  document.querySelectorAll('[data-opt][data-name]').forEach((btn) => {
+    btn.addEventListener('click', () => selectOption(btn.dataset.opt, btn.dataset.name));
+  });
 
-  function wireSizes(rowId) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-    row.querySelectorAll('.size-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.size = btn.dataset.name;
-        document.querySelectorAll('#deskSizes .size-btn, #mobSizes .size-btn').forEach((b) => {
-          b.classList.toggle('is-active', b.dataset.name === state.size);
-        });
-        resolveVariant();
-      });
-    });
-  }
-  wireSizes('deskSizes');
-  wireSizes('mobSizes');
-
-  // initialise defaults from first active buttons
-  state.color = document.querySelector('#deskSwatches .swatch.is-active, #mobSwatches .swatch.is-active')?.dataset.name ?? null;
-  state.size = document.querySelector('#deskSizes .size-btn.is-active, #mobSizes .size-btn.is-active')?.dataset.name ?? null;
+  // Initialise from the first active button of each option.
+  document.querySelectorAll('[data-opt][data-name].is-active').forEach((b) => { selected[b.dataset.opt] = b.dataset.name; });
   resolveVariant();
 
   // Add to bag — checkout:true => Buy Now (go to Shopify checkout); false => stay on page

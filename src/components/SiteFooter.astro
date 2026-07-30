@@ -28,7 +28,7 @@ const prefix = marketConfig.urlPrefix;
       </div>
     </div>
 
-    <form class="fi-news" onsubmit="event.preventDefault();">
+    <form class="fi-news" data-newsletter>
       <span class="fi-news__icon" aria-hidden="true">
         <svg width="22" height="16" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.4">
           <rect x="1" y="1" width="22" height="16" rx="0" />
@@ -140,6 +140,41 @@ const prefix = marketConfig.urlPrefix;
   })();
 </script>
 
+<script is:inline>
+  // Newsletter signup — posts to /api/newsletter (saves to Shopify Customers with
+  // marketing consent). Handles every form marked [data-newsletter] on the page.
+  (function () {
+    document.querySelectorAll('form[data-newsletter]').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var input = form.querySelector('input[type="email"], input[type="text"]');
+        var email = ((input && input.value) || '').trim();
+        if (!/^\S+@\S+\.\S+$/.test(email)) { if (input) input.focus(); return; }
+        var btn = form.querySelector('button');
+        var orig = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Subscribing…'; }
+        var err = form.querySelector('.news-err');
+        if (err) err.remove();
+        fetch('/api/newsletter', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email }),
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok && d.ok, d: d }; });
+        }).then(function (res) {
+          if (!res.ok) throw new Error((res.d && res.d.error) || 'Could not subscribe.');
+          form.innerHTML = '<p class="news-thanks">Thank you — you’re on the list.</p>';
+        }).catch(function (ex) {
+          if (btn) { btn.disabled = false; btn.textContent = orig; }
+          var m = document.createElement('p');
+          m.className = 'news-err';
+          m.textContent = ex.message;
+          form.appendChild(m);
+        });
+      });
+    });
+  })();
+</script>
+
 <style is:global>
   /* Make the footer self-contained: it carries the site theme variables itself,
      so it renders identically on pages (cart/checkout) that override :root. */
@@ -159,6 +194,9 @@ const prefix = marketConfig.urlPrefix;
   .site-footer .fi-news__input { font-family: var(--serif); font-style: normal; font-weight: 300; font-size: 16px; letter-spacing: 0; }
   .site-footer .fi-news__input::placeholder { font-family: var(--serif); font-style: normal; color: var(--ink-mid); letter-spacing: 0; text-transform: none; }
   .site-footer .fi-news__submit:hover { color: var(--cherry); opacity: 1; }
+  .news-thanks { font-family: inherit; font-size: 15px; line-height: 1.5; margin: 8px 0; }
+  .site-footer .news-thanks { font-family: var(--serif); font-weight: 300; font-size: 17px; color: var(--depth); }
+  .news-err { font-size: 12px; color: #c0392b; margin: 8px 0 0; }
   .site-footer .fa-col summary { color: var(--depth); font-weight: 500; }
   .site-footer .fa-col ul li a:hover { color: var(--cherry); opacity: 1; }
   .site-footer .footer-bottom { border-top: 1px solid var(--rule); position: relative; }

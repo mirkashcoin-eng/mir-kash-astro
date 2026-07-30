@@ -531,3 +531,33 @@ export async function createDemoBooking(args: {
   }
   return shape(data?.draftOrderCreate?.draftOrder);
 }
+
+// ─── Newsletter ───────────────────────────────────────────────────────────────
+const CUSTOMER_SUBSCRIBE = `
+  mutation CustomerSubscribe($input: CustomerInput!) {
+    customerCreate(input: $input) {
+      customer { id }
+      userErrors { field message }
+    }
+  }
+`;
+
+// Saves a newsletter signup as a Shopify customer with email-marketing consent, so
+// subscribers land in Shopify → Customers (filter: Email subscription) ready for
+// campaigns. Needs the `write_customers` scope on the India Admin app.
+export async function subscribeEmail(email: string): Promise<{ ok: boolean; error?: string }> {
+  const data = await runAdminQuery<{
+    customerCreate: { customer: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> };
+  }>(CUSTOMER_SUBSCRIBE, {
+    input: {
+      email,
+      emailMarketingConsent: { marketingState: 'SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' },
+    },
+  });
+  if (data?.customerCreate?.customer) return { ok: true };
+  const errs = data?.customerCreate?.userErrors ?? [];
+  // Already a customer → treat as already-on-the-list (a friendly success).
+  if (errs.some((e) => /taken|already/i.test(e.message))) return { ok: true };
+  if (!data) return { ok: false, error: 'Newsletter is not configured yet.' };
+  return { ok: false, error: errs[0]?.message || 'Could not subscribe right now.' };
+}
