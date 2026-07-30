@@ -1,128 +1,116 @@
 ---
 import LegalPage from '../LegalPage.astro';
+
+const GROUPS = [
+  {
+    cat: 'General Questions',
+    items: [
+      {
+        q: 'What are your bags made from?',
+        a: `<p>A mix of plant-based and synthetic vegan leathers.</p>
+            <p>The most common plant leather we use is apple leather &mdash; made from the pulp and skin left over from apple juice production. It has the look and feel of conventional leather, with no animals involved at any stage. Other plant leathers follow the same principle: fruit and vegetable matter that would otherwise go to waste, processed into a material that performs.</p>
+            <p>We also use high-grade synthetic vegan leathers. These are engineered materials &mdash; and in our testing, several have outperformed real leather on durability, scratch resistance, and consistency. We don&rsquo;t use a material because it has a good story. We use it because it holds up.</p>`,
+      },
+      { q: 'Are the bags vegan?', a: `<p>Yes. Every bag, every lining, every hardware detail. Nothing we use comes from an animal.</p>` },
+      { q: 'How long will a bag last?', a: `<p>We design for years, not seasons. With normal use and basic care, your bag should last very long. We also provide a 1-year warranty.</p>` },
+      { q: 'Do the bags smell like leather?', a: `<p>Plant leather has a very faint, clean scent. Nothing synthetic or chemical. Most people can&rsquo;t tell it apart from conventional leather.</p>` },
+    ],
+  },
+  {
+    cat: 'Orders & Shipping',
+    items: [
+      { q: 'Where do you ship?', a: `<p>Worldwide.</p>` },
+      { q: 'How much does shipping cost?', a: `<p>Free across India and Hong Kong. For all other countries, shipping costs are calculated at checkout.</p>` },
+      { q: 'How long does delivery take?', a: `<p>Most orders arrive within 2 weeks. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do what we can.</p>` },
+      { q: 'Can I track my order?', a: `<p>Yes. You&rsquo;ll receive a tracking link once your order is dispatched.</p>` },
+    ],
+  },
+  {
+    cat: 'Returns & Warranty',
+    items: [
+      {
+        q: 'What&rsquo;s your return policy?',
+        a: `<p>You can return your bag within 14 days of delivery for a full refund. The bag must be unused and in its original packaging, dust bag included. Once we receive and inspect the bag, refunds are processed within 14 working days.</p>
+            <p><a href="/pages/returns-portal">Start a return or exchange &rarr;</a></p>`,
+      },
+      { q: 'What does the warranty cover?', a: `<p>Manufacturing defects &mdash; stitching, hardware, structural issues. It does not cover wear from regular use, accidental damage, or misuse.</p>` },
+      { q: 'What happens if something goes wrong under warranty?', a: `<p>Get in touch. We&rsquo;ll assess it and either repair or replace it.</p>` },
+      { q: 'Do you offer repairs after the warranty period?', a: `<p>Not currently.</p>` },
+    ],
+  },
+  {
+    cat: 'The Material',
+    items: [
+      { q: 'Is apple leather durable?', a: `<p>Yes. It&rsquo;s built for daily use &mdash; not delicate. Avoid prolonged exposure to direct sun or heavy rain, and it&rsquo;ll age well.</p>` },
+      {
+        q: 'How do I care for my bag?',
+        a: `<p>Wipe with a soft dry cloth. For deeper cleaning, use a slightly damp cloth and air dry. Keep it away from sharp objects and store it in the dust bag when not in use.</p>
+            <p>A few things that make the biggest difference over time:</p>
+            <ul>
+              <li>Use your bags. Leaving them idle is one of the main reasons bags lose their shape and the material starts to deteriorate. Rotation and regular use actually keeps them in better condition.</li>
+              <li>Always store in the dust bag to prevent scuffing against other things.</li>
+              <li>If you&rsquo;ve been out in the rain or humidity, let the bag dry fully before putting it away.</li>
+              <li>Avoid storing near bathrooms or other damp areas.</li>
+            </ul>`,
+      },
+      { q: 'Is apple leather waterproof?', a: `<p>Water-resistant, not waterproof. Fine in light rain. We wouldn&rsquo;t take it into a downpour.</p>` },
+    ],
+  },
+  {
+    cat: 'Other',
+    items: [
+      { q: 'Do you do gifting or corporate orders?', a: `<p>Yes. Write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> for bulk or gifting enquiries, or see <a href="/pages/bulk-gifting">Bulk Gifting</a>.</p>` },
+      { q: 'Can I try before I buy?', a: `<p>Yes &mdash; we offer complimentary home demos in Mumbai. <a href="/book-demo">Book a home demo &rarr;</a></p>` },
+      { q: 'Something else on your mind?', a: `<p>Write to us at <a href="mailto:info@mirkash.com">info@mirkash.com</a>. We&rsquo;ll get back to you.</p>` },
+    ],
+  },
+];
 ---
 <LegalPage eyebrow="Help" heading="FAQ" lede="Everything worth knowing &mdash; materials, orders, returns, and care.">
   <div class="faq">
-    <section class="faq-group">
-      <h2 class="faq-cat">General Questions</h2>
-      <div class="faq-item">
-        <p class="faq-q">What are your bags made from?</p>
-        <div class="faq-a">
-          <p>A mix of plant-based and synthetic vegan leathers.</p>
-          <p>The most common plant leather we use is apple leather &mdash; made from the pulp and skin left over from apple juice production. It has the look and feel of conventional leather, with no animals involved at any stage. Other plant leathers follow the same principle: fruit and vegetable matter that would otherwise go to waste, processed into a material that performs.</p>
-          <p>We also use high-grade synthetic vegan leathers. These are engineered materials &mdash; and in our testing, several have outperformed real leather on durability, scratch resistance, and consistency. We don&rsquo;t use a material because it has a good story. We use it because it holds up.</p>
-        </div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Are the bags vegan?</p>
-        <div class="faq-a"><p>Yes. Every bag, every lining, every hardware detail. Nothing we use comes from an animal.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">How long will a bag last?</p>
-        <div class="faq-a"><p>We design for years, not seasons. With normal use and basic care, your bag should last very long. We also provide a 1-year warranty.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Do the bags smell like leather?</p>
-        <div class="faq-a"><p>Plant leather has a very faint, clean scent. Nothing synthetic or chemical. Most people can&rsquo;t tell it apart from conventional leather.</p></div>
-      </div>
-    </section>
-
-    <section class="faq-group">
-      <h2 class="faq-cat">Orders &amp; Shipping</h2>
-      <div class="faq-item">
-        <p class="faq-q">Where do you ship?</p>
-        <div class="faq-a"><p>Worldwide.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">How much does shipping cost?</p>
-        <div class="faq-a"><p>Free across India and Hong Kong. For all other countries, shipping costs are calculated at checkout.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">How long does delivery take?</p>
-        <div class="faq-a"><p>Most orders arrive within 2 weeks. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do what we can.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Can I track my order?</p>
-        <div class="faq-a"><p>Yes. You&rsquo;ll receive a tracking link once your order is dispatched.</p></div>
-      </div>
-    </section>
-
-    <section class="faq-group">
-      <h2 class="faq-cat">Returns &amp; Warranty</h2>
-      <div class="faq-item">
-        <p class="faq-q">What&rsquo;s your return policy?</p>
-        <div class="faq-a">
-          <p>You can return your bag within 14 days of delivery for a full refund. The bag must be unused and in its original packaging, dust bag included. Once we receive and inspect the bag, refunds are processed within 14 working days.</p>
-          <p><a href="/pages/returns-portal">Start a return or exchange &rarr;</a></p>
-        </div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">What does the warranty cover?</p>
-        <div class="faq-a"><p>Manufacturing defects &mdash; stitching, hardware, structural issues. It does not cover wear from regular use, accidental damage, or misuse.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">What happens if something goes wrong under warranty?</p>
-        <div class="faq-a"><p>Get in touch. We&rsquo;ll assess it and either repair or replace it.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Do you offer repairs after the warranty period?</p>
-        <div class="faq-a"><p>Not currently.</p></div>
-      </div>
-    </section>
-
-    <section class="faq-group">
-      <h2 class="faq-cat">The Material</h2>
-      <div class="faq-item">
-        <p class="faq-q">Is apple leather durable?</p>
-        <div class="faq-a"><p>Yes. It&rsquo;s built for daily use &mdash; not delicate. Avoid prolonged exposure to direct sun or heavy rain, and it&rsquo;ll age well.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">How do I care for my bag?</p>
-        <div class="faq-a">
-          <p>Wipe with a soft dry cloth. For deeper cleaning, use a slightly damp cloth and air dry. Keep it away from sharp objects and store it in the dust bag when not in use.</p>
-          <p>A few things that make the biggest difference over time:</p>
-          <ul>
-            <li>Use your bags. Leaving them idle is one of the main reasons bags lose their shape and the material starts to deteriorate. Rotation and regular use actually keeps them in better condition.</li>
-            <li>Always store in the dust bag to prevent scuffing against other things.</li>
-            <li>If you&rsquo;ve been out in the rain or humidity, let the bag dry fully before putting it away.</li>
-            <li>Avoid storing near bathrooms or other damp areas.</li>
-          </ul>
-        </div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Is apple leather waterproof?</p>
-        <div class="faq-a"><p>Water-resistant, not waterproof. Fine in light rain. We wouldn&rsquo;t take it into a downpour.</p></div>
-      </div>
-    </section>
-
-    <section class="faq-group">
-      <h2 class="faq-cat">Other</h2>
-      <div class="faq-item">
-        <p class="faq-q">Do you do gifting or corporate orders?</p>
-        <div class="faq-a"><p>Yes. Write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> for bulk or gifting enquiries, or see <a href="/pages/bulk-gifting">Bulk Gifting</a>.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Can I try before I buy?</p>
-        <div class="faq-a"><p>We offer home trials in selected cities. Book one from the site.</p></div>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">Something else on your mind?</p>
-        <div class="faq-a"><p>Write to us at <a href="mailto:info@mirkash.com">info@mirkash.com</a>. We&rsquo;ll get back to you.</p></div>
-      </div>
-    </section>
+    {GROUPS.map((group) => (
+      <section class="faq-group">
+        <h2 class="faq-cat">{group.cat}</h2>
+        {group.items.map((item) => (
+          <details class="faq-item">
+            <summary class="faq-q">
+              <span set:html={item.q}></span>
+              <svg class="faq-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </summary>
+            <div class="faq-a" set:html={item.a}></div>
+          </details>
+        ))}
+      </section>
+    ))}
 
     <p class="faq-foot">Couldn&rsquo;t find what you were looking for? <a href="/pages/contact">Get in touch</a>.</p>
   </div>
 
-  <style>
-    .faq-group { margin: 0 0 clamp(36px, 5vw, 56px); }
-    .faq-cat { font-family: var(--serif); font-weight: 400; font-size: clamp(19px, 2.4vw, 26px); color: var(--depth); margin: 0 0 6px; padding-bottom: 16px; border-bottom: 1px solid var(--rule, #e4dfd7); }
-    .faq-item { padding: 22px 0; border-bottom: 1px solid #efece6; }
-    .faq-q { font-size: 15px; font-weight: 600; color: var(--depth); margin: 0 0 10px; }
+  <style is:global>
+    .faq-group { margin: 0 0 clamp(34px, 5vw, 52px); }
+    .faq-cat { font-family: var(--serif); font-weight: 400; font-size: clamp(19px, 2.4vw, 26px); color: var(--depth); margin: 0 0 4px; padding-bottom: 14px; border-bottom: 1px solid var(--rule, #e4dfd7); }
+
+    .faq-item { border-bottom: 1px solid #efece6; }
+    .faq-item > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: space-between; gap: 24px; padding: 20px 0;
+      font-size: 15.5px; font-weight: 600; color: var(--depth); transition: color .2s;
+    }
+    .faq-item > summary::-webkit-details-marker { display: none; }
+    .faq-item > summary:hover { color: var(--cherry); }
+    .faq-chev { flex: none; color: var(--cherry); transition: transform .3s ease; }
+    .faq-item[open] > summary .faq-chev { transform: rotate(180deg); }
+    .faq-item[open] > summary { color: var(--cherry); }
+
+    .faq-a { padding: 0 0 22px; }
+    .faq-item[open] .faq-a { animation: faqIn .3s ease; }
+    @keyframes faqIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
     .faq-a p { font-size: 14.5px; line-height: 1.75; color: #4a4138; margin: 0 0 10px; }
     .faq-a p:last-child { margin-bottom: 0; }
     .faq-a ul { list-style: disc; padding-left: 22px; margin: 0 0 10px; }
     .faq-a li { font-size: 14.5px; line-height: 1.7; color: #4a4138; margin: 0 0 8px; }
+
     .faq-foot { margin-top: 8px; font-size: 15px; color: var(--depth); }
+    @media (prefers-reduced-motion: reduce) { .faq-item[open] .faq-a { animation: none; } .faq-chev { transition: none; } }
   </style>
 </LegalPage>
