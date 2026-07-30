@@ -85,31 +85,43 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
     </form>
   </section>
 
-  <!-- ── Body ── -->
+  <!-- ── Three-column body ── -->
   <section class="faq-body">
-    <div class="faq-chips" id="faqChips">
-      {CHIPS.map((c, i) => <button class={i === 0 ? 'on' : ''} data-cat={c}>{c}</button>)}
+    <!-- left: topics -->
+    <aside class="faq-col faq-col--nav">
+      <div class="faq-stick">
+        <p class="faq-side__lbl">Browse by topic</p>
+        <div class="faq-nav" id="faqChips">
+          {CHIPS.map((c, i) => <button class={i === 0 ? 'on' : ''} data-cat={c}>{c === 'All' ? 'All questions' : c}</button>)}
+        </div>
+      </div>
+    </aside>
+
+    <!-- middle: accordions -->
+    <div class="faq-main">
+      <div class="faq-list" id="faqList">
+        {ITEMS.map((item) => (
+          <details class="faq-item" data-cat={item.cat} data-text={item.text}>
+            <summary class="faq-q">
+              <span set:html={item.q}></span>
+              <span class="faq-ic" aria-hidden="true">&#9662;</span>
+            </summary>
+            <div class="faq-a" set:html={item.a}></div>
+          </details>
+        ))}
+      </div>
+      <p class="faq-none" id="faqNone" hidden>No answers match that &mdash; try different words, or <a href="/pages/contact">write to us</a>.</p>
     </div>
 
-    <div class="faq-list" id="faqList">
-      {ITEMS.map((item) => (
-        <details class="faq-item" data-cat={item.cat} data-text={item.text}>
-          <summary class="faq-q">
-            <span set:html={item.q}></span>
-            <span class="faq-ic" aria-hidden="true">&#9662;</span>
-          </summary>
-          <div class="faq-a" set:html={item.a}></div>
-        </details>
-      ))}
-    </div>
-
-    <p class="faq-none" id="faqNone" hidden>No answers match that &mdash; try different words, or <a href="/pages/contact">write to us</a>.</p>
-
-    <div class="faq-help">
-      <h2 class="faq-display faq-help__h">Still have a question?</h2>
-      <p class="faq-help__p">We&rsquo;re a small team, and we read every note.</p>
-      <a class="faq-help__btn" href="/pages/contact">Write to us</a>
-    </div>
+    <!-- right: help card -->
+    <aside class="faq-col faq-col--help">
+      <div class="faq-stick faq-help">
+        <h2 class="faq-display faq-help__h">Still have a question?</h2>
+        <p class="faq-help__p">We&rsquo;re a small team, and we read every note. Tell us what you need and we&rsquo;ll get back to you.</p>
+        <a class="faq-help__btn" href="/pages/contact">Write to us</a>
+        <a class="faq-help__link" href="/book-demo">Or book a home demo &rarr;</a>
+      </div>
+    </aside>
   </section>
 </main>
 
@@ -144,24 +156,32 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .faq-search button { flex: none; background: var(--depth); color: #fff; border: none; border-radius: 999px; padding: 13px 26px; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: background .2s; }
   .faq-search button:hover { background: var(--cherry); }
 
-  /* Body */
-  .faq-body { max-width: 860px; margin: 0 auto; padding: clamp(40px,5vw,72px) clamp(24px,5vw,40px) clamp(48px,6vw,88px); }
-  .faq-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: clamp(28px,3.5vw,44px); }
-  .faq-chips button { font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); background: var(--cream); border: none; padding: 10px 18px; border-radius: 999px; cursor: pointer; transition: background .2s, color .2s; }
-  .faq-chips button:hover { color: var(--depth); }
-  .faq-chips button.on { background: var(--depth); color: #fff; }
+  /* Body — left topics rail, centre accordions, right help card */
+  .faq-body {
+    max-width: 1400px; margin: 0 auto;
+    padding: clamp(40px,4.5vw,64px) clamp(24px,4vw,56px) clamp(48px,6vw,88px);
+    display: grid; grid-template-columns: 210px minmax(0, 1fr) 264px;
+    gap: clamp(30px,4vw,72px); align-items: start;
+  }
+  .faq-stick { position: sticky; top: 24px; }
+  .faq-side__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 16px; }
+  .faq-nav { display: flex; flex-direction: column; gap: 2px; }
+  .faq-nav button { text-align: left; font-family: 'Jost', sans-serif; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--mid); background: none; border: none; border-left: 2px solid var(--rule); padding: 11px 0 11px 16px; cursor: pointer; transition: color .2s, border-color .2s; }
+  .faq-nav button:hover { color: var(--depth); }
+  .faq-nav button.on { color: var(--depth); border-left-color: var(--cherry); }
 
+  .faq-main { min-width: 0; }
   .faq-list { border-top: 1px solid var(--rule); }
   .faq-item { border-bottom: 1px solid var(--rule); }
   .faq-item[hidden] { display: none; }
-  .faq-item > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 24px 4px; }
+  .faq-item > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 23px 4px; }
   .faq-item > summary::-webkit-details-marker { display: none; }
   .faq-q > span:first-child { font-family: var(--serif); font-weight: 400; font-size: clamp(19px,2vw,24px); line-height: 1.2; color: var(--depth); transition: color .2s; }
   .faq-item > summary:hover span:first-child { color: var(--cherry); }
   .faq-ic { flex: none; width: 27px; height: 27px; border-radius: 50%; border: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--cherry); transition: transform .3s ease, background .25s, border-color .25s, color .25s; }
   .faq-item[open] .faq-ic { transform: rotate(180deg); background: var(--depth); border-color: var(--depth); color: #fff; }
   .faq-item[open] > summary span:first-child { color: var(--cherry); }
-  .faq-a { padding: 0 4px 26px; max-width: 66ch; }
+  .faq-a { padding: 0 4px 26px; max-width: 68ch; }
   .faq-item[open] .faq-a { animation: faqIn .3s ease; }
   @keyframes faqIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   .faq-a p { font-size: 15px; line-height: 1.8; color: var(--ink); margin: 0 0 12px; }
@@ -173,13 +193,35 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .faq-none { text-align: center; color: var(--mid); font-size: 15px; padding: 44px 0; }
   .faq-none a { color: var(--cherry); }
 
-  /* Help card */
-  .faq-help { text-align: center; background: var(--cream); border-radius: 3px; padding: clamp(38px,4.5vw,60px); margin-top: clamp(36px,4vw,56px); }
-  .faq-help__h { font-size: clamp(26px,3vw,38px); color: var(--depth); margin: 0 0 10px; }
-  .faq-help__p { font-size: 14.5px; color: var(--mid); margin: 0 0 24px; }
-  .faq-help__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 15px 34px; transition: background .25s; }
+  /* Right help card */
+  .faq-help { background: var(--cream); border-radius: 3px; padding: 30px 26px; display: flex; flex-direction: column; align-items: flex-start; }
+  .faq-help__h { font-size: clamp(22px,2.2vw,27px); color: var(--depth); margin: 0 0 10px; line-height: 1.08; }
+  .faq-help__p { font-size: 13.5px; line-height: 1.65; color: var(--mid); margin: 0 0 22px; }
+  .faq-help__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 13px 26px; transition: background .25s; }
   .faq-help__btn:hover { background: var(--cherry); }
+  .faq-help__link { margin-top: 16px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--depth); padding-bottom: 2px; transition: color .2s, border-color .2s; }
+  .faq-help__link:hover { color: var(--cherry); border-color: var(--cherry); }
 
+  /* Tablet: drop right card into flow, keep left rail */
+  @media (max-width: 1080px) {
+    .faq-body { grid-template-columns: 190px minmax(0, 1fr); }
+    .faq-col--help { grid-column: 1 / -1; }
+    .faq-col--help .faq-stick { position: static; }
+    .faq-help { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-top: 20px; }
+    .faq-help__h { margin: 0; flex: 1; min-width: 220px; }
+    .faq-help__p { flex-basis: 100%; margin: 0; }
+  }
+  /* Mobile: single column, topics become pills on top */
+  @media (max-width: 720px) {
+    .faq-body { grid-template-columns: 1fr; gap: 26px; }
+    .faq-col--nav .faq-stick { position: static; }
+    .faq-side__lbl { text-align: center; }
+    .faq-nav { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .faq-nav button { border-left: none; border: 1px solid var(--rule); border-radius: 999px; padding: 9px 16px; }
+    .faq-nav button.on { background: var(--depth); color: #fff; border-color: var(--depth); }
+    .faq-help { flex-direction: column; align-items: flex-start; }
+    .faq-help__h { flex: none; }
+  }
   @media (prefers-reduced-motion: reduce) { .faq-item[open] .faq-a { animation: none; } .faq-ic { transition: none; } }
 </style>
 
