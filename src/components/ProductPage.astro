@@ -227,7 +227,7 @@ const SHOW_REELS = false;
   <!-- ══ MOBILE INFO ══ -->
   <div class="mob-info">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
-      <h1 class="info-name" style="margin:0;font-size:clamp(1.75rem,6vw,2.15rem)">{product.title}</h1>
+      <h1 class="info-name" style="margin:0;font-size:clamp(1.5rem,5vw,1.85rem)">{product.title}</h1>
       <p id="mobPrice" style="font-size:15px;font-weight:500;flex-shrink:0;margin-left:12px">{startPrice}</p>
     </div>
     <div class="bc" style="margin-bottom:14px"><a href={shopHref}>Shop</a><span class="sep">/</span>Bags</div>
@@ -655,10 +655,8 @@ const SHOW_REELS = false;
 </script>
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root {
     --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
-    --serif-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     --cherry: #8B1A1A; --earth: #C8895A; --depth: #2C1A0E;
     --paper: #ffffff; --rule: #e4dfd7; --mid: #6e6a64;
     --hdr-h: 56px;
@@ -683,20 +681,20 @@ const SHOW_REELS = false;
   .bc a:hover { color: var(--cherry); }
   .bc .sep { margin: 0 8px; opacity: .45; }
 
-  .pdp { display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(380px, 480px); align-items: start; max-width: 1220px; margin: 0 auto; }
+  .pdp { display: grid; grid-template-columns: 70px 1fr 550px; align-items: start; }
   .pdp__thumbs { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 4px; padding: 16px 8px; border-right: 1px solid var(--rule); }
   .pdp__thumbs::-webkit-scrollbar { display: none; }
   .thumb { flex-shrink: 0; width: 54px; aspect-ratio: 3/4; overflow: hidden; border: 1.5px solid transparent; background: var(--paper); transition: border-color .2s; padding: 0; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb.is-active { border-color: var(--depth); }
-  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; padding: 0 clamp(10px, 1.6vw, 22px); }
+  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; }
   .gimg { width: 100%; aspect-ratio: 4/5; overflow: hidden; background: #fff; }
   .gimg img { width: 100%; height: 100%; object-fit: cover; }
-  .pdp__info { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; border-left: 1px solid var(--rule); padding: 48px 48px 52px; }
+  .pdp__info { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; border-left: 1px solid var(--rule); padding: 44px 48px 48px; }
   .pdp__info::-webkit-scrollbar { display: none; }
-  .info-name { font-family: var(--serif-display); font-weight: 400; font-size: clamp(2rem, 2.6vw, 2.6rem); line-height: 1.08; letter-spacing: 0; margin: 14px 0 10px; }
-  .info-price { font-size: 1.25rem; font-weight: 400; letter-spacing: .01em; color: var(--depth); margin-bottom: 26px; }
-  .info-desc { font-size: 13.5px; line-height: 1.9; color: var(--mid); padding-bottom: 28px; border-bottom: 1px solid var(--rule); margin-bottom: 28px; }
+  .info-name { font-family: var(--serif); font-weight: 400; font-size: clamp(1.5rem, 1.8vw, 1.85rem); line-height: 1.15; margin: 16px 0 8px; }
+  .info-price { font-size: clamp(1.3rem, 1.6vw, 1.65rem); font-weight: 400; letter-spacing: .01em; margin-bottom: 28px; }
+  .info-desc { font-size: 13.5px; line-height: 1.85; color: #555; padding-bottom: 28px; border-bottom: 1px solid var(--rule); margin-bottom: 28px; }
   .info-desc p { margin-bottom: 10px; }
 
   .sw-label { font-size: 12px; font-weight: 500; letter-spacing: .04em; margin-bottom: 10px; }
@@ -723,7 +721,7 @@ const SHOW_REELS = false;
   .btn-add { background: #fff; color: var(--depth); }
   .btn-add:hover:not(:disabled) { background: var(--depth); color: #fff; }
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
-  .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 8px 0 4px; white-space: nowrap; }
+  .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
 
   .acc-item { border-bottom: 1px solid var(--rule); }
   .acc-btn { width: 100%; padding: 18px 2px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: .01em; color: var(--depth); text-align: left; transition: color .2s; }
