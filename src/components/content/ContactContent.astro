@@ -1,38 +1,147 @@
 ---
-import LegalPage from '../LegalPage.astro';
+import SiteHeader from '../SiteHeader.astro';
+import SiteFooter from '../SiteFooter.astro';
+
+const LOCATIONS = [
+  { city: 'Mumbai', country: 'India', lines: ['Jaywant Industrial Estate', 'Tardeo, Mumbai — 400034'] },
+  { city: 'Hong Kong', country: '', lines: ['Guardforce Centre', '03 Hok Yuen Street', 'Hung Hom, Hong Kong'] },
+  { city: 'New York', country: 'USA', lines: ['37W, 47th Street', 'New York, USA 10036'] },
+];
 ---
-<LegalPage eyebrow="Contact" heading="Contact" lede="Questions, feedback, gifting enquiries, or just want to know more &mdash; we&rsquo;re here.">
-  <p>Fill in the form or write to us directly at <a href="mailto:info@mirkash.com">info@mirkash.com</a>. We reply within 1&ndash;2 business days.</p>
+<SiteHeader />
 
-  <form class="mk-form" id="contactForm">
-    <div class="mk-row">
-      <label class="mk-field"><span>Name</span><input type="text" name="name" required /></label>
-      <label class="mk-field"><span>Email</span><input type="email" name="email" required /></label>
+<main class="ct">
+  <!-- ── Header ── -->
+  <section class="ct-head">
+    <p class="ct-eyebrow">Contact</p>
+    <h1 class="ct-display ct-head__h">We&rsquo;re listening.</h1>
+    <p class="ct-head__sub">Questions, feedback, gifting enquiries, or you just want to know more &mdash; we&rsquo;re a small team and we read every note.</p>
+  </section>
+
+  <!-- ── Form + direct ── -->
+  <section class="ct-body">
+    <div class="ct-form-col">
+      <p class="ct-eyebrow">Send a message</p>
+      <form class="ct-form" id="contactForm">
+        <div class="ct-row">
+          <label class="ct-field"><span>Name</span><input type="text" name="name" required /></label>
+          <label class="ct-field"><span>Email</span><input type="email" name="email" required /></label>
+        </div>
+        <label class="ct-field"><span>Phone <em>(optional)</em></span><input type="tel" name="phone" /></label>
+        <label class="ct-field"><span>Message</span><textarea name="message" rows="6" required></textarea></label>
+        <button type="submit" class="ct-submit">Send message</button>
+      </form>
     </div>
-    <label class="mk-field"><span>Phone Number</span><input type="tel" name="phone" /></label>
-    <label class="mk-field"><span>Message</span><textarea name="message" rows="5" required></textarea></label>
-    <button type="submit" class="mk-submit">Send</button>
-  </form>
 
-  <h2>Other ways to reach us</h2>
-  <p>For orders and returns: <a href="mailto:order@mirkash.com">order@mirkash.com</a><br />
-  For press and collaborations: <a href="mailto:press@mirkash.com">press@mirkash.com</a></p>
+    <aside class="ct-info-col">
+      <p class="ct-eyebrow">Reach us directly</p>
+      <ul class="ct-direct">
+        <li>
+          <span class="ct-direct__k">General enquiries</span>
+          <a class="ct-direct__v" href="mailto:info@mirkash.com">info@mirkash.com</a>
+        </li>
+        <li>
+          <span class="ct-direct__k">Orders &amp; returns</span>
+          <a class="ct-direct__v" href="mailto:order@mirkash.com">order@mirkash.com</a>
+        </li>
+        <li>
+          <span class="ct-direct__k">Press &amp; collaborations</span>
+          <a class="ct-direct__v" href="mailto:press@mirkash.com">press@mirkash.com</a>
+        </li>
+      </ul>
+      <p class="ct-reply">We reply within 1&ndash;2 business days.</p>
+    </aside>
+  </section>
 
-  <h2>Find us</h2>
-  <p>New York, USA<br />Mumbai, India<br />Hong Kong</p>
+  <!-- ── Locations ── -->
+  <section class="ct-loc">
+    <div class="ct-loc__head">
+      <p class="ct-eyebrow">Our homes</p>
+      <h2 class="ct-display ct-loc__h">Where to find us</h2>
+    </div>
+    <div class="ct-loc__grid">
+      {LOCATIONS.map((l) => (
+        <div class="ct-place">
+          <h3 class="ct-display ct-place__city">{l.city}{l.country && <span class="ct-place__country">{l.country}</span>}</h3>
+          <address class="ct-place__addr">{l.lines.map((line) => <span>{line}</span>)}</address>
+        </div>
+      ))}
+    </div>
+  </section>
+</main>
 
-  <script is:inline>
-    document.getElementById('contactForm')?.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var f = e.currentTarget;
-      var subject = encodeURIComponent('Mir Kash enquiry — ' + (f.name.value || '').trim());
-      var body = encodeURIComponent(
-        'Name: ' + (f.name.value || '').trim() +
-        '\nEmail: ' + (f.email.value || '').trim() +
-        '\nPhone: ' + (f.phone.value || '').trim() +
-        '\n\n' + (f.message.value || '').trim()
-      );
-      window.location.href = 'mailto:info@mirkash.com?subject=' + subject + '&body=' + body;
-    });
-  </script>
-</LegalPage>
+<SiteFooter />
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .ct {
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9; --ink: #463d34; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
+    background: #fff; color: var(--depth);
+  }
+  .ct-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
+  .ct-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0 0 16px; }
+
+  /* Header */
+  .ct-head { max-width: 720px; margin: 0 auto; text-align: center; padding: clamp(44px,6vw,92px) 24px clamp(30px,4vw,44px); }
+  .ct-head__h { font-size: clamp(38px,5vw,64px); line-height: 1.02; color: var(--depth); margin: 0 0 18px; }
+  .ct-head__sub { font-size: 15.5px; line-height: 1.8; color: var(--mid); max-width: 52ch; margin: 0 auto; }
+
+  /* Body: form + direct */
+  .ct-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(36px,5vw,88px); align-items: start; max-width: 1080px; margin: 0 auto; padding: clamp(20px,3vw,40px) clamp(24px,5vw,40px) clamp(48px,6vw,80px); }
+  .ct-form { display: flex; flex-direction: column; gap: 18px; }
+  .ct-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .ct-field { display: flex; flex-direction: column; gap: 8px; }
+  .ct-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 600; }
+  .ct-field span em { font-style: normal; color: var(--faint); font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .ct-field input, .ct-field textarea { font-family: 'Jost', sans-serif; font-size: 14.5px; color: var(--depth); background: #fff; border: 1px solid var(--rule); padding: 13px 14px; resize: vertical; transition: border-color .2s; }
+  .ct-field input:focus, .ct-field textarea:focus { outline: none; border-color: var(--depth); }
+  .ct-submit { align-self: flex-start; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border: none; padding: 15px 34px; cursor: pointer; transition: background .25s; margin-top: 4px; }
+  .ct-submit:hover { background: var(--cherry); }
+
+  .ct-info-col { border-left: 1px solid var(--rule); padding-left: clamp(24px,3vw,44px); }
+  .ct-direct { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+  .ct-direct__k { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 500; margin-bottom: 6px; }
+  .ct-direct__v { font-family: var(--serif); font-weight: 400; font-size: clamp(20px,2vw,24px); color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 2px; transition: color .2s, border-color .2s; }
+  .ct-direct__v:hover { color: var(--cherry); border-color: var(--cherry); }
+  .ct-reply { font-size: 13px; color: var(--mid); margin: 0; }
+
+  /* Locations */
+  .ct-loc { background: var(--cream); padding: clamp(48px,6vw,96px) clamp(24px,5vw,56px); }
+  .ct-loc__head { text-align: center; margin-bottom: clamp(30px,4vw,48px); }
+  .ct-loc__h { font-size: clamp(28px,3.4vw,44px); color: var(--depth); margin: 12px 0 0; }
+  .ct-loc__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px,3vw,44px); max-width: 980px; margin: 0 auto; }
+  .ct-place { text-align: center; padding: clamp(24px,3vw,36px) 20px; background: #fff; border: 1px solid var(--rule); }
+  .ct-place__city { font-size: clamp(24px,2.6vw,32px); color: var(--depth); margin: 0 0 14px; line-height: 1.1; }
+  .ct-place__country { display: block; font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin-top: 6px; }
+  .ct-place__addr { font-style: normal; display: flex; flex-direction: column; gap: 3px; font-size: 14px; line-height: 1.6; color: var(--mid); }
+
+  @media (max-width: 860px) {
+    .ct-body { grid-template-columns: 1fr; gap: 40px; }
+    .ct-info-col { border-left: none; border-top: 1px solid var(--rule); padding-left: 0; padding-top: 32px; }
+    .ct-loc__grid { grid-template-columns: 1fr; max-width: 420px; }
+  }
+  @media (max-width: 520px) { .ct-row { grid-template-columns: 1fr; } }
+</style>
+
+<script is:inline>
+  document.getElementById('contactForm')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.currentTarget;
+    var subject = encodeURIComponent('Mir Kash enquiry — ' + (f.name.value || '').trim());
+    var body = encodeURIComponent(
+      'Name: ' + (f.name.value || '').trim() +
+      '\nEmail: ' + (f.email.value || '').trim() +
+      '\nPhone: ' + (f.phone.value || '').trim() +
+      '\n\n' + (f.message.value || '').trim()
+    );
+    window.location.href = 'mailto:info@mirkash.com?subject=' + subject + '&body=' + body;
+  });
+</script>
