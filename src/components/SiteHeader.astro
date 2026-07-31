@@ -13,6 +13,8 @@ const navItems = [
   { word: 'Journal',   href: `${prefix}/blog` },
   { word: 'About',     href: `${prefix}/pages/about` },
 ];
+// Home demos are Mumbai-only — only surface the link on the India storefront.
+if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix}/book-demo` });
 ---
 <div class="page-header hdr--solid">
   <header class="site-header site-header--minimal">

@@ -7,9 +7,10 @@ const homeHref = prefix || '/';
 const items = [
   { num: '01', word: 'Shop All', href: shopHref },
   { num: '02', word: 'Materials', href: `${prefix}/pages/materials` },
-  { num: '03', word: 'Journal', href: `${homeHref}#journal` },
+  { num: '03', word: 'Journal', href: `${prefix}/blog` },
   { num: '04', word: 'About', href: `${prefix}/pages/about` },
 ];
+if (marketConfig.isDefault) items.push({ num: '05', word: 'Try at Home', href: `${prefix}/book-demo` });
 ---
 <div class="nav-drawer" id="navDrawer" aria-hidden="true">
   <button class="nav-drawer__scrim" aria-label="Close menu" type="button"></button>
@@ -33,8 +34,8 @@ const items = [
     </nav>
 
     <div class="nav-drawer__foot">
-      <a href="#">Account</a>
-      <a href="#">Book a home trial</a>
+      <a href={`${prefix}/account`}>Account</a>
+      {marketConfig.isDefault && <a href={`${prefix}/book-demo`}>Try at Home</a>}
       <span class="nav-drawer__sig">{marketConfig.countryName} · {marketConfig.currency} {marketConfig.currencySymbol}</span>
     </div>
   </div>
