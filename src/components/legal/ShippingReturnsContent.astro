@@ -1,24 +1,158 @@
 ---
-import LegalPage from '../LegalPage.astro';
+import SiteHeader from '../SiteHeader.astro';
+import SiteFooter from '../SiteFooter.astro';
+
+const FACTS = [
+  { k: 'Delivery', v: 'Worldwide shipping' },
+  { k: 'Free', v: 'To India & Hong Kong' },
+  { k: 'Returns', v: '14-day, easy' },
+  { k: 'Warranty', v: '1 full year' },
+];
 ---
-<LegalPage eyebrow="Help" heading="Shipping & Returns" lede="We want you to love what you ordered. If something isn&rsquo;t right, we&rsquo;ll make it easy to sort out.">
-  <h2>Shipping</h2>
-  <p>We ship worldwide. Shipping is free across Hong Kong and India. For all other destinations, shipping costs are calculated at checkout based on your location.</p>
-  <p>Most orders arrive within 2 weeks. During busy periods, allow a little extra time. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do our best to prioritise it.</p>
-  <p>Once your order is dispatched, you&rsquo;ll receive a tracking link by email.</p>
-  <p>Please note that international orders may be subject to customs duties on arrival. These are determined by your local customs authority and are the responsibility of the customer.</p>
+<SiteHeader />
 
-  <h2>Returns</h2>
-  <p>You have 14 days from delivery to return your bag for a full refund. No long explanations needed &mdash; just let us know.</p>
-  <p>To be eligible, the bag must be unused and returned in its original packaging, with the box, dust bag, and all inserts included. Items that show signs of use cannot be accepted.</p>
-  <p>Return shipping costs are borne by the customer. We recommend a tracked and insured service &mdash; we can&rsquo;t take responsibility for items lost on their way back to us.</p>
-  <p>To start a return, visit our <a href="/pages/returns-portal">returns portal</a> or write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> with your order number. Once we receive and inspect the bag, your refund will be processed within 14 working days to your original payment method.</p>
-  <p>We don&rsquo;t offer direct exchanges. Return your original order and place a new one at your convenience.</p>
-  <p><a href="/pages/returns-portal">Start a return &rarr;</a></p>
+<main class="sr">
+  <!-- ── Header ── -->
+  <section class="sr-head">
+    <p class="sr-eyebrow">Help</p>
+    <h1 class="sr-display sr-head__h">Shipping &amp; Returns</h1>
+    <p class="sr-head__sub">We want you to love what you ordered. If something isn&rsquo;t right, we&rsquo;ll make it easy to sort out.</p>
+  </section>
 
-  <h2>Warranty</h2>
-  <p>Every Mir Kash bag is backed by a 1-year warranty against manufacturing defects &mdash; stitching, hardware, structural issues. If something isn&rsquo;t right, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a>. We&rsquo;ll assess it and either repair or replace it.</p>
-  <p>The warranty does not cover wear from regular use, accidental damage, or misuse.</p>
+  <!-- ── Key facts ── -->
+  <div class="sr-facts">
+    {FACTS.map((f) => (
+      <div class="sr-fact"><p class="sr-fact__k">{f.k}</p><p class="sr-fact__v">{f.v}</p></div>
+    ))}
+  </div>
 
-  <p><strong>Questions?</strong> <a href="mailto:order@mirkash.com">order@mirkash.com</a></p>
-</LegalPage>
+  <!-- ── Body ── -->
+  <div class="sr-body">
+    <aside class="sr-nav" id="srNav">
+      <p class="sr-nav__lbl">On this page</p>
+      <a href="#shipping">Shipping</a>
+      <a href="#returns">Returns</a>
+      <a href="#warranty">Warranty</a>
+    </aside>
+
+    <div class="sr-content">
+      <section id="shipping" class="sr-sec">
+        <h2 class="sr-display sr-sec__h">Shipping</h2>
+        <p>We ship worldwide. Shipping is <strong>free across Hong Kong and India</strong>. For all other destinations, shipping costs are calculated at checkout based on your location.</p>
+        <p>Most orders arrive within <strong>2 weeks</strong>. During busy periods, allow a little extra time. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do our best to prioritise it.</p>
+        <p>Once your order is dispatched, you&rsquo;ll receive a tracking link by email.</p>
+        <p>Please note that international orders may be subject to customs duties on arrival. These are determined by your local customs authority and are the responsibility of the customer.</p>
+      </section>
+
+      <section id="returns" class="sr-sec">
+        <h2 class="sr-display sr-sec__h">Returns</h2>
+        <p>You have <strong>14 days from delivery</strong> to return your bag for a full refund. No long explanations needed &mdash; just let us know.</p>
+        <p>To be eligible, the bag must be unused and returned in its original packaging, with the box, dust bag, and all inserts included. Items that show signs of use cannot be accepted.</p>
+        <p>Return shipping costs are borne by the customer. We recommend a tracked and insured service &mdash; we can&rsquo;t take responsibility for items lost on their way back to us.</p>
+        <p>To start a return, visit our <a href="/pages/returns-portal">returns portal</a> or write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> with your order number. Once we receive and inspect the bag, your refund will be processed within <strong>14 working days</strong> to your original payment method.</p>
+        <p>We don&rsquo;t offer direct exchanges &mdash; return your original order and place a new one at your convenience.</p>
+        <a class="sr-inline-cta" href="/pages/returns-portal">Start a return <span aria-hidden="true">&rarr;</span></a>
+      </section>
+
+      <section id="warranty" class="sr-sec">
+        <h2 class="sr-display sr-sec__h">Warranty</h2>
+        <p>Every Mir Kash bag is backed by a <strong>1-year warranty</strong> against manufacturing defects &mdash; stitching, hardware, structural issues. If something isn&rsquo;t right, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a>. We&rsquo;ll assess it and either repair or replace it.</p>
+        <p>The warranty does not cover wear from regular use, accidental damage, or misuse.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── CTA ── -->
+  <section class="sr-cta">
+    <h2 class="sr-display sr-cta__h">Need to return something?</h2>
+    <p class="sr-cta__p">Start it in a minute — enter your order number and email, and we&rsquo;ll take it from there.</p>
+    <a class="sr-cta__btn" href="/pages/returns-portal">Start a return</a>
+    <p class="sr-cta__note">Questions? <a href="mailto:order@mirkash.com">order@mirkash.com</a></p>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .sr {
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9; --ink: #40382f; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
+    background: #fff; color: var(--depth);
+  }
+  .sr-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
+  .sr-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0 0 16px; }
+
+  /* Header */
+  .sr-head { max-width: 720px; margin: 0 auto; text-align: center; padding: clamp(44px,6vw,88px) 24px clamp(28px,3.5vw,40px); }
+  .sr-head__h { font-size: clamp(36px,5vw,60px); line-height: 1.02; color: var(--depth); margin: 0 0 16px; }
+  .sr-head__sub { font-size: 15.5px; line-height: 1.8; color: var(--mid); max-width: 50ch; margin: 0 auto; }
+
+  /* Key facts strip */
+  .sr-facts { display: grid; grid-template-columns: repeat(4, 1fr); max-width: 1080px; margin: 0 auto; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .sr-fact { padding: 22px clamp(16px,2vw,26px); text-align: center; border-right: 1px solid var(--rule); }
+  .sr-fact:last-child { border-right: none; }
+  .sr-fact__k { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0 0 6px; }
+  .sr-fact__v { font-family: var(--serif); font-weight: 400; font-size: clamp(16px,1.6vw,20px); color: var(--depth); margin: 0; }
+
+  /* Body: sticky nav + content */
+  .sr-body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: clamp(32px,5vw,80px); max-width: 1080px; margin: 0 auto; padding: clamp(40px,5vw,72px) clamp(24px,5vw,40px); align-items: start; }
+  .sr-nav { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 2px; }
+  .sr-nav__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+  .sr-nav a { font-family: 'Jost', sans-serif; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--mid); text-decoration: none; padding: 10px 0 10px 16px; border-left: 2px solid var(--rule); transition: color .2s, border-color .2s; }
+  .sr-nav a:hover { color: var(--depth); }
+  .sr-nav a.on { color: var(--depth); border-left-color: var(--cherry); }
+
+  .sr-content { min-width: 0; max-width: 680px; }
+  .sr-sec { padding-bottom: clamp(34px,4vw,48px); margin-bottom: clamp(34px,4vw,48px); border-bottom: 1px solid var(--rule); }
+  .sr-sec:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .sr-sec__h { font-size: clamp(26px,3vw,38px); color: var(--depth); margin: 0 0 18px; scroll-margin-top: 24px; }
+  .sr-sec p { font-size: 15px; line-height: 1.85; color: var(--ink); margin: 0 0 16px; }
+  .sr-sec strong { font-weight: 600; color: var(--depth); }
+  .sr-sec a { color: var(--cherry); text-decoration: none; border-bottom: 1px solid rgba(139,26,26,.35); transition: border-color .2s; }
+  .sr-sec a:hover { border-color: var(--cherry); }
+  .sr-inline-cta { display: inline-block; margin-top: 6px; font-family: 'Jost', sans-serif; font-size: 11px !important; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--depth) !important; border: none !important; border-bottom: 1px solid var(--depth) !important; padding-bottom: 3px; }
+  .sr-inline-cta:hover { color: var(--cherry) !important; border-color: var(--cherry) !important; }
+
+  /* CTA */
+  .sr-cta { background: var(--cream); text-align: center; padding: clamp(48px,6vw,88px) 24px; }
+  .sr-cta__h { font-size: clamp(26px,3.2vw,40px); color: var(--depth); margin: 0 0 12px; }
+  .sr-cta__p { font-size: 15px; line-height: 1.7; color: var(--mid); max-width: 46ch; margin: 0 auto 26px; }
+  .sr-cta__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 15px 36px; transition: background .25s; }
+  .sr-cta__btn:hover { background: var(--cherry); }
+  .sr-cta__note { font-size: 13px; color: var(--mid); margin: 22px 0 0; }
+  .sr-cta__note a { color: var(--cherry); text-decoration: none; }
+
+  @media (max-width: 760px) {
+    .sr-facts { grid-template-columns: 1fr 1fr; }
+    .sr-fact:nth-child(2) { border-right: none; }
+    .sr-fact:nth-child(1), .sr-fact:nth-child(2) { border-bottom: 1px solid var(--rule); }
+    .sr-body { grid-template-columns: 1fr; gap: 26px; }
+    .sr-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+    .sr-nav__lbl { width: 100%; margin: 0; }
+    .sr-nav a { border-left: none; border: 1px solid var(--rule); border-radius: 999px; padding: 9px 16px; }
+    .sr-nav a.on { background: var(--depth); color: #fff; border-color: var(--depth); }
+    .sr-content { max-width: none; }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('#srNav a'));
+    var secs = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+    if (!secs.length || !('IntersectionObserver' in window)) return;
+    var cur = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) cur = '#' + e.target.id; });
+      links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === cur); });
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+    secs.forEach(function (s) { io.observe(s); });
+  })();
+</script>
