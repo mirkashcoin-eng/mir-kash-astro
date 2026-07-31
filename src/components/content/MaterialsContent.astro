@@ -1,23 +1,202 @@
 ---
-import LegalPage from '../LegalPage.astro';
+import SiteHeader from '../SiteHeader.astro';
+import SiteFooter from '../SiteFooter.astro';
+
+const prefix = Astro.locals.marketConfig.urlPrefix;
+
+// Existing site imagery stands in for material/texture photography — swap the `image`
+// values below for real close-up material shots whenever they're ready.
+const MATERIALS = [
+  {
+    n: '01', name: 'Apple Leather', image: '/ed-tophandle.jpeg', flip: false, cream: false,
+    body: `It starts as waste &mdash; the skins and pulp left over from apple juice and food production. That&rsquo;s dried, ground into a fine powder, and bound into a flexible, durable sheet, then finished to the texture, weight and surface feel we&rsquo;re after. Ours is sourced from Italy, where the apple industry produces a consistent, high-quality supply year-round &mdash; the result has structure, softness, and a clean natural scent.`,
+    tags: ['Plant-based', 'From food waste', 'Made in Italy'],
+  },
+  {
+    n: '02', name: 'Other Plant Leathers', image: '/home/d3.avif', flip: true, cream: true,
+    body: `We work with leathers made from other plant sources too &mdash; cactus, pineapple, and other fruit and vegetable by-products, developed through a similar process. Food-industry waste, transformed into something durable and beautifully finished.`,
+    tags: ['Cactus', 'Pineapple', 'Plant-based'],
+  },
+  {
+    n: '03', name: 'Microfibre Leather', image: '/home/d5.avif', flip: false, cream: false,
+    body: `Microfibre doesn&rsquo;t get enough credit. It&rsquo;s exceptionally soft against the hand, consistent in finish, and remarkably durable over time. We use it in select styles where we want a lighter weight and a refined, smooth surface &mdash; it performs quietly and reliably, which is exactly what we look for.`,
+    tags: ['Lightweight', 'Ultra-soft', 'Durable'],
+  },
+  {
+    n: '04', name: 'Engineered Vegan Leather', image: '/home/d4.avif', flip: true, cream: true,
+    body: `Not all synthetic materials are created equal. The ones we use are engineered for performance &mdash; and in our testing, several have matched or outperformed conventional leather on durability, scratch resistance, and finish consistency. We choose materials on merit: if an engineered vegan leather holds up better for a particular bag, that&rsquo;s what we use.`,
+    tags: ['Performance-tested', 'Scratch-resistant', 'Consistent'],
+  },
+];
+
+const STEPS = [
+  { n: '01', name: 'Waste', body: 'Skins and pulp left over from apple juice and food production — material that would otherwise be discarded.' },
+  { n: '02', name: 'Powder', body: 'Dried and ground into a fine, natural powder.' },
+  { n: '03', name: 'Sheet', body: 'Bound into a flexible, durable sheet with real structure.' },
+  { n: '04', name: 'Finished', body: 'Textured and finished to the weight, softness and feel we&rsquo;re after.' },
+];
 ---
-<LegalPage eyebrow="Materials" heading="Materials" lede="Just as beautiful. Without the harm.">
-  <p>Animal leather is a by-product of an industry built on harm. The tanning process is one of the most chemically intensive in fashion &mdash; heavy on water use, heavy on pollutants. We don&rsquo;t want any part of that. We&rsquo;d rather make something just as beautiful without it.</p>
-  <p>This isn&rsquo;t a compromise. The bags look great, feel great, and last years. The only thing missing is the harm.</p>
+<SiteHeader />
 
-  <h2>Apple Leather</h2>
-  <p>Apple leather starts as waste. The skins and pulp left over from apple juice and food production &mdash; material that would otherwise be discarded &mdash; are dried, ground into a fine powder, and mixed with a binding agent to form a flexible, durable sheet. It&rsquo;s then finished to achieve the texture, weight, and surface feel we&rsquo;re after.</p>
-  <p>Ours is sourced from Italy, where the apple industry produces a consistent, high-quality supply year-round. The result has structure, softness, and a clean natural scent.</p>
+<main class="mt">
+  <!-- ── Hero ── -->
+  <section class="mt-hero">
+    <div class="mt-hero__img"><img src="/Hero.jpeg" alt="Mir Kash materials" /></div>
+    <div class="mt-hero__scrim" aria-hidden="true"></div>
+    <div class="mt-hero__in">
+      <p class="mt-eyebrow mt-eyebrow--light">Materials</p>
+      <h1 class="mt-display mt-hero__h">Just as beautiful. <em>Without the harm.</em></h1>
+    </div>
+  </section>
 
-  <h2>Other Plant Leathers</h2>
-  <p>We work with leathers made from other plant sources too &mdash; cactus, pineapple, and other fruit and vegetable by-products developed through a similar process. Food industry waste, transformed into something durable and well-finished.</p>
+  <!-- ── Ethics intro ── -->
+  <section class="mt-ethic reveal">
+    <p class="mt-display mt-ethic__lead">Animal leather is a by-product of an industry built on harm &mdash; one of the most chemically intensive processes in fashion, heavy on water and pollutants. We&rsquo;d rather make something just as beautiful without it.</p>
+    <p class="mt-ethic__sub">This isn&rsquo;t a compromise. The bags look great, feel great, and last years. The only thing missing is the harm.</p>
+  </section>
 
-  <h2>Microfibre Leather</h2>
-  <p>Microfibre is one of those materials that doesn&rsquo;t get enough credit. It&rsquo;s exceptionally soft against the hand, consistent in finish, and remarkably durable over time. We use it in select styles where we want a lighter weight and a refined, smooth surface. It performs quietly and reliably &mdash; exactly what we look for.</p>
+  <!-- ── Apple Leather (lead material) ── -->
+  <section class="mt-mat reveal">
+    <div class="mt-mat__inner">
+      <a class="mt-mat__media"><img src={MATERIALS[0].image} alt={MATERIALS[0].name} loading="lazy" /></a>
+      <div class="mt-mat__text">
+        <span class="mt-mat__n">{MATERIALS[0].n}</span>
+        <h2 class="mt-display mt-mat__name">{MATERIALS[0].name}</h2>
+        <p class="mt-mat__body" set:html={MATERIALS[0].body}></p>
+        <div class="mt-tags">{MATERIALS[0].tags.map((t) => <span class="mt-tag">{t}</span>)}</div>
+      </div>
+    </div>
+  </section>
 
-  <h2>Synthetic Vegan Leather</h2>
-  <p>Not all synthetic materials are created equal. The ones we use are engineered for performance &mdash; and in our testing, several have matched or outperformed conventional leather on durability, scratch resistance, and finish consistency. We choose materials on merit. If a synthetic vegan leather holds up better for a particular bag, that&rsquo;s what we use.</p>
+  <!-- ── Process band: how apple becomes leather ── -->
+  <section class="mt-proc reveal">
+    <div class="mt-proc__head">
+      <p class="mt-eyebrow">The process</p>
+      <h2 class="mt-display mt-proc__h">How an apple becomes leather</h2>
+    </div>
+    <ol class="mt-steps">
+      {STEPS.map((s) => (
+        <li class="mt-step">
+          <span class="mt-step__n">{s.n}</span>
+          <h3 class="mt-display mt-step__name">{s.name}</h3>
+          <p class="mt-step__body" set:html={s.body}></p>
+        </li>
+      ))}
+    </ol>
+  </section>
 
-  <h2>Every detail, considered</h2>
-  <p>The material is only part of it. Every Mir Kash bag is handcrafted &mdash; and the quality shows in how it feels to use. Stitching, zips, clasps, hardware &mdash; each detail is considered and tested until it&rsquo;s exactly right. We believe a bag should be a pleasure to use, not just to look at.</p>
-</LegalPage>
+  <!-- ── Remaining materials ── -->
+  {MATERIALS.slice(1).map((m) => (
+    <section class:list={['mt-mat', 'reveal', m.flip && 'mt-mat--flip', m.cream && 'mt-mat--cream']}>
+      <div class="mt-mat__inner">
+        <a class="mt-mat__media"><img src={m.image} alt={m.name} loading="lazy" /></a>
+        <div class="mt-mat__text">
+          <span class="mt-mat__n">{m.n}</span>
+          <h2 class="mt-display mt-mat__name">{m.name}</h2>
+          <p class="mt-mat__body" set:html={m.body}></p>
+          <div class="mt-tags">{m.tags.map((t) => <span class="mt-tag">{t}</span>)}</div>
+        </div>
+      </div>
+    </section>
+  ))}
+
+  <!-- ── Craft closing ── -->
+  <section class="mt-craft reveal">
+    <p class="mt-eyebrow">The details</p>
+    <h2 class="mt-display mt-craft__h">Every detail, considered</h2>
+    <p class="mt-craft__body">The material is only part of it. Every Mir Kash bag is handcrafted &mdash; and the quality shows in how it feels to use. Stitching, zips, clasps, hardware: each detail is considered and tested until it&rsquo;s exactly right. A bag should be a pleasure to use, not just to look at.</p>
+    <a class="mt-craft__btn" href={`${prefix}/shop`}>Explore the collection</a>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
+  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
+  body { background: #fff; }
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .mt {
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --cream: #F6F1E9; --ink: #463d34; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
+    background: #fff; color: var(--depth);
+  }
+  .mt-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
+  .mt em { font-style: italic; color: var(--cherry); }
+  .mt-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
+  .mt-eyebrow--light { color: rgba(255,255,255,.85); }
+
+  /* Hero */
+  .mt-hero { position: relative; height: clamp(360px, 62vh, 620px); color: #fff; overflow: hidden; display: flex; align-items: flex-end; }
+  .mt-hero__img, .mt-hero__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .mt-hero__scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,4,.28) 0%, rgba(20,10,4,.08) 40%, rgba(20,10,4,.6) 100%); }
+  .mt-hero__in { position: relative; z-index: 2; padding: clamp(32px,5vw,64px) clamp(24px,5vw,72px); max-width: 900px; }
+  .mt-hero__h { font-size: clamp(38px,5.6vw,76px); line-height: 1.02; color: #fff; margin: 14px 0 0; max-width: 15ch; text-wrap: balance; }
+  .mt-hero__h em { color: #f0c9c2; }
+
+  /* Ethics intro */
+  .mt-ethic { max-width: 820px; margin: 0 auto; text-align: center; padding: clamp(56px,7vw,110px) 24px clamp(40px,5vw,64px); }
+  .mt-ethic__lead { font-size: clamp(24px,3vw,38px); line-height: 1.35; color: var(--depth); margin: 0 0 24px; text-wrap: balance; }
+  .mt-ethic__sub { font-size: 15.5px; line-height: 1.8; color: var(--mid); max-width: 52ch; margin: 0 auto; }
+
+  /* Material sections (alternating) */
+  .mt-mat { padding: clamp(44px,6vw,96px) 0; }
+  .mt-mat--cream { background: var(--cream); }
+  .mt-mat__inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: clamp(32px,5vw,80px); max-width: 1200px; margin: 0 auto; padding: 0 clamp(24px,4vw,56px); }
+  .mt-mat--flip .mt-mat__media { order: 2; }
+  .mt-mat__media { display: block; aspect-ratio: 5/6; overflow: hidden; background: var(--cream); }
+  .mt-mat__media img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s ease; }
+  .mt-mat:hover .mt-mat__media img { transform: scale(1.03); }
+  .mt-mat__n { font-family: var(--serif); font-size: 22px; color: var(--cherry); }
+  .mt-mat__name { font-size: clamp(30px,3.8vw,50px); line-height: 1.02; color: var(--depth); margin: 8px 0 18px; text-wrap: balance; }
+  .mt-mat__body { font-size: 15.5px; line-height: 1.9; color: var(--ink); max-width: 46ch; margin: 0; }
+  .mt-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+  .mt-tag { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px; }
+
+  /* Process band */
+  .mt-proc { background: var(--depth); color: #fff; padding: clamp(52px,6.5vw,96px) clamp(24px,4vw,56px); }
+  .mt-proc__head { text-align: center; margin-bottom: clamp(32px,4vw,52px); }
+  .mt-proc__head .mt-eyebrow { color: #e7b7ae; }
+  .mt-proc__h { font-size: clamp(28px,3.6vw,46px); color: #fff; margin: 12px 0 0; }
+  .mt-steps { list-style: none; margin: 0 auto; padding: 0; max-width: 1100px; display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(20px,3vw,44px); }
+  .mt-step { border-top: 1px solid rgba(255,255,255,.22); padding-top: 20px; }
+  .mt-step__n { font-family: var(--serif); font-size: 30px; color: #e7b7ae; line-height: 1; }
+  .mt-step__name { font-size: 22px; color: #fff; margin: 10px 0 8px; }
+  .mt-step__body { font-size: 13.5px; line-height: 1.7; color: rgba(255,255,255,.72); margin: 0; }
+
+  /* Craft closing */
+  .mt-craft { text-align: center; max-width: 640px; margin: 0 auto; padding: clamp(56px,7vw,110px) 24px; }
+  .mt-craft .mt-eyebrow { text-align: center; }
+  .mt-craft__h { font-size: clamp(30px,4vw,50px); color: var(--depth); margin: 12px 0 18px; }
+  .mt-craft__body { font-size: 15.5px; line-height: 1.85; color: var(--mid); margin: 0 0 32px; }
+  .mt-craft__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 15px 34px; transition: background .25s; }
+  .mt-craft__btn:hover { background: var(--cherry); }
+
+  /* Reveal on scroll */
+  .reveal { opacity: 0; transform: translateY(20px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 860px) {
+    .mt-mat__inner { grid-template-columns: 1fr; gap: 24px; }
+    .mt-mat--flip .mt-mat__media { order: 0; }
+    .mt-mat__media { aspect-ratio: 4/3; }
+    .mt-steps { grid-template-columns: 1fr 1fr; gap: 26px; }
+  }
+  @media (max-width: 480px) { .mt-steps { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .mt-mat__media img { transition: none; } }
+</style>
+
+<script is:inline>
+  (function () {
+    var els = document.querySelectorAll('.mt .reveal');
+    if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    els.forEach(function (e) { io.observe(e); });
+  })();
+</script>
