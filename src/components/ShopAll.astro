@@ -28,6 +28,7 @@ const lightProducts = products.map((p) => ({
   handle: p.handle,
   name: p.title.toUpperCase(),
   price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
+  variantId: p.variants?.edges?.[0]?.node.id ?? '',
   cat: normalizeCat(p.productType || '', p.tags),
   material: p.tags.find((t) => /leather|cactus|apple|rattan/i.test(t)) ?? '',
   badge: p.tags.includes('best-seller')
@@ -67,7 +68,7 @@ const lightProducts = products.map((p) => ({
 
 <SiteFooter />
 
-<script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix }}>
+<script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix, store: market, countryCode: marketConfig.countryCode }}>
   const grid = document.getElementById('shopGrid');
 
   // Favorites (heart) — persisted in localStorage by product handle
@@ -144,17 +145,33 @@ const lightProducts = products.map((p) => ({
     });
 
     const qa = card.querySelector('.shop-card__quick-add');
-    qa.addEventListener('click', (e) => {
+    qa.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (qa.classList.contains('is-added')) return;
-      const original = qa.textContent;
-      qa.classList.add('is-added');
-      qa.textContent = 'Added ✓';
-      setTimeout(() => {
+      if (qa.dataset.busy === '1') return;
+      // No variant id (or single-option lookup needed) → send them to the product page.
+      if (!p.variantId) { window.location.href = `${marketPrefix}/products/${p.handle}`; return; }
+      const original = qa.dataset.label || qa.textContent;
+      qa.dataset.label = original;
+      qa.dataset.busy = '1';
+      qa.textContent = 'Adding…';
+      try {
+        const res = await fetch('/api/cart/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ merchandiseId: p.variantId, quantity: 1, store, countryCode }),
+        });
+        if (!res.ok) throw new Error('add failed');
+        const cart = await res.json();
+        document.querySelectorAll('.hdr-bag__count, .bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
+        qa.classList.add('is-added');
+        qa.textContent = 'Added ✓';
+        setTimeout(() => { qa.textContent = original; qa.classList.remove('is-added'); qa.dataset.busy = ''; }, 1500);
+      } catch {
         qa.textContent = original;
-        qa.classList.remove('is-added');
-      }, 1400);
+        qa.dataset.busy = '';
+        window.location.href = `${marketPrefix}/products/${p.handle}`;
+      }
     });
 
     return card;
