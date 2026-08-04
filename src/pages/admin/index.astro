@@ -4,7 +4,9 @@ import AdminDashboard from '~/components/AdminDashboard.astro';
 
 export const prerender = false;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
+// Never index this route — stronger than robots.txt (applies even to a direct link).
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
 ---
-<BaseLayout title="Founders' Dashboard — Mir Kash" path="/admin">
+<BaseLayout title="Mir Kash" path="/admin">
   <AdminDashboard />
 </BaseLayout>

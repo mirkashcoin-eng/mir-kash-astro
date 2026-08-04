@@ -8,7 +8,11 @@ export const prerender = false;
 const json = (obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'private, no-store',
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
   });
 
 // Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email

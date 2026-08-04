@@ -6,7 +6,7 @@ import { POSTS } from '~/data/journal';
 export const prerender = false;
 
 // Route prefixes that must never appear in the sitemap (not indexable / not pages).
-const EXCLUDE = ['/api', '/cart', '/checkout', '/account', '/404', '/sitemap'];
+const EXCLUDE = ['/api', '/cart', '/checkout', '/account', '/admin', '/404', '/sitemap'];
 const isExcluded = (p: string) => EXCLUDE.some((x) => p === x || p.startsWith(x + '/'));
 
 // Auto-discover every static page from the file system, so a newly added page is
