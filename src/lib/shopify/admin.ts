@@ -670,3 +670,55 @@ export async function getAbandonedCheckouts(): Promise<AbandonedCheckout[]> {
     };
   });
 }
+
+// ── Founders' dashboard: recent orders (all, not by email) ──────────────────────
+export interface RecentOrder {
+  id: string;
+  name: string;
+  createdAt: string;
+  customer: string | null;
+  email: string | null;
+  total: Money | null;
+  items: string;
+  fulfillment: string;
+  financial: string;
+  cancelled: boolean;
+}
+
+const RECENT_ORDERS = /* GraphQL */ `
+  query RecentOrders {
+    orders(first: 30, sortKey: CREATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt email cancelledAt
+        displayFinancialStatus displayFulfillmentStatus
+        totalPriceSet { shopMoney { amount currencyCode } }
+        shippingAddress { name }
+        lineItems(first: 5) { edges { node { title quantity } } }
+      } }
+    }
+  }
+`;
+
+export async function getRecentOrders(): Promise<RecentOrder[]> {
+  const data = await runAdminQuery<{
+    orders: { edges: Array<{ node: {
+      id: string; name: string; createdAt: string; email: string | null; cancelledAt: string | null;
+      displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
+      totalPriceSet: { shopMoney: Money } | null;
+      shippingAddress: { name: string | null } | null;
+      lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+    } }> };
+  }>(RECENT_ORDERS);
+  return (data?.orders?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    name: node.name,
+    createdAt: node.createdAt,
+    customer: node.shippingAddress?.name ?? null,
+    email: node.email,
+    total: node.totalPriceSet?.shopMoney ?? null,
+    items: node.lineItems.edges.map((e) => `${e.node.quantity}× ${e.node.title}`).join(', '),
+    fulfillment: node.displayFulfillmentStatus ?? '',
+    financial: node.displayFinancialStatus ?? '',
+    cancelled: !!node.cancelledAt,
+  }));
+}

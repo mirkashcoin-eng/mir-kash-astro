@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { verifyFirebaseUser } from '~/lib/firebaseAuth';
 import { isAdmin } from '~/lib/adminAuth';
-import { getDemoBookings, getAbandonedCheckouts } from '~/lib/shopify/admin';
+import { getDemoBookings, getAbandonedCheckouts, getRecentOrders } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
@@ -19,6 +19,10 @@ export const GET: APIRoute = async ({ request }) => {
   if (!user) return json({ error: 'Not signed in' }, 401);
   if (!isAdmin(user.email)) return json({ error: 'Not authorised' }, 403);
 
-  const [demos, abandoned] = await Promise.all([getDemoBookings(), getAbandonedCheckouts()]);
-  return json({ demos, abandoned });
+  const [demos, abandoned, orders] = await Promise.all([
+    getDemoBookings(),
+    getAbandonedCheckouts(),
+    getRecentOrders(),
+  ]);
+  return json({ demos, abandoned, orders });
 };
