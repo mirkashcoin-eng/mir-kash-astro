@@ -561,3 +561,112 @@ export async function subscribeEmail(email: string): Promise<{ ok: boolean; erro
   if (!data) return { ok: false, error: 'Newsletter is not configured yet.' };
   return { ok: false, error: errs[0]?.message || 'Could not subscribe right now.' };
 }
+
+// ── Founders' dashboard: home-demo bookings + abandoned checkouts ────────────────
+export interface DemoBooking {
+  id: string;
+  name: string;
+  createdAt: string;
+  customer: string | null;
+  email: string | null;
+  phone: string | null;
+  date: string;
+  slot: string;
+  bags: string;
+  address: string | null;
+}
+
+const DEMO_BOOKINGS = /* GraphQL */ `
+  query DemoBookings {
+    draftOrders(first: 50, query: "tag:home-demo", sortKey: CREATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt email phone
+        customAttributes { key value }
+        shippingAddress { name address1 address2 city province zip }
+      } }
+    }
+  }
+`;
+
+export async function getDemoBookings(): Promise<DemoBooking[]> {
+  const data = await runAdminQuery<{
+    draftOrders: { edges: Array<{ node: {
+      id: string; name: string; createdAt: string; email: string | null; phone: string | null;
+      customAttributes: Array<{ key: string; value: string }>;
+      shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
+    } }> };
+  }>(DEMO_BOOKINGS);
+  return (data?.draftOrders?.edges ?? []).map(({ node }) => {
+    const attr = (k: string) => node.customAttributes.find((a) => a.key === k)?.value ?? '';
+    const a = node.shippingAddress;
+    const address = a ? [a.address1, a.address2, a.city, a.province, a.zip].filter(Boolean).join(', ') : null;
+    return {
+      id: node.id,
+      name: node.name,
+      createdAt: node.createdAt,
+      customer: a?.name ?? null,
+      email: node.email,
+      phone: node.phone,
+      date: attr('demo_date'),
+      slot: attr('demo_slot'),
+      bags: attr('demo_bags'),
+      address,
+    };
+  });
+}
+
+export interface AbandonedCheckout {
+  id: string;
+  name: string;
+  createdAt: string;
+  customer: string | null;
+  email: string | null;
+  phone: string | null;
+  total: Money | null;
+  items: string;
+  recoveryUrl: string | null;
+}
+
+const ABANDONED_CHECKOUTS = /* GraphQL */ `
+  query Abandoned {
+    abandonedCheckouts(first: 50, sortKey: CREATED_AT, reverse: true) {
+      edges { node {
+        id
+        abandonedCheckoutUrl
+        createdAt
+        totalPriceSet { shopMoney { amount currencyCode } }
+        customer { firstName lastName email phone }
+        lineItems(first: 10) { edges { node { title quantity } } }
+      } }
+    }
+  }
+`;
+
+// Shopify-hosted abandoned checkouts (Global flow). Returns [] if the scope is
+// missing or the query errors — the India Firestore leads are the primary signal.
+export async function getAbandonedCheckouts(): Promise<AbandonedCheckout[]> {
+  const data = await runAdminQuery<{
+    abandonedCheckouts: { edges: Array<{ node: {
+      id: string; abandonedCheckoutUrl: string | null; createdAt: string;
+      totalPriceSet: { shopMoney: Money } | null;
+      customer: { firstName: string | null; lastName: string | null; email: string | null; phone: string | null } | null;
+      lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+    } }> };
+  }>(ABANDONED_CHECKOUTS);
+  return (data?.abandonedCheckouts?.edges ?? []).map(({ node }) => {
+    const c = node.customer;
+    const name = c ? [c.firstName, c.lastName].filter(Boolean).join(' ') || null : null;
+    const items = node.lineItems.edges.map((e) => `${e.node.quantity}× ${e.node.title}`).join(', ');
+    return {
+      id: node.id,
+      name: '#' + (node.id.split('/').pop() ?? ''),
+      createdAt: node.createdAt,
+      customer: name,
+      email: c?.email ?? null,
+      phone: c?.phone ?? null,
+      total: node.totalPriceSet?.shopMoney ?? null,
+      items,
+      recoveryUrl: node.abandonedCheckoutUrl,
+    };
+  });
+}

@@ -1,0 +1,10 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import AdminDashboard from '~/components/AdminDashboard.astro';
+
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+<BaseLayout title="Founders' Dashboard — Mir Kash" path="/admin">
+  <AdminDashboard />
+</BaseLayout>
