@@ -18,13 +18,13 @@ const ready = firebaseConfigured();
     </div>
   </section>
 
-  <!-- Not authorised -->
+  <!-- Message (not authorised / auth error) -->
   <section class="ad-gate" id="denied" hidden>
     <div class="ad-gate__card">
-      <p class="ad-eyebrow">Restricted</p>
-      <h1 class="ad-display ad-gate__h">Not authorised</h1>
-      <p class="ad-gate__p">This account isn’t on the founders' list. <span id="deniedWho"></span></p>
-      <button class="ad-textbtn" id="denyOut" type="button">Sign out</button>
+      <p class="ad-eyebrow" id="denyKicker">Restricted</p>
+      <h1 class="ad-display ad-gate__h" id="denyTitle">Not authorised</h1>
+      <p class="ad-gate__p" id="denyMsg"></p>
+      <button class="ad-textbtn" id="denyOut" type="button">Sign out &amp; try another account</button>
     </div>
   </section>
 
@@ -133,15 +133,36 @@ const ready = firebaseConfigured();
     (document.querySelector('.ad-main') as HTMLElement)?.scrollTo({ top: 0 });
   }
 
+  function showMsg(kicker: string, title: string, msg: string) {
+    $('gate').hidden = true;
+    $('denyKicker').textContent = kicker;
+    $('denyTitle').textContent = title;
+    $('denyMsg').textContent = msg;
+    $('denied').hidden = false;
+  }
+
   async function init() {
+    $('denied').hidden = true;
     const user = await getSessionUser();
     if (!user) { $('gate').hidden = false; return; }
+    const email = user.email ?? '(no email)';
 
     let token = await getIdToken();
-    let res = await fetch('/api/admin/data', { headers: { Authorization: 'Bearer ' + token } });
-    if (res.status === 401) { token = await getIdToken(true); res = await fetch('/api/admin/data', { headers: { Authorization: 'Bearer ' + token } }); }
-    if (res.status === 403) { $('denied').hidden = false; $('deniedWho').textContent = 'Signed in as ' + (user.email ?? '') + '.'; return; }
-    if (!res.ok) { $('gate').hidden = false; return; }
+    let res = await fetch('/api/admin/data', { headers: { Authorization: 'Bearer ' + (token || '') } });
+    if (res.status === 401) { token = await getIdToken(true); res = await fetch('/api/admin/data', { headers: { Authorization: 'Bearer ' + (token || '') } }); }
+
+    if (res.status === 403) {
+      showMsg('Restricted', 'Not authorised', 'You’re signed in as ' + email + ', but this exact email isn’t in the ADMIN_EMAILS allowlist. Add it in Vercel (character-for-character) and redeploy.');
+      return;
+    }
+    if (res.status === 401) {
+      showMsg('Auth error', 'Sign-in couldn’t be verified', 'Signed in as ' + email + ', but the server rejected the token (401). This is a Firebase project-id / server-env issue, not your account.');
+      return;
+    }
+    if (!res.ok) {
+      showMsg('Error', 'Couldn’t load the dashboard', 'Signed in as ' + email + ' — the data request failed (error ' + res.status + '). Please try again shortly.');
+      return;
+    }
 
     $('shell').hidden = false;
     $('whoMini').textContent = user.email ?? '';
@@ -189,8 +210,14 @@ const ready = firebaseConfigured();
   }
 
   $('googleBtn')?.addEventListener('click', async () => {
-    try { await signInWithGoogle(); location.reload(); }
-    catch (e: any) { const c = e?.code || e?.message || 'unknown'; if (c !== 'auth/popup-closed-by-user' && c !== 'auth/cancelled-popup-request') alert('Sign-in failed: ' + c); }
+    try {
+      const u = await signInWithGoogle();
+      if (u) { $('gate').hidden = true; await init(); }  // use the in-memory session; no reload
+    } catch (e: any) {
+      const c = e?.code || e?.message || 'unknown';
+      if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+      showMsg('Sign-in failed', 'Couldn’t sign in', c + (c === 'auth/unauthorized-domain' ? ' — add this domain in Firebase → Authentication → Authorized domains.' : ''));
+    }
   });
   const out = async () => { await signOut(); location.reload(); };
   $('signoutBtn')?.addEventListener('click', out);
