@@ -19,3 +19,15 @@ export function isAdmin(email: string | null | undefined): boolean {
   if (!email) return false;
   return adminEmails().includes(email.trim().toLowerCase());
 }
+
+// Simple shared-secret gate for the dashboard (no Google needed). Verified server-side
+// against ADMIN_PASSCODE over HTTPS. Fail-closed: no passcode configured → always false.
+export function passcodeOk(key: string | null | undefined): boolean {
+  const set = getEnv('ADMIN_PASSCODE');
+  if (!set || !key) return false;
+  // length-independent-ish constant compare
+  if (key.length !== set.length) return false;
+  let diff = 0;
+  for (let i = 0; i < set.length; i++) diff |= key.charCodeAt(i) ^ set.charCodeAt(i);
+  return diff === 0;
+}

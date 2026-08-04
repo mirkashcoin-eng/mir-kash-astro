@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { verifyFirebaseUser } from '~/lib/firebaseAuth';
-import { isAdmin } from '~/lib/adminAuth';
+import { isAdmin, passcodeOk } from '~/lib/adminAuth';
 import { getDemoBookings, getAbandonedCheckouts, getRecentOrders } from '~/lib/shopify/admin';
 
 export const prerender = false;
@@ -14,10 +14,15 @@ const json = (obj: unknown, status = 200) =>
 // Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email
 // must be in the ADMIN_EMAILS allowlist. India Admin data only.
 export const GET: APIRoute = async ({ request }) => {
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const user = await verifyFirebaseUser(token);
-  if (!user) return json({ error: 'Not signed in' }, 401);
-  if (!isAdmin(user.email)) return json({ error: 'Not authorised' }, 403);
+  // Two ways in: a shared passcode (x-admin-key header) OR a Firebase admin token.
+  const key = request.headers.get('x-admin-key');
+  let ok = passcodeOk(key);
+  if (!ok) {
+    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    const user = token ? await verifyFirebaseUser(token) : null;
+    ok = Boolean(user && isAdmin(user.email));
+  }
+  if (!ok) return json({ error: 'Not authorised' }, 401);
 
   const [demos, abandoned, orders] = await Promise.all([
     getDemoBookings(),
