@@ -76,7 +76,7 @@ const ready = firebaseConfigured();
 </main>
 
 <script>
-  import { getSessionUser, getIdToken, signInWithGoogle, signInWithGoogleRedirect, completeRedirect, signOut, getCheckoutLeads } from '~/lib/firebaseClient';
+  import { getSessionUser, getIdToken, signInWithGoogleRedirect, completeRedirect, signOut, getCheckoutLeads } from '~/lib/firebaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const inr = (amount?: string | null, cur = 'INR') => {
@@ -215,23 +215,18 @@ const ready = firebaseConfigured();
     const btn = $('googleBtn') as HTMLButtonElement;
     const st = $('signinStatus');
     btn.disabled = true;
-    st.textContent = 'Trying popup…';
-    // 1) Try popup (fast when it works).
-    try {
-      const u = await signInWithGoogle();
-      if (u) { $('gate').hidden = true; await init(); return; }
-    } catch (e: any) {
-      const c = e?.code || e?.message || '';
-      if (c === 'auth/unauthorized-domain') {
-        st.textContent = 'Blocked: ' + c + ' — add ' + location.hostname + ' in Firebase → Authentication → Authorized domains.';
-        btn.disabled = false; return;
-      }
-      // fall through to redirect for popup-blocked / closed / storage errors
-    }
-    // 2) Fall back to full-page redirect (works where popups are blocked).
+    // Go straight to a full-page redirect — the popup hangs on this browser (it can't
+    // post the result back across origins). Redirect navigates away and returns signed in.
     st.textContent = 'Redirecting to Google…';
-    try { await signInWithGoogleRedirect(); }
-    catch (e2: any) { st.textContent = 'Sign-in error: ' + (e2?.code || e2?.message || 'unknown'); btn.disabled = false; }
+    try {
+      await signInWithGoogleRedirect();
+    } catch (e: any) {
+      const c = e?.code || e?.message || 'unknown';
+      st.textContent = c === 'auth/unauthorized-domain'
+        ? 'Blocked: ' + c + ' — add ' + location.hostname + ' to Firebase → Authentication → Authorized domains.'
+        : 'Sign-in error: ' + c;
+      btn.disabled = false;
+    }
   });
   const out = async () => { await signOut(); location.reload(); };
   $('signoutBtn')?.addEventListener('click', out);
