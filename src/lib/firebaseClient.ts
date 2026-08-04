@@ -3,7 +3,8 @@
 // project. Degrades to no-ops until PUBLIC_FIREBASE_* are configured.
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut as fbSignOut,
   onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail,
   setPersistence, browserLocalPersistence,
   type Auth, type User,
@@ -64,6 +65,20 @@ export async function signInWithGoogle(): Promise<User | null> {
   if (!init()) return null;
   const { user } = await signInWithPopup(auth!, new GoogleAuthProvider());
   return user;
+}
+
+// Full-page redirect sign-in — the reliable fallback when a popup is blocked/closed
+// (strict third-party-storage browsers). Navigates away; the session is picked up by
+// completeRedirect() on return.
+export async function signInWithGoogleRedirect(): Promise<void> {
+  if (!init()) return;
+  await signInWithRedirect(auth!, new GoogleAuthProvider());
+}
+
+export async function completeRedirect(): Promise<User | null> {
+  if (!init()) return null;
+  try { const r = await getRedirectResult(auth!); return r?.user ?? null; }
+  catch { return null; }
 }
 
 export async function signOut(): Promise<void> {

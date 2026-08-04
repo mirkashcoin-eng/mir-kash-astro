@@ -75,7 +75,7 @@ const ready = firebaseConfigured();
 </main>
 
 <script>
-  import { getSessionUser, getIdToken, signInWithGoogle, signOut, getCheckoutLeads } from '~/lib/firebaseClient';
+  import { getSessionUser, getIdToken, signInWithGoogle, signInWithGoogleRedirect, completeRedirect, signOut, getCheckoutLeads } from '~/lib/firebaseClient';
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const inr = (amount?: string | null, cur = 'INR') => {
@@ -143,6 +143,7 @@ const ready = firebaseConfigured();
 
   async function init() {
     $('denied').hidden = true;
+    await completeRedirect().catch(() => {}); // finish a pending redirect sign-in, if any
     const user = await getSessionUser();
     if (!user) { $('gate').hidden = false; return; }
     const email = user.email ?? '(no email)';
@@ -210,13 +211,21 @@ const ready = firebaseConfigured();
   }
 
   $('googleBtn')?.addEventListener('click', async () => {
+    const btn = $('googleBtn') as HTMLButtonElement;
+    btn.disabled = true;
     try {
-      const u = await signInWithGoogle();
-      if (u) { $('gate').hidden = true; await init(); }  // use the in-memory session; no reload
+      const u = await signInWithGoogle();          // try popup first
+      if (u) { $('gate').hidden = true; await init(); return; }
+      throw new Error('no-user');
     } catch (e: any) {
       const c = e?.code || e?.message || 'unknown';
-      if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
-      showMsg('Sign-in failed', 'Couldn’t sign in', c + (c === 'auth/unauthorized-domain' ? ' — add this domain in Firebase → Authentication → Authorized domains.' : ''));
+      if (c === 'auth/unauthorized-domain') {
+        showMsg('Sign-in failed', 'Couldn’t sign in', c + ' — add this domain in Firebase → Authentication → Authorized domains.');
+        btn.disabled = false; return;
+      }
+      // Popup blocked/closed/failed (common with strict privacy) → full-page redirect.
+      try { await signInWithGoogleRedirect(); }    // navigates away, returns signed in
+      catch (e2: any) { showMsg('Sign-in failed', 'Couldn’t sign in', (e2?.code || e2?.message || 'unknown')); btn.disabled = false; }
     }
   });
   const out = async () => { await signOut(); location.reload(); };
