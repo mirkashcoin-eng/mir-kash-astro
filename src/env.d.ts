@@ -9,6 +9,10 @@ declare global {
       marketConfig: MarketConfig;
     }
   }
+  interface Window {
+    // First-party funnel beacon (defined inline in BaseLayout).
+    mkTrack?: (event: string) => void;
+  }
 }
 
 interface ImportMetaEnv {

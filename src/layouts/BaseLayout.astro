@@ -89,6 +89,16 @@ const orgJsonLd = {
     <script define:vars={{ market }}>
       window.__MARKET__ = market;
     </script>
+
+    <!-- First-party funnel — anonymous, no cookies, aggregate counts only -->
+    <script is:inline>
+      window.mkTrack = function (e) {
+        try { if (navigator.sendBeacon) { navigator.sendBeacon('/api/track', e); return; } } catch (_) {}
+        try { fetch('/api/track?e=' + encodeURIComponent(e), { method: 'POST', keepalive: true }); } catch (_) {}
+      };
+      try { if (!sessionStorage.getItem('mk_v')) { sessionStorage.setItem('mk_v', '1'); window.mkTrack('visit'); } }
+      catch (_) { window.mkTrack('visit'); }
+    </script>
   </head>
   <body data-market={market}>
     <slot />

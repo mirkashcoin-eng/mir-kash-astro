@@ -284,6 +284,8 @@ const thumbGradients = [
   import { getSessionUser, loadProfile, signInWithGoogle, saveLead, ensureAccountFromCheckout, firebaseConfigured } from '~/lib/firebaseClient';
   import { citiesFor } from '~/lib/india-locations';
 
+  if (window.mkTrack) window.mkTrack('checkout_start');
+
   function fillCities(state: string) {
     const dl = document.getElementById('coCities'); if (!dl) return;
     dl.innerHTML = citiesFor(state).map((c) => `<option value="${c}"></option>`).join('');
@@ -483,6 +485,7 @@ const thumbGradients = [
   // ── Place order → Cashfree ──
   $('placeBtn').addEventListener('click', async () => {
     clearErr('payment');
+    if (window.mkTrack) window.mkTrack('payment_start');
     const btn = $('placeBtn') as HTMLButtonElement;
     const isCod = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'cod';
     btn.disabled = true;

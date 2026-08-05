@@ -163,6 +163,7 @@ const lightProducts = products.map((p) => ({
         });
         if (!res.ok) throw new Error('add failed');
         const cart = await res.json();
+        if (window.mkTrack) window.mkTrack('add_to_cart');
         document.querySelectorAll('.hdr-bag__count, .bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
         qa.classList.add('is-added');
         qa.textContent = 'Added ✓';
