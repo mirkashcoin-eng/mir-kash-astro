@@ -200,7 +200,8 @@
         var tel = (o.phone || '').replace(/[^0-9]/g, '');
         var status;
         if (kind === 'payment') status = '<span class="ad-pill ad-pill--wait">' + esc(fmtFinancial(o.financial)) + '</span>';
-        else if (kind === 'transit') status = '<span class="ad-pill ad-pill--good">' + esc(fmtDelivery(o.deliveryStatus) || 'In transit') + '</span>';
+        else if (kind === 'transit') { var eta = o.etaAt ? ' · ETA ' + when(o.etaAt) : ''; status = '<span class="ad-pill ad-pill--good">' + esc((fmtDelivery(o.deliveryStatus) || 'In transit') + eta) + '</span>'; }
+        else if (kind === 'delivered') { var dt = o.deliveredAt || o.fulfilledAt; status = '<span class="ad-pill ad-pill--done">' + esc((o.deliveredAt ? 'Delivered' : 'Fulfilled') + (dt ? ' · ' + when(dt) : '')) + '</span>'; }
         else status = '<span class="ad-pill ad-pill--wait">To fulfil</span>';
         var acts = [];
         if (kind === 'payment' && tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">Chase</a>');
@@ -228,9 +229,13 @@
       var payPending = live.filter(function (o) {
         return ['PENDING', 'AUTHORIZED', 'PARTIALLY_PAID'].indexOf(String(o.financial || '').toUpperCase()) > -1;
       });
+      var doneDate = function (o) { return new Date(o.deliveredAt || o.fulfilledAt || o.createdAt).getTime(); };
+      var fulfilled = live.filter(function (o) { return String(o.fulfillment || '').toUpperCase() === 'FULFILLED' || o.deliveredAt; })
+        .sort(function (a, b) { return doneDate(b) - doneDate(a); });
       body.innerHTML =
         opsPanel('Orders to fulfil', toFulfil.length, opsRows(toFulfil, 'fulfil'), 'Nothing waiting to be fulfilled — you’re all caught up.') +
         opsPanel('In transit / out for delivery', inTransit.length, opsRows(inTransit, 'transit'), 'No shipments in transit. This fills in when you fulfil orders with a tracking number in Shopify.') +
+        opsPanel('Fulfilled &amp; delivered', fulfilled.length, opsRows(fulfilled, 'delivered'), 'No fulfilled orders yet.') +
         opsPanel('Payments pending', payPending.length, opsRows(payPending, 'payment'), 'No pending payments — everything is paid.');
       var ids = {};
       toFulfil.concat(payPending).forEach(function (o) { ids[o.id] = 1; });
