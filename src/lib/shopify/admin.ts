@@ -615,6 +615,32 @@ export async function getDemoBookings(): Promise<DemoBooking[]> {
   });
 }
 
+export interface AbandonedLine {
+  title: string;
+  variant: string | null;
+  quantity: number;
+  price: Money | null;
+}
+export interface AbandonedAddress {
+  name: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  province: string | null;
+  zip: string | null;
+  country: string | null;
+  phone: string | null;
+}
+// Full breakdown shown when a founder opens an abandoned checkout (Shopify-style).
+export interface AbandonedDetail {
+  address: AbandonedAddress | null;
+  lines: AbandonedLine[];
+  subtotal: Money | null;
+  shipping: Money | null;
+  total: Money | null;
+  adminUrl: string | null; // opens the draft in Shopify admin
+  tags: string[];
+}
 export interface AbandonedCheckout {
   id: string;
   name: string;
@@ -625,6 +651,7 @@ export interface AbandonedCheckout {
   total: Money | null;
   items: string;
   recoveryUrl: string | null;
+  detail?: AbandonedDetail;
 }
 
 const ABANDONED_CHECKOUTS = /* GraphQL */ `
@@ -684,31 +711,53 @@ const ABANDONED_DRAFTS = /* GraphQL */ `
   query AbandonedDrafts {
     draftOrders(first: 50, query: "status:open AND tag:web-otp", sortKey: UPDATED_AT, reverse: true) {
       edges { node {
-        id name createdAt email
+        id name createdAt email tags
+        subtotalPriceSet { shopMoney { amount currencyCode } }
+        totalShippingPriceSet { shopMoney { amount currencyCode } }
         totalPriceSet { shopMoney { amount currencyCode } }
-        shippingAddress { firstName lastName phone }
-        lineItems(first: 10) { edges { node { title quantity } } }
+        shippingAddress { name firstName lastName address1 address2 city province zip country phone }
+        lineItems(first: 25) { edges { node {
+          title quantity variantTitle
+          originalUnitPriceSet { shopMoney { amount currencyCode } }
+        } } }
       } }
     }
   }
 `;
 
+interface RawAbandonedDraft {
+  id: string; name: string; createdAt: string; email: string | null; tags: string[];
+  subtotalPriceSet: { shopMoney: Money } | null;
+  totalShippingPriceSet: { shopMoney: Money } | null;
+  totalPriceSet: { shopMoney: Money } | null;
+  shippingAddress: {
+    name: string | null; firstName: string | null; lastName: string | null;
+    address1: string | null; address2: string | null; city: string | null;
+    province: string | null; zip: string | null; country: string | null; phone: string | null;
+  } | null;
+  lineItems: { edges: Array<{ node: {
+    title: string; quantity: number; variantTitle: string | null;
+    originalUnitPriceSet: { shopMoney: Money } | null;
+  } }> };
+}
+
 export async function getAbandonedDrafts(): Promise<AbandonedCheckout[]> {
-  const data = await runAdminQuery<{
-    draftOrders: { edges: Array<{ node: {
-      id: string; name: string; createdAt: string; email: string | null;
-      totalPriceSet: { shopMoney: Money } | null;
-      shippingAddress: { firstName: string | null; lastName: string | null; phone: string | null } | null;
-      lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
-    } }> };
-  }>(ABANDONED_DRAFTS);
+  const data = await runAdminQuery<{ draftOrders: { edges: Array<{ node: RawAbandonedDraft }> } }>(ABANDONED_DRAFTS);
   const now = Date.now();
+  const domain = adminDomain();
   return (data?.draftOrders?.edges ?? [])
     .filter(({ node }) => now - new Date(node.createdAt).getTime() >= ABANDON_MIN_AGE_MS)
     .map(({ node }) => {
       const a = node.shippingAddress;
-      const name = a ? [a.firstName, a.lastName].filter(Boolean).join(' ') || null : null;
-      const items = node.lineItems.edges.map((e) => `${e.node.quantity}× ${e.node.title}`).join(', ');
+      const name = a ? (a.name || [a.firstName, a.lastName].filter(Boolean).join(' ')) || null : null;
+      const lines: AbandonedLine[] = node.lineItems.edges.map((e) => ({
+        title: e.node.title,
+        variant: e.node.variantTitle && e.node.variantTitle !== 'Default Title' ? e.node.variantTitle : null,
+        quantity: e.node.quantity,
+        price: e.node.originalUnitPriceSet?.shopMoney ?? null,
+      }));
+      const items = lines.map((l) => `${l.quantity}× ${l.title}`).join(', ');
+      const numericId = node.id.split('/').pop() ?? '';
       return {
         id: node.id,
         name: node.name,
@@ -719,6 +768,20 @@ export async function getAbandonedDrafts(): Promise<AbandonedCheckout[]> {
         total: node.totalPriceSet?.shopMoney ?? null,
         items,
         recoveryUrl: null, // no self-serve recovery link — reach out via phone/email
+        detail: {
+          address: a
+            ? {
+                name, address1: a.address1, address2: a.address2, city: a.city,
+                province: a.province, zip: a.zip, country: a.country, phone: a.phone,
+              }
+            : null,
+          lines,
+          subtotal: node.subtotalPriceSet?.shopMoney ?? null,
+          shipping: node.totalShippingPriceSet?.shopMoney ?? null,
+          total: node.totalPriceSet?.shopMoney ?? null,
+          adminUrl: domain ? `https://${domain}/admin/draft_orders/${numericId}` : null,
+          tags: node.tags ?? [],
+        },
       };
     });
 }
