@@ -350,8 +350,9 @@ const thumbGradients = [
   document.querySelector('[data-complete="contact"]')!.addEventListener('click', () => {
     clearErr('contact');
     if (phone10().length !== 10) { showErr('contact', 'Enter a valid 10-digit mobile number.'); return; }
-    // Lead capture to Firestore (best-effort)
+    // Lead capture (best-effort): legacy Firestore lead + the founders' Leads view.
     saveLead(phone10());
+    if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone10(), email: val('f-email') || undefined, name: val('f-name') || undefined });
     done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow(); scrollToSection('delivery');
   });
 

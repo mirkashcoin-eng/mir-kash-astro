@@ -460,7 +460,7 @@ const SHOW_REELS = false;
 
 <script type="application/json" id="pdpData" set:html={JSON.stringify(clientData)}></script>
 <script is:inline>if (window.mkTrack) window.mkTrack('product_view');</script>
-<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref, storyImgs: storyImgArr }}>
+<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, cartHref, storyImgs: storyImgArr, productTitle: product.title }}>
   const data = JSON.parse(document.getElementById('pdpData').textContent || '{}');
   const variants = data.variants || [];
   const optionNames = (data.options || []).map((o) => o.name);
@@ -540,6 +540,7 @@ const SHOW_REELS = false;
       if (!res.ok) throw new Error('add failed');
       const cart = await res.json();
       if (window.mkTrack) window.mkTrack('add_to_cart');
+      if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: productTitle });
       document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
       btn.textContent = 'Added ✓';
       btn.classList.add('is-added');

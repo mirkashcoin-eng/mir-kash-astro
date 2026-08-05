@@ -10,8 +10,10 @@ declare global {
     }
   }
   interface Window {
-    // First-party funnel beacon (defined inline in BaseLayout).
+    // First-party analytics + lead capture (defined inline in BaseLayout).
     mkTrack?: (event: string) => void;
+    mkSid?: string;
+    mkLead?: (data: { event: 'add_to_cart' | 'phone'; item?: string; phone?: string; email?: string; name?: string; uid?: string }) => void;
   }
 }
 
@@ -36,6 +38,8 @@ interface ImportMetaEnv {
   // Founders' dashboard (/admin) — Google-email allowlist AND/OR a shared passcode
   readonly ADMIN_EMAILS: string;
   readonly ADMIN_PASSCODE: string;
+  // Firebase Admin SDK service-account JSON — powers the /admin funnel + Leads.
+  readonly FIREBASE_SERVICE_ACCOUNT: string;
 }
 
 interface ImportMeta {

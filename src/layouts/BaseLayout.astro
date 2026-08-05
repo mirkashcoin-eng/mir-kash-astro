@@ -90,11 +90,31 @@ const orgJsonLd = {
       window.__MARKET__ = market;
     </script>
 
-    <!-- First-party funnel — anonymous, no cookies, aggregate counts only.
-         GET image beacon (POST text/plain is blocked by Astro's CSRF checkOrigin). -->
-    <script is:inline>
+    <!-- First-party funnel (anonymous counts) + per-session lead capture. No cookies. -->
+    <script is:inline define:vars={{ mkMarket: market }}>
+      // Anonymous funnel beacon — GET image (POST text/plain is blocked by Astro CSRF).
       window.mkTrack = function (e) {
         try { (new Image()).src = '/api/track?e=' + encodeURIComponent(e) + '&t=' + Date.now(); } catch (_) {}
+      };
+      // Stable anonymous session id, so a visitor's cart adds + phone tie to one lead.
+      try {
+        var sid = localStorage.getItem('mk_sid');
+        if (!sid) {
+          sid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : 'mk-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+          localStorage.setItem('mk_sid', sid);
+        }
+        window.mkSid = sid;
+      } catch (_) {}
+      // Lead capture — JSON POST (bypasses CSRF). Merges into the session's lead doc.
+      window.mkLead = function (data) {
+        try {
+          if (!window.mkSid) return;
+          fetch('/api/lead', {
+            method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.assign({ sessionId: window.mkSid, market: mkMarket }, data)),
+          });
+        } catch (_) {}
       };
       try { if (!sessionStorage.getItem('mk_v')) { sessionStorage.setItem('mk_v', '1'); window.mkTrack('visit'); } }
       catch (_) { window.mkTrack('visit'); }

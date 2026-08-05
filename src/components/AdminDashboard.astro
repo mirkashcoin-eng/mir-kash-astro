@@ -28,6 +28,7 @@
       <button class="ad-nav__item on" data-view="overview">Overview</button>
       <button class="ad-nav__item" data-view="revenue">Revenue</button>
       <button class="ad-nav__item" data-view="visitors">Visitors</button>
+      <button class="ad-nav__item" data-view="leads">Leads <span class="ad-nav__n" id="nLeads"></span></button>
       <button class="ad-nav__item" data-view="orders">Recent orders <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="abandoned">Abandoned checkouts <span class="ad-nav__n" id="nAband"></span></button>
@@ -53,6 +54,10 @@
       <section class="ad-view" data-view="visitors" hidden>
         <h1 class="ad-display ad-h1">Visitor funnel</h1>
         <div id="funnelBody"></div>
+      </section>
+      <section class="ad-view" data-view="leads" hidden>
+        <h1 class="ad-display ad-h1">Leads</h1>
+        <div id="leadsBody"></div>
       </section>
       <section class="ad-view" data-view="orders" hidden>
         <h1 class="ad-display ad-h1">Recent orders</h1>
@@ -182,12 +187,40 @@
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
       renderFunnel(data.funnel, orders);
+      renderLeads(data.leads);
 
       var navs = document.querySelectorAll('[data-view]');
       for (var i = 0; i < navs.length; i++) {
         if (navs[i].classList.contains('ad-view')) continue;
         (function (el) { el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); }); })(navs[i]);
       }
+    }
+
+    // ── Leads (per-session: added to bag / entered phone) ─────────────────────
+    function renderLeads(leads) {
+      var body = $('leadsBody'); if (!body) return;
+      var nb = $('nLeads');
+      if (!leads) {
+        if (nb) nb.textContent = '';
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Leads aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p></div>';
+        return;
+      }
+      if (nb) nb.textContent = leads.length ? String(leads.length) : '';
+      if (!leads.length) {
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No leads captured yet. As visitors add bags or enter their phone, they’ll appear here with all their details.</p></div>';
+        return;
+      }
+      var rows = leads.map(function (l) {
+        var tel = (l.phone || '').replace(/[^0-9]/g, '');
+        var pill = l.stage === 'phone' ? '<span class="ad-pill ad-pill--good">Entered phone</span>' : '<span class="ad-pill ad-pill--wait">Added to bag</span>';
+        var acts = [];
+        if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">WhatsApp</a>');
+        if (tel) acts.push('<a class="ad-link" href="tel:+' + tel + '">Call</a>');
+        var items = (l.items && l.items.length) ? l.items.join(', ') : '—';
+        var contact = [l.phone ? esc(l.phone) : '', l.email ? esc(l.email) : ''].filter(Boolean).join(' · ') || '—';
+        return '<tr><td class="nm">' + esc(l.name || 'Visitor') + '<div class="sub">' + contact + '</div></td><td>' + pill + '</td><td>' + esc(items) + '</td><td>' + when(l.firstSeen, true) + '</td><td>' + when(l.lastSeen, true) + '</td><td class="r">' + acts.join(' ') + '</td></tr>';
+      }).join('');
+      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Leads</span><span class="ad-chart-sub">' + leads.length + ' people · most recent first</span></div><div class="ad-scroll"><table class="ad-table"><thead><tr><th>Person</th><th>Stage</th><th>Bags added</th><th>First seen</th><th>Last seen</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
     }
 
     // ── Visitor funnel ────────────────────────────────────────────────────────
