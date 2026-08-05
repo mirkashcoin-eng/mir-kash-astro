@@ -844,21 +844,25 @@ export interface RecentOrder {
   createdAt: string;
   customer: string | null;
   email: string | null;
+  phone: string | null;
   total: Money | null;
   items: string;
-  fulfillment: string;
-  financial: string;
+  fulfillment: string;   // order-level: UNFULFILLED / FULFILLED / …
+  financial: string;     // PAID / PENDING / AUTHORIZED / …
+  deliveryStatus: string; // latest fulfillment: IN_TRANSIT / OUT_FOR_DELIVERY / DELIVERED / …
   cancelled: boolean;
+  adminUrl: string | null;
 }
 
 const RECENT_ORDERS = /* GraphQL */ `
   query RecentOrders {
-    orders(first: 30, sortKey: CREATED_AT, reverse: true) {
+    orders(first: 40, sortKey: CREATED_AT, reverse: true) {
       edges { node {
         id name createdAt email cancelledAt
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
-        shippingAddress { name }
+        shippingAddress { name phone }
+        fulfillments(first: 1) { displayStatus }
         lineItems(first: 5) { edges { node { title quantity } } }
       } }
     }
@@ -871,20 +875,25 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
       id: string; name: string; createdAt: string; email: string | null; cancelledAt: string | null;
       displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
       totalPriceSet: { shopMoney: Money } | null;
-      shippingAddress: { name: string | null } | null;
+      shippingAddress: { name: string | null; phone: string | null } | null;
+      fulfillments: Array<{ displayStatus: string | null }>;
       lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
     } }> };
   }>(RECENT_ORDERS);
+  const domain = adminDomain();
   return (data?.orders?.edges ?? []).map(({ node }) => ({
     id: node.id,
     name: node.name,
     createdAt: node.createdAt,
     customer: node.shippingAddress?.name ?? null,
     email: node.email,
+    phone: node.shippingAddress?.phone ?? null,
     total: node.totalPriceSet?.shopMoney ?? null,
     items: node.lineItems.edges.map((e) => `${e.node.quantity}× ${e.node.title}`).join(', '),
     fulfillment: node.displayFulfillmentStatus ?? '',
     financial: node.displayFinancialStatus ?? '',
+    deliveryStatus: node.fulfillments?.[0]?.displayStatus ?? '',
     cancelled: !!node.cancelledAt,
+    adminUrl: domain ? `https://${domain}/admin/orders/${node.id.split('/').pop() ?? ''}` : null,
   }));
 }

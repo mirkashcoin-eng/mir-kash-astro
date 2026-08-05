@@ -28,6 +28,7 @@
       <button class="ad-nav__item on" data-view="overview">Overview</button>
       <button class="ad-nav__item" data-view="revenue">Revenue</button>
       <button class="ad-nav__item" data-view="orders">Recent orders <span class="ad-nav__n" id="nOrders"></span></button>
+      <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="abandoned">Abandoned checkouts <span class="ad-nav__n" id="nAband"></span></button>
       <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
       <div class="ad-nav__foot">
@@ -51,6 +52,10 @@
       <section class="ad-view" data-view="orders" hidden>
         <h1 class="ad-display ad-h1">Recent orders</h1>
         <div class="ad-panel"><div class="ad-scroll" id="allOrders"></div></div>
+      </section>
+      <section class="ad-view" data-view="fulfilment" hidden>
+        <h1 class="ad-display ad-h1">Fulfilment &amp; payments</h1>
+        <div id="fulfilBody"></div>
       </section>
       <section class="ad-view" data-view="abandoned" hidden>
         <h1 class="ad-display ad-h1">Abandoned checkouts</h1>
@@ -170,12 +175,67 @@
       $('allAband').innerHTML = abandonedTable(abandoned);
       $('allDemos').innerHTML = demosTable(demos);
       renderRevenue(orders, abandoned);
+      renderFulfilment(orders);
 
       var navs = document.querySelectorAll('[data-view]');
       for (var i = 0; i < navs.length; i++) {
         if (navs[i].classList.contains('ad-view')) continue;
         (function (el) { el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); }); })(navs[i]);
       }
+    }
+
+    // ── Fulfilment & payments ─────────────────────────────────────────────────
+    function fmtDelivery(s) {
+      s = String(s || '').toUpperCase();
+      var map = { IN_TRANSIT: 'In transit', OUT_FOR_DELIVERY: 'Out for delivery', ATTEMPTED_DELIVERY: 'Delivery attempted', READY_FOR_PICKUP: 'Ready for pickup', PICKED_UP: 'Picked up', DELIVERED: 'Delivered', LABEL_PRINTED: 'Label printed', LABEL_PURCHASED: 'Label ready' };
+      return map[s] || (s ? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ') : '');
+    }
+    function fmtFinancial(s) {
+      s = String(s || '').toUpperCase();
+      var map = { PENDING: 'Payment pending', AUTHORIZED: 'Authorised — not captured', PARTIALLY_PAID: 'Partially paid', PARTIALLY_REFUNDED: 'Partially refunded', REFUNDED: 'Refunded', VOIDED: 'Voided', PAID: 'Paid' };
+      return map[s] || (s ? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ') : '—');
+    }
+    function opsRows(rows, kind) {
+      return rows.map(function (o) {
+        var tel = (o.phone || '').replace(/[^0-9]/g, '');
+        var status;
+        if (kind === 'payment') status = '<span class="ad-pill ad-pill--wait">' + esc(fmtFinancial(o.financial)) + '</span>';
+        else if (kind === 'transit') status = '<span class="ad-pill ad-pill--good">' + esc(fmtDelivery(o.deliveryStatus) || 'In transit') + '</span>';
+        else status = '<span class="ad-pill ad-pill--wait">To fulfil</span>';
+        var acts = [];
+        if (kind === 'payment' && tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">Chase</a>');
+        if (o.adminUrl) acts.push('<a class="ad-link" href="' + esc(o.adminUrl) + '" target="_blank" rel="noopener">Open →</a>');
+        return '<tr><td class="nm">' + esc(o.customer || 'Guest') + (o.phone ? '<div class="sub">' + esc(o.phone) + '</div>' : '') + '</td><td>' + esc(o.name) + '</td><td>' + esc(o.items || '—') + '</td><td>' + when(o.createdAt) + '</td><td class="r amt">' + esc(inr(o.total && o.total.amount, o.total && o.total.currencyCode)) + '</td><td>' + status + '</td><td class="r">' + acts.join(' ') + '</td></tr>';
+      }).join('');
+    }
+    function opsPanel(title, count, rowsHtml, emptyMsg) {
+      return '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">' + esc(title) + '</span><span class="ad-chart-sub">' + count + (count === 1 ? ' order' : ' orders') + '</span></div>' +
+        (rowsHtml
+          ? '<div class="ad-scroll"><table class="ad-table"><thead><tr><th>Customer</th><th>Order</th><th>Items</th><th>Date</th><th class="r">Total</th><th>Status</th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>'
+          : '<p class="ad-note ad-pad">' + esc(emptyMsg) + '</p>') + '</div>';
+    }
+    function renderFulfilment(orders) {
+      var body = $('fulfilBody');
+      if (!body) return;
+      var live = orders.filter(function (o) { return !o.cancelled; });
+      var transit = ['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPTED_DELIVERY', 'READY_FOR_PICKUP'];
+      var inTransit = live.filter(function (o) { return transit.indexOf(String(o.deliveryStatus || '').toUpperCase()) > -1; });
+      var toFulfil = live.filter(function (o) {
+        var f = String(o.fulfillment || '').toUpperCase();
+        var unshipped = (f === '' || f === 'UNFULFILLED' || f === 'PARTIALLY_FULFILLED' || f === 'PENDING_FULFILLMENT' || f === 'OPEN' || f === 'IN_PROGRESS' || f === 'ON_HOLD' || f === 'SCHEDULED');
+        return unshipped && inTransit.indexOf(o) === -1;
+      });
+      var payPending = live.filter(function (o) {
+        return ['PENDING', 'AUTHORIZED', 'PARTIALLY_PAID'].indexOf(String(o.financial || '').toUpperCase()) > -1;
+      });
+      body.innerHTML =
+        opsPanel('Orders to fulfil', toFulfil.length, opsRows(toFulfil, 'fulfil'), 'Nothing waiting to be fulfilled — you’re all caught up.') +
+        opsPanel('In transit / out for delivery', inTransit.length, opsRows(inTransit, 'transit'), 'No shipments in transit. This fills in when you fulfil orders with a tracking number in Shopify.') +
+        opsPanel('Payments pending', payPending.length, opsRows(payPending, 'payment'), 'No pending payments — everything is paid.');
+      var ids = {};
+      toFulfil.concat(payPending).forEach(function (o) { ids[o.id] = 1; });
+      var badge = Object.keys(ids).length;
+      var nb = $('nFulfil'); if (nb) nb.textContent = badge ? String(badge) : '';
     }
 
     // ── Revenue insights (charts) ─────────────────────────────────────────────
