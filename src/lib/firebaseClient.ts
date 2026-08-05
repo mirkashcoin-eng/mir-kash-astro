@@ -71,6 +71,9 @@ function googleProvider(): GoogleAuthProvider {
 
 export async function signInWithGoogle(): Promise<User | null> {
   if (!init()) return null;
+  // Clear any lingering Firebase session first so the Google account chooser always
+  // appears and can never silently reuse a previously-signed-in (personal) account.
+  try { await fbSignOut(auth!); } catch { /* ignore */ }
   const { user } = await signInWithPopup(auth!, googleProvider());
   return user;
 }
