@@ -16,10 +16,12 @@ let _db: Firestore | null | undefined;
 
 export function adminDb(): Firestore | null {
   if (_db !== undefined) return _db;
-  const raw = env('FIREBASE_SERVICE_ACCOUNT');
+  const raw = env('FIREBASE_SERVICE_ACCOUNT').trim();
   if (!raw) { _db = null; return null; }
   try {
-    const sa = JSON.parse(raw) as { project_id?: string; private_key?: string; [k: string]: unknown };
+    // Accept either the raw JSON or a base64-encoded blob (easier to paste as one line).
+    const jsonStr = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+    const sa = JSON.parse(jsonStr) as { project_id?: string; private_key?: string; [k: string]: unknown };
     // Vercel may store the escaped \n; normalise to real newlines for the PEM key.
     if (typeof sa.private_key === 'string') sa.private_key = sa.private_key.replace(/\\n/g, '\n');
     const app: App = getApps().length
