@@ -34,6 +34,7 @@
       <button class="ad-nav__item" data-view="abandoned">Abandoned checkouts <span class="ad-nav__n" id="nAband"></span></button>
       <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
       <div class="ad-nav__foot">
+        <span class="ad-nav__upd" id="updated"></span>
         <button class="ad-nav__out" id="lockBtn" type="button">Lock dashboard</button>
       </div>
     </nav>
@@ -189,11 +190,14 @@
       renderFunnel(data.funnel, orders);
       renderLeads(data.leads);
 
-      var navs = document.querySelectorAll('[data-view]');
-      for (var i = 0; i < navs.length; i++) {
-        if (navs[i].classList.contains('ad-view')) continue;
-        (function (el) { el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); }); })(navs[i]);
+      // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
+      // once at setup so auto-refresh re-renders don't stack listeners.
+      var kpis = $('kpis').querySelectorAll('[data-view]');
+      for (var i = 0; i < kpis.length; i++) {
+        (function (el) { el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); }); })(kpis[i]);
       }
+      stampUpdated();
+      startAutoRefresh();
     }
 
     // ── Leads (per-session: added to bag / entered phone) ─────────────────────
@@ -484,9 +488,36 @@
     });
 
     $('lockBtn').addEventListener('click', async function () {
+      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
       try { localStorage.removeItem(LS); } catch (e) {}
       try { await signOut(); } catch (e) {}
       location.reload();
+    });
+
+    // ── Auto-refresh (keeps leads / orders / funnel live without a reload) ─────
+    var refreshTimer = null;
+    function stampUpdated() {
+      var el = $('updated'); if (!el) return;
+      try { el.textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
+    }
+    async function refresh() {
+      if (document.hidden) return;               // skip while the tab is hidden
+      if (!$('drawer').hidden) return;           // don't yank data while a detail panel is open
+      var headers = await authHeaders();
+      if (!headers) return;
+      var r = await callData(headers);
+      if (r && r.data) render(r.data);           // preserves the active view
+    }
+    function startAutoRefresh() {
+      if (refreshTimer) return;
+      refreshTimer = setInterval(refresh, 45000); // every 45s
+    }
+    // Refresh immediately when the founder returns to the tab.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+
+    // Bind the static sidebar nav + "view all" buttons once (KPI cards are bound per-render).
+    document.querySelectorAll('.ad-nav__item[data-view], .ad-panel__more[data-view]').forEach(function (el) {
+      el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); });
     });
 
     // ── Abandoned-checkout detail drawer ──────────────────────────────────────
@@ -716,6 +747,7 @@
   .ad-nav__item.on .ad-nav__n { color: #e7b7ae; }
   .ad-nav__foot { margin-top: auto; padding: 12px; }
   .ad-nav__out { background: none; border: none; cursor: pointer; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: #e7b7ae; }
+  .ad-nav__upd { display: block; font-size: 9.5px; letter-spacing: .04em; color: rgba(255,255,255,.4); padding: 0 12px 9px; }
 
   .ad-main { padding: clamp(24px,3vw,40px); min-width: 0; overflow-x: hidden; }
   .ad-h1 { font-size: clamp(26px,2.8vw,38px); color: var(--depth); margin: 0 0 22px; }
