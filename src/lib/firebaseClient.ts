@@ -61,9 +61,17 @@ export async function getIdToken(forceRefresh = false): Promise<string | null> {
   return auth!.currentUser ? auth!.currentUser.getIdToken(forceRefresh) : null;
 }
 
+// Always show the Google account picker — vital when several Google accounts are
+// signed in, so the user can pick the Mir Kash one instead of the default.
+function googleProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
 export async function signInWithGoogle(): Promise<User | null> {
   if (!init()) return null;
-  const { user } = await signInWithPopup(auth!, new GoogleAuthProvider());
+  const { user } = await signInWithPopup(auth!, googleProvider());
   return user;
 }
 
@@ -72,7 +80,7 @@ export async function signInWithGoogle(): Promise<User | null> {
 // completeRedirect() on return.
 export async function signInWithGoogleRedirect(): Promise<void> {
   if (!init()) return;
-  await signInWithRedirect(auth!, new GoogleAuthProvider());
+  await signInWithRedirect(auth!, googleProvider());
 }
 
 export async function completeRedirect(): Promise<User | null> {
