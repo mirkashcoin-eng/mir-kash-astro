@@ -69,7 +69,7 @@
 </main>
 
 <script>
-  import { getSessionUser, getIdToken, signInWithGoogle, signOut } from '~/lib/firebaseClient';
+  import { getIdToken, signInWithGoogle, signOut } from '~/lib/firebaseClient';
 
   (function () {
     var LS = 'mk_admin_key';
@@ -169,28 +169,11 @@
     function showGate() { $('gate').hidden = false; }
     function setStatus(msg) { var s = $('signinStatus'); if (s) s.textContent = msg || ''; }
 
-    async function init() {
-      // 1) Returning admin with a live Firebase (Google) session — sign in silently.
-      try {
-        var user = await getSessionUser();
-        if (user) {
-          var token = await getIdToken();
-          if (token) {
-            var r = await callData({ Authorization: 'Bearer ' + token });
-            if (r.data) { render(r.data); return; }
-          }
-        }
-      } catch (e) { /* fall through to gate */ }
-
-      // 2) Saved passcode fallback.
-      var saved = null;
-      try { saved = localStorage.getItem(LS); } catch (e) {}
-      if (saved) {
-        var rp = await callData({ 'x-admin-key': saved });
-        if (rp.data) { render(rp.data); return; }
-        try { localStorage.removeItem(LS); } catch (e) {}
-      }
-
+    // Security: always require an explicit sign-in on every visit. Never auto-enter
+    // from a stored secret or a lingering session — the gate is the only way in, and
+    // the dashboard is not rendered (and no data is fetched) until auth succeeds.
+    function init() {
+      try { localStorage.removeItem(LS); } catch (e) {} // purge any passcode a prior build stored
       showGate();
     }
 
@@ -232,8 +215,7 @@
       var btn = $('enterBtn'); btn.disabled = true;
       var r = await callData({ 'x-admin-key': key });
       if (!r.data) { setStatus('Wrong passcode — try again.'); btn.disabled = false; return; }
-      try { localStorage.setItem(LS, key); } catch (e2) {}
-      render(r.data);
+      render(r.data); // valid for this page view only — never persisted
     });
 
     $('lockBtn').addEventListener('click', async function () {
