@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { verifyFirebaseUser } from '~/lib/firebaseAuth';
 import { isAdmin, passcodeOk } from '~/lib/adminAuth';
-import { getDemoBookings, getAbandonedCheckouts, getRecentOrders } from '~/lib/shopify/admin';
+import { getDemoBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
@@ -28,10 +28,14 @@ export const GET: APIRoute = async ({ request }) => {
   }
   if (!ok) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, abandoned, orders] = await Promise.all([
+  const [demos, nativeAbandoned, draftAbandoned, orders] = await Promise.all([
     getDemoBookings(),
-    getAbandonedCheckouts(),
+    getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
+    getAbandonedDrafts(),    // India store — open Cashfree payment drafts
     getRecentOrders(),
   ]);
+  const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
   return json({ demos, abandoned, orders });
 };

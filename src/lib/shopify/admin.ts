@@ -578,7 +578,7 @@ export interface DemoBooking {
 
 const DEMO_BOOKINGS = /* GraphQL */ `
   query DemoBookings {
-    draftOrders(first: 50, query: "tag:home-demo", sortKey: CREATED_AT, reverse: true) {
+    draftOrders(first: 50, query: "tag:home-demo", sortKey: UPDATED_AT, reverse: true) {
       edges { node {
         id name createdAt email phone
         customAttributes { key value }
@@ -669,6 +669,58 @@ export async function getAbandonedCheckouts(): Promise<AbandonedCheckout[]> {
       recoveryUrl: node.abandonedCheckoutUrl,
     };
   });
+}
+
+// ── India abandoned checkouts (reconstructed from open payment drafts) ──────────
+// The India store uses a custom Cashfree checkout, so Shopify's native
+// abandonedCheckouts connection is always empty for it. But every "Pay" click first
+// creates a draft order (tag `web-otp`) BEFORE redirecting to Cashfree; if payment is
+// never completed, that draft stays open. The reconciler completes any that were
+// actually paid, so an open `web-otp` draft older than a few minutes = abandoned at
+// payment. (home-demo drafts don't carry `web-otp`, so they're naturally excluded.)
+const ABANDON_MIN_AGE_MS = 20 * 60 * 1000; // ignore <20-min-old drafts — buyer may still be paying
+
+const ABANDONED_DRAFTS = /* GraphQL */ `
+  query AbandonedDrafts {
+    draftOrders(first: 50, query: "status:open AND tag:web-otp", sortKey: UPDATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt email
+        totalPriceSet { shopMoney { amount currencyCode } }
+        shippingAddress { firstName lastName phone }
+        lineItems(first: 10) { edges { node { title quantity } } }
+      } }
+    }
+  }
+`;
+
+export async function getAbandonedDrafts(): Promise<AbandonedCheckout[]> {
+  const data = await runAdminQuery<{
+    draftOrders: { edges: Array<{ node: {
+      id: string; name: string; createdAt: string; email: string | null;
+      totalPriceSet: { shopMoney: Money } | null;
+      shippingAddress: { firstName: string | null; lastName: string | null; phone: string | null } | null;
+      lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
+    } }> };
+  }>(ABANDONED_DRAFTS);
+  const now = Date.now();
+  return (data?.draftOrders?.edges ?? [])
+    .filter(({ node }) => now - new Date(node.createdAt).getTime() >= ABANDON_MIN_AGE_MS)
+    .map(({ node }) => {
+      const a = node.shippingAddress;
+      const name = a ? [a.firstName, a.lastName].filter(Boolean).join(' ') || null : null;
+      const items = node.lineItems.edges.map((e) => `${e.node.quantity}× ${e.node.title}`).join(', ');
+      return {
+        id: node.id,
+        name: node.name,
+        createdAt: node.createdAt,
+        customer: name,
+        email: node.email ?? null,
+        phone: a?.phone ?? null,
+        total: node.totalPriceSet?.shopMoney ?? null,
+        items,
+        recoveryUrl: null, // no self-serve recovery link — reach out via phone/email
+      };
+    });
 }
 
 // ── Founders' dashboard: recent orders (all, not by email) ──────────────────────
