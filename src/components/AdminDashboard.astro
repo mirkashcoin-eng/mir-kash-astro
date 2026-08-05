@@ -74,7 +74,16 @@
   (function () {
     var LS = 'mk_admin_key';
     var ABANDONED = [];
+    var DEMOS = [];
+    var AUTH = null; // { kind:'key', key } | { kind:'token' } — in memory only, never persisted
     var $ = function (id) { return document.getElementById(id); };
+    // Auth header for follow-up admin actions, reusing this session's credential.
+    async function authHeaders() {
+      if (!AUTH) return null;
+      if (AUTH.kind === 'key') return { 'x-admin-key': AUTH.key };
+      var t = null; try { t = await getIdToken(); } catch (e) {}
+      return t ? { Authorization: 'Bearer ' + t } : null;
+    }
     var inr = function (amount, cur) {
       cur = cur || 'INR';
       if (amount == null) return '—';
@@ -110,10 +119,15 @@
         return '<tr data-idx="' + i + '"><td class="nm">' + esc(r.customer || 'Unknown') + '</td><td class="sub">' + contact(r.email, r.phone) + '</td><td>' + esc(r.items || '—') + '</td><td class="r amt">' + esc(inr(r.total && r.total.amount, r.total && r.total.currencyCode)) + '</td><td>' + when(r.createdAt, true) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
     }
+    function demoPill(status) {
+      if (status === 'completed') return '<span class="ad-pill ad-pill--done">Completed</span>';
+      if (status === 'confirmed') return '<span class="ad-pill ad-pill--good">Confirmed</span>';
+      return '<span class="ad-pill ad-pill--wait">Requested</span>';
+    }
     function demosTable(demos) {
       if (!demos.length) return '<p class="ad-note ad-pad">No home-demo bookings yet.</p>';
-      return '<table class="ad-table"><thead><tr><th>Customer</th><th>Date &amp; slot</th><th>Bags</th><th>Contact</th><th>Address</th><th>Booked</th></tr></thead><tbody>' + demos.map(function (d) {
-        return '<tr><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="sub">' + esc(d.address || '—') + '</td><td>' + when(d.createdAt) + '</td></tr>';
+      return '<table class="ad-table ad-table--click"><thead><tr><th>Customer</th><th>Status</th><th>Date &amp; slot</th><th>Bags</th><th>Contact</th><th></th></tr></thead><tbody>' + demos.map(function (d, i) {
+        return '<tr data-idx="' + i + '"><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + demoPill(d.status) + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
     }
     function switchView(view) {
@@ -131,6 +145,7 @@
       var abandoned = data.abandoned || [];
       ABANDONED = abandoned;
       var demos = data.demos || [];
+      DEMOS = demos;
       $('nOrders').textContent = String(orders.length);
       $('nAband').textContent = String(abandoned.length);
       $('nDemos').textContent = String(demos.length);
@@ -187,7 +202,7 @@
         setStatus('Signing in…');
         var token = await getIdToken(true);
         var r = await callData({ Authorization: 'Bearer ' + token });
-        if (r.data) { render(r.data); return; }
+        if (r.data) { AUTH = { kind: 'token' }; render(r.data); return; }
         if (r.status === 401) { setStatus('That Google account isn’t an admin.'); await signOut().catch(function () {}); }
         else { setStatus('Could not load the dashboard — please try again.'); }
         btn.disabled = false;
@@ -215,7 +230,8 @@
       var btn = $('enterBtn'); btn.disabled = true;
       var r = await callData({ 'x-admin-key': key });
       if (!r.data) { setStatus('Wrong passcode — try again.'); btn.disabled = false; return; }
-      render(r.data); // valid for this page view only — never persisted
+      AUTH = { kind: 'key', key: key }; // in memory for this session only — never persisted
+      render(r.data);
     });
 
     $('lockBtn').addEventListener('click', async function () {
@@ -266,13 +282,121 @@
         '</div>' +
         (d.tags && d.tags.length ? '<div class="ad-dsect"><h3 class="ad-dh3">Tags</h3><p class="ad-dtags">' + d.tags.map(function (t) { return '<span class="ad-tag">' + esc(t) + '</span>'; }).join('') + '</p></div>' : '');
     }
-    function openDrawer(idx) {
-      var r = ABANDONED[idx];
+    // ── Home-demo detail + confirm/complete ───────────────────────────────────
+    function fmtISO(iso) {
+      if (!iso) return '';
+      try { return new Date(iso + 'T00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
+      catch (e) { return iso; }
+    }
+    function fmt12(t) {
+      if (!t) return '';
+      var p = String(t).split(':'); var h = parseInt(p[0], 10); var m = p[1] || '00';
+      if (isNaN(h)) return t;
+      var ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+      return h + ':' + m + ' ' + ap;
+    }
+    function confirmMsg(r) {
+      var name = (r.customer || 'there').split(' ')[0];
+      var d = fmtISO(r.confirmedDate), t = fmt12(r.confirmedTime);
+      var whenTxt = (d || r.date || '') + (t ? ' at ' + t : (r.slot ? ' (' + r.slot + ')' : ''));
+      var subject = 'Your Mir Kash home demo is confirmed';
+      var body = 'Hi ' + name + ',\n\nYour Mir Kash home demo is confirmed for ' + whenTxt + '.\n\n' +
+        (r.address ? 'Address: ' + r.address + '\n' : '') +
+        (r.bags ? "Bags we'll bring: " + r.bags + '\n' : '') +
+        '\nWe look forward to meeting you. Just reply to this email or call us if anything changes.\n\nWarmly,\nMir Kash';
+      var wa = 'Hi ' + name + ', your Mir Kash home demo is confirmed for ' + whenTxt + '.' +
+        (r.address ? ' Address: ' + r.address + '.' : '') + ' See you then! — Mir Kash';
+      return { subject: subject, body: body, wa: wa };
+    }
+    function buildDemoDrawer(r) {
+      var status = r.status || 'requested';
+      var bagsList = (r.bags || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var telDigits = (r.phone || '').replace(/[^0-9]/g, '');
+      var m = confirmMsg(r);
+      var notify = '';
+      if (r.email) notify += '<a class="ad-dbtn ad-dbtn--fill" href="mailto:' + esc(r.email) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body) + '">Email confirmation</a>';
+      if (telDigits) notify += '<a class="ad-dbtn ad-dbtn--wa" href="https://wa.me/' + telDigits + '?text=' + encodeURIComponent(m.wa) + '" target="_blank" rel="noopener">WhatsApp</a>';
+
+      var actionSect;
+      if (status === 'requested') {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirm this demo</h3>' +
+          '<p class="ad-reqnote">Requested: ' + esc(r.date || '—') + (r.slot ? ' · ' + esc(r.slot) : '') + '</p>' +
+          '<div class="ad-form"><label class="ad-flabel">Date<input class="ad-finput" type="date" id="demoDate"></label>' +
+          '<label class="ad-flabel">Time<input class="ad-finput" type="time" id="demoTime"></label></div>' +
+          '<button class="ad-dbtn ad-dbtn--fill ad-dbtn--wide" id="demoConfirm" type="button">Confirm booking</button>' +
+          '<p class="ad-actmsg" id="demoMsg"></p></div>';
+      } else if (status === 'confirmed') {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirmed for</h3>' +
+          '<p class="ad-confirmed">' + esc(fmtISO(r.confirmedDate)) + ' · ' + esc(fmt12(r.confirmedTime)) + '</p>' +
+          '<p class="ad-note ad-notifynote">Send the customer their confirmation:</p>' +
+          '<div class="ad-dactions">' + notify + '</div>' +
+          '<button class="ad-dbtn ad-dbtn--wide" id="demoComplete" type="button">Mark demo complete</button>' +
+          '<p class="ad-actmsg" id="demoMsg"></p></div>';
+      } else {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Demo completed</h3>' +
+          '<p class="ad-confirmed">' + (r.confirmedDate ? esc(fmtISO(r.confirmedDate)) + (r.confirmedTime ? ' · ' + esc(fmt12(r.confirmedTime)) : '') : 'Marked complete') + '</p>' +
+          (notify ? '<div class="ad-dactions">' + notify + '</div>' : '') + '</div>';
+      }
+
+      var footer = [];
+      if (r.adminUrl) footer.push('<a class="ad-dbtn" href="' + esc(r.adminUrl) + '" target="_blank" rel="noopener">Open in Shopify →</a>');
+      if (telDigits) footer.push('<a class="ad-dbtn" href="tel:+' + telDigits + '">Call</a>');
+
+      return '' +
+        '<div class="ad-dhead">' + demoPill(status) +
+          '<h2 class="ad-display ad-dtitle">' + esc(r.customer || 'Guest') + '</h2>' +
+          '<p class="ad-dmeta">' + esc(r.name) + ' · Booked ' + when(r.createdAt) + '</p>' +
+        '</div>' +
+        actionSect +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Contact</h3>' +
+          '<div class="ad-drow"><span class="ad-dk">Email</span><span class="ad-dvv">' + (r.email ? esc(r.email) : '<span class="ad-dv">—</span>') + '</span></div>' +
+          '<div class="ad-drow"><span class="ad-dk">Phone</span><span class="ad-dvv">' + (r.phone ? esc(r.phone) : '<span class="ad-dv">—</span>') + '</span></div>' +
+        '</div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Requested slot</h3><p class="ad-daddr">' + esc(r.date || '—') + (r.slot ? '<br>' + esc(r.slot) : '') + '</p></div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Bags to show</h3>' + (bagsList.length ? '<ul class="ad-baglist">' + bagsList.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>' : '<p class="ad-dv">—</p>') + '</div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Address</h3><p class="ad-daddr">' + (r.address ? esc(r.address) : '<span class="ad-dv">—</span>') + '</p></div>' +
+        (footer.length ? '<div class="ad-dactions">' + footer.join('') + '</div>' : '');
+    }
+    function demoMsg(t) { var el = $('demoMsg'); if (el) el.textContent = t || ''; }
+    async function doDemoAction(idx, payload, btn) {
+      var r = DEMOS[idx]; if (!r) return;
+      demoMsg('Saving…'); if (btn) btn.disabled = true;
+      var headers = await authHeaders();
+      if (!headers) { demoMsg('Session expired — reload and sign in again.'); if (btn) btn.disabled = false; return; }
+      headers['Content-Type'] = 'application/json';
+      try {
+        var resp = await fetch('/api/admin/demo', { method: 'POST', headers: headers, body: JSON.stringify(Object.assign({ id: r.id }, payload)) });
+        var res = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !res || !res.ok) { demoMsg((res && res.error) || 'Could not save — try again.'); if (btn) btn.disabled = false; return; }
+        if (payload.action === 'confirm') { r.status = 'confirmed'; r.confirmedDate = res.confirmedDate; r.confirmedTime = res.confirmedTime; }
+        else if (payload.action === 'complete') { r.status = 'completed'; }
+        $('allDemos').innerHTML = demosTable(DEMOS);
+        openDrawer('demo', idx);
+      } catch (e) { demoMsg('Network error — try again.'); if (btn) btn.disabled = false; }
+    }
+    function wireDemoActions(idx) {
+      var c = $('demoConfirm');
+      if (c) c.addEventListener('click', function () {
+        var date = ($('demoDate') || {}).value || '';
+        var time = ($('demoTime') || {}).value || '';
+        if (!date || !time) { demoMsg('Pick a date and time first.'); return; }
+        doDemoAction(idx, { action: 'confirm', date: date, time: time }, c);
+      });
+      var k = $('demoComplete');
+      if (k) k.addEventListener('click', function () { doDemoAction(idx, { action: 'complete' }, k); });
+    }
+
+    function openDrawer(kind, idx) {
+      var r = (kind === 'demo' ? DEMOS : ABANDONED)[idx];
       if (!r) return;
-      $('drawerBody').innerHTML = buildDrawer(r);
+      $('drawerBody').innerHTML = (kind === 'demo') ? buildDemoDrawer(r) : buildDrawer(r);
       $('drawerBody').scrollTop = 0;
       $('drawer').hidden = false;
       document.body.style.overflow = 'hidden';
+      if (kind === 'demo') wireDemoActions(idx);
     }
     function closeDrawer() {
       $('drawer').hidden = true;
@@ -280,7 +404,11 @@
     }
     $('allAband').addEventListener('click', function (e) {
       var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
-      if (tr) openDrawer(Number(tr.getAttribute('data-idx')));
+      if (tr) openDrawer('abandoned', Number(tr.getAttribute('data-idx')));
+    });
+    $('allDemos').addEventListener('click', function (e) {
+      var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
+      if (tr) openDrawer('demo', Number(tr.getAttribute('data-idx')));
     });
     $('drawerClose').addEventListener('click', closeDrawer);
     $('drawerScrim').addEventListener('click', closeDrawer);
@@ -412,6 +540,25 @@
   .ad-tot--strong { color: var(--depth); font-weight: 600; font-size: 15px; margin-top: 4px; }
   .ad-dtags { display: flex; flex-wrap: wrap; gap: 6px; }
   .ad-tag { font-size: 10px; letter-spacing: .04em; color: var(--mid); background: var(--cream); border-radius: 3px; padding: 3px 8px; }
+
+  /* Demo status pills + confirm flow */
+  .ad-pill--wait { color: var(--warn); background: #f6efe2; }
+  .ad-pill--good { color: var(--good); background: #e9f0eb; }
+  .ad-pill--done { color: var(--mid); background: #ece7dd; }
+  .ad-dact { background: #fff; border: 1px solid var(--rule); border-radius: 5px; padding: 16px 16px 18px; margin-top: 4px; }
+  .ad-reqnote { font-size: 12.5px; color: var(--mid); margin: 0 0 12px; }
+  .ad-notifynote { font-size: 12.5px; color: var(--mid); margin: 0 0 10px; }
+  .ad-form { display: flex; gap: 10px; margin-bottom: 12px; }
+  .ad-flabel { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .ad-finput { border: 1px solid var(--rule); background: #fff; padding: 10px 11px; font-family: 'Jost', sans-serif; font-size: 14px; color: var(--depth); outline: none; }
+  .ad-finput:focus { border-color: var(--depth); }
+  .ad-dbtn--wide { width: 100%; justify-content: center; height: 42px; margin-top: 4px; }
+  .ad-dbtn--wa { border-color: #cfe8d4; color: #17692e; }
+  .ad-dbtn--wa:hover { border-color: #17692e; }
+  .ad-confirmed { font-family: var(--serif); font-size: 21px; color: var(--depth); margin: 0 0 14px; }
+  .ad-actmsg { font-size: 12px; color: var(--cherry); margin: 10px 0 0; min-height: 15px; }
+  .ad-baglist { margin: 0; padding-left: 18px; }
+  .ad-baglist li { font-size: 13.5px; color: var(--depth); padding: 2px 0; }
 
   @media (max-width: 820px) {
     .ad-shell { grid-template-columns: 1fr; }

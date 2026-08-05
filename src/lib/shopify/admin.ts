@@ -563,6 +563,7 @@ export async function subscribeEmail(email: string): Promise<{ ok: boolean; erro
 }
 
 // ── Founders' dashboard: home-demo bookings + abandoned checkouts ────────────────
+export type DemoStatus = 'requested' | 'confirmed' | 'completed';
 export interface DemoBooking {
   id: string;
   name: string;
@@ -574,13 +575,17 @@ export interface DemoBooking {
   slot: string;
   bags: string;
   address: string | null;
+  status: DemoStatus;
+  confirmedDate: string; // ISO yyyy-mm-dd once confirmed
+  confirmedTime: string; // HH:MM (24h) once confirmed
+  adminUrl: string | null;
 }
 
 const DEMO_BOOKINGS = /* GraphQL */ `
   query DemoBookings {
     draftOrders(first: 50, query: "tag:home-demo", sortKey: UPDATED_AT, reverse: true) {
       edges { node {
-        id name createdAt email phone
+        id name createdAt email phone tags
         customAttributes { key value }
         shippingAddress { name address1 address2 city province zip }
       } }
@@ -588,14 +593,21 @@ const DEMO_BOOKINGS = /* GraphQL */ `
   }
 `;
 
+function demoStatus(tags: string[], attrStatus: string): DemoStatus {
+  if (attrStatus === 'completed' || tags.includes('demo-completed')) return 'completed';
+  if (attrStatus === 'confirmed' || tags.includes('demo-confirmed')) return 'confirmed';
+  return 'requested';
+}
+
 export async function getDemoBookings(): Promise<DemoBooking[]> {
   const data = await runAdminQuery<{
     draftOrders: { edges: Array<{ node: {
-      id: string; name: string; createdAt: string; email: string | null; phone: string | null;
+      id: string; name: string; createdAt: string; email: string | null; phone: string | null; tags: string[];
       customAttributes: Array<{ key: string; value: string }>;
       shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
     } }> };
   }>(DEMO_BOOKINGS);
+  const domain = adminDomain();
   return (data?.draftOrders?.edges ?? []).map(({ node }) => {
     const attr = (k: string) => node.customAttributes.find((a) => a.key === k)?.value ?? '';
     const a = node.shippingAddress;
@@ -611,8 +623,47 @@ export async function getDemoBookings(): Promise<DemoBooking[]> {
       slot: attr('demo_slot'),
       bags: attr('demo_bags'),
       address,
+      status: demoStatus(node.tags ?? [], attr('demo_status')),
+      confirmedDate: attr('demo_confirmed_date'),
+      confirmedTime: attr('demo_confirmed_time'),
+      adminUrl: domain ? `https://${domain}/admin/draft_orders/${node.id.split('/').pop() ?? ''}` : null,
     };
   });
+}
+
+// ── Home-demo status changes (founders' dashboard) ──────────────────────────────
+const DRAFT_ATTRS_GET = /* GraphQL */ `query DraftAttrs($id: ID!) { draftOrder(id: $id) { customAttributes { key value } } }`;
+const DRAFT_ORDER_UPDATE = /* GraphQL */ `
+  mutation DraftOrderUpdate($id: ID!, $input: DraftOrderInput!) {
+    draftOrderUpdate(id: $id, input: $input) { userErrors { message } }
+  }
+`;
+
+// Merges the given custom-attribute patch into the draft (draftOrderUpdate REPLACES the
+// whole customAttributes array, so we read-merge-write) and additively applies tags.
+async function patchDemo(id: string, patch: Record<string, string>, addTags: string[]): Promise<boolean> {
+  const cur = await runAdminQuery<{ draftOrder: { customAttributes: Array<{ key: string; value: string }> } | null }>(DRAFT_ATTRS_GET, { id });
+  if (!cur?.draftOrder) return false;
+  const map = new Map<string, string>();
+  cur.draftOrder.customAttributes.forEach((a) => map.set(a.key, a.value));
+  Object.entries(patch).forEach(([k, v]) => map.set(k, v));
+  const customAttributes = Array.from(map, ([key, value]) => ({ key, value }));
+  const upd = await runAdminQuery<{ draftOrderUpdate: { userErrors: Array<{ message: string }> } }>(
+    DRAFT_ORDER_UPDATE,
+    { id, input: { customAttributes } },
+  );
+  if (!upd) return false;
+  const errs = upd.draftOrderUpdate?.userErrors;
+  if (errs && errs.length) { console.error('[admin] draftOrderUpdate userErrors:', JSON.stringify(errs)); return false; }
+  if (addTags.length) await runAdminQuery(TAGS_ADD, { id, tags: addTags });
+  return true;
+}
+
+export function confirmDemo(id: string, date: string, time: string): Promise<boolean> {
+  return patchDemo(id, { demo_status: 'confirmed', demo_confirmed_date: date, demo_confirmed_time: time }, ['demo-confirmed']);
+}
+export function completeDemo(id: string): Promise<boolean> {
+  return patchDemo(id, { demo_status: 'completed' }, ['demo-completed']);
 }
 
 export interface AbandonedLine {
