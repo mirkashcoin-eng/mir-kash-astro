@@ -1,17 +1,24 @@
 ---
-// Founders' dashboard — passcode gate (server-verified via ADMIN_PASSCODE). No Google.
+// Founders' dashboard gate. Primary: Google sign-in as the Mir Kash account
+// (verified server-side, email must be in ADMIN_EMAILS). Fallback: shared ADMIN_PASSCODE.
 ---
 <main class="ad">
-  <!-- Passcode gate -->
+  <!-- Sign-in gate -->
   <section class="ad-gate" id="gate" hidden>
-    <form class="ad-gate__card" id="gateForm">
+    <div class="ad-gate__card">
       <p class="ad-eyebrow">Founders only</p>
-      <h1 class="ad-display ad-gate__h">Enter passcode</h1>
+      <h1 class="ad-display ad-gate__h">Mir Kash</h1>
       <p class="ad-gate__p">Orders, abandoned checkouts and home-demo bookings — all in one place.</p>
-      <input class="ad-input" id="passInput" type="password" placeholder="Passcode" autocomplete="off" autofocus />
-      <button class="ad-enter" id="enterBtn" type="submit">Enter dashboard</button>
+      <button class="ad-google" id="googleBtn" type="button">
+        <span class="ad-google__g" aria-hidden="true">G</span> Sign in with Google
+      </button>
       <p class="ad-signin-status" id="signinStatus"></p>
-    </form>
+      <button class="ad-altlink" id="usePass" type="button">Use a passcode instead</button>
+      <form class="ad-pass" id="gateForm" hidden>
+        <input class="ad-input" id="passInput" type="password" placeholder="Passcode" autocomplete="off" />
+        <button class="ad-enter" id="enterBtn" type="submit">Enter</button>
+      </form>
+    </div>
   </section>
 
   <!-- Console -->
@@ -52,7 +59,9 @@
   </div>
 </main>
 
-<script is:inline>
+<script>
+  import { getSessionUser, getIdToken, signInWithGoogle, signOut } from '~/lib/firebaseClient';
+
   (function () {
     var LS = 'mk_admin_key';
     var $ = function (id) { return document.getElementById(id); };
@@ -139,35 +148,88 @@
       }
     }
 
-    function fetchWith(key) {
-      return fetch('/api/admin/data', { headers: { 'x-admin-key': key } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    // Calls the founders' data feed with the given auth header. Returns the HTTP
+    // status alongside the parsed body so callers can tell "wrong credential" (401)
+    // from a network failure (0), and render or message accordingly.
+    function callData(headers) {
+      return fetch('/api/admin/data', { headers: headers })
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, data: r.ok ? j : null }; }, function () { return { status: r.status, data: null }; }); })
+        .catch(function () { return { status: 0, data: null }; });
     }
 
+    function showGate() { $('gate').hidden = false; }
+    function setStatus(msg) { var s = $('signinStatus'); if (s) s.textContent = msg || ''; }
+
     async function init() {
+      // 1) Returning admin with a live Firebase (Google) session — sign in silently.
+      try {
+        var user = await getSessionUser();
+        if (user) {
+          var token = await getIdToken();
+          if (token) {
+            var r = await callData({ Authorization: 'Bearer ' + token });
+            if (r.data) { render(r.data); return; }
+          }
+        }
+      } catch (e) { /* fall through to gate */ }
+
+      // 2) Saved passcode fallback.
       var saved = null;
       try { saved = localStorage.getItem(LS); } catch (e) {}
       if (saved) {
-        var data = await fetchWith(saved);
-        if (data) { render(data); return; }
+        var rp = await callData({ 'x-admin-key': saved });
+        if (rp.data) { render(rp.data); return; }
         try { localStorage.removeItem(LS); } catch (e) {}
       }
-      $('gate').hidden = false;
+
+      showGate();
     }
+
+    // ── Google sign-in (primary) ──────────────────────────────────────────────
+    $('googleBtn').addEventListener('click', async function () {
+      var btn = $('googleBtn'); btn.disabled = true;
+      setStatus('Opening Google…');
+      try {
+        var user = await signInWithGoogle();
+        if (!user) { setStatus('Google sign-in is unavailable — use a passcode instead.'); btn.disabled = false; return; }
+        setStatus('Signing in…');
+        var token = await getIdToken(true);
+        var r = await callData({ Authorization: 'Bearer ' + token });
+        if (r.data) { render(r.data); return; }
+        if (r.status === 401) { setStatus('That Google account isn’t an admin.'); await signOut().catch(function () {}); }
+        else { setStatus('Could not load the dashboard — please try again.'); }
+        btn.disabled = false;
+      } catch (err) {
+        var code = (err && err.code) || '';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') setStatus('Sign-in cancelled.');
+        else if (code === 'auth/unauthorized-domain') setStatus('This domain isn’t authorised in Firebase yet.');
+        else setStatus('Sign-in failed' + (code ? ' (' + code + ')' : '') + '.');
+        btn.disabled = false;
+      }
+    });
+
+    // ── Passcode fallback ─────────────────────────────────────────────────────
+    $('usePass').addEventListener('click', function () {
+      $('gateForm').hidden = false;
+      $('usePass').hidden = true;
+      $('passInput').focus();
+    });
 
     $('gateForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       var key = ($('passInput').value || '').trim();
       if (!key) return;
-      var st = $('signinStatus'); st.textContent = 'Checking…';
+      setStatus('Checking…');
       var btn = $('enterBtn'); btn.disabled = true;
-      var data = await fetchWith(key);
-      if (!data) { st.textContent = 'Wrong passcode — try again.'; btn.disabled = false; return; }
+      var r = await callData({ 'x-admin-key': key });
+      if (!r.data) { setStatus('Wrong passcode — try again.'); btn.disabled = false; return; }
       try { localStorage.setItem(LS, key); } catch (e2) {}
-      render(data);
+      render(r.data);
     });
 
-    $('lockBtn').addEventListener('click', function () {
+    $('lockBtn').addEventListener('click', async function () {
       try { localStorage.removeItem(LS); } catch (e) {}
+      try { await signOut(); } catch (e) {}
       location.reload();
     });
 
@@ -196,6 +258,13 @@
   .ad-gate__card { background: #fff; border: 1px solid var(--rule); border-radius: 6px; padding: clamp(36px,5vw,56px); text-align: center; max-width: 420px; width: 100%; }
   .ad-gate__h { font-size: clamp(26px,3.4vw,38px); color: var(--depth); margin: 0 0 12px; }
   .ad-gate__p { font-size: 14px; color: var(--mid); line-height: 1.6; margin: 0 auto 24px; max-width: 34ch; }
+  .ad-google { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 52px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-family: 'Jost', sans-serif; font-size: 13px; letter-spacing: .06em; font-weight: 600; transition: background .2s; }
+  .ad-google:hover { background: var(--cherry); }
+  .ad-google:disabled { opacity: .6; cursor: default; }
+  .ad-google__g { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: var(--depth); font-family: var(--serif); font-weight: 500; font-size: 15px; line-height: 1; }
+  .ad-altlink { display: inline-block; margin: 18px auto 0; background: none; border: none; cursor: pointer; font-family: 'Jost', sans-serif; font-size: 11.5px; letter-spacing: .04em; color: var(--faint); text-decoration: underline; text-underline-offset: 3px; }
+  .ad-altlink:hover { color: var(--mid); }
+  .ad-pass { margin-top: 16px; }
   .ad-input { width: 100%; border: 1px solid var(--rule); background: #fff; padding: 14px 16px; font-family: 'Jost', sans-serif; font-size: 15px; color: var(--depth); text-align: center; letter-spacing: .04em; outline: none; margin-bottom: 12px; }
   .ad-input:focus { border-color: var(--depth); }
   .ad-enter { width: 100%; height: 50px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; transition: background .2s; }
