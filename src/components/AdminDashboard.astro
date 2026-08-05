@@ -345,6 +345,9 @@
 
   /* Shell */
   .ad-shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
+  /* An explicit display: (grid/flex) beats the UA [hidden] rule, so force it: the
+     login card and the dashboard must truly disappear when hidden — never both shown. */
+  .ad-gate[hidden], .ad-shell[hidden] { display: none !important; }
   .ad-nav { background: var(--depth); color: #fff; padding: 20px 14px; display: flex; flex-direction: column; gap: 3px; position: sticky; top: 0; height: 100vh; }
   .ad-nav__logo { font-family: var(--serif); font-size: 15px; letter-spacing: .22em; color: #fff; padding: 6px 12px 20px; }
   .ad-nav__item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font-family: 'Jost', sans-serif; font-size: 12.5px; color: rgba(255,255,255,.62); background: none; border: none; cursor: pointer; padding: 11px 12px; border-radius: 4px; transition: background .15s, color .15s; }
