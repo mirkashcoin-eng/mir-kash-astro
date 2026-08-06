@@ -17,7 +17,9 @@ const json = (obj: unknown, status = 200) =>
 // One-time (idempotent) import of the legacy `checkout_leads` phone numbers into
 // `people`, so months of captured numbers stop being invisible. Safe to re-run —
 // it merges and never overwrites richer data from the live flow.
-export const POST: APIRoute = async ({ request }) => {
+// GET is allowed too: Astro's CSRF checkOrigin rejects header-less POSTs (curl), and
+// the admin credential — not the method — is what actually guards this.
+const run: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
   try {
     const res = await backfillLegacyLeads();
@@ -27,3 +29,6 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: e instanceof Error ? e.message : 'Backfill failed' }, 500);
   }
 };
+
+export const POST = run;
+export const GET = run;
