@@ -281,7 +281,7 @@ const thumbGradients = [
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
-  import { getSessionUser, loadProfile, signInWithGoogle, saveLead, ensureAccountFromCheckout, firebaseConfigured } from '~/lib/firebaseClient';
+  import { getSessionUser, loadProfile, signInWithGoogle, ensureAccountFromCheckout, firebaseConfigured } from '~/lib/firebaseClient';
   import { citiesFor } from '~/lib/india-locations';
 
   if (window.mkTrack) window.mkTrack('checkout_start');
@@ -350,8 +350,7 @@ const thumbGradients = [
   document.querySelector('[data-complete="contact"]')!.addEventListener('click', () => {
     clearErr('contact');
     if (phone10().length !== 10) { showErr('contact', 'Enter a valid 10-digit mobile number.'); return; }
-    // Lead capture (best-effort): legacy Firestore lead + the founders' Leads view.
-    saveLead(phone10());
+    // Lead capture (best-effort) — links this session to the person in /admin.
     if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone10(), email: val('f-email') || undefined, name: val('f-name') || undefined });
     done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow(); scrollToSection('delivery');
   });
@@ -363,6 +362,8 @@ const thumbGradients = [
     const revealOnError = () => { if (($('deliveryFields') as HTMLElement).hidden) showAddrForm(); };
     if (!val('f-name') || !val('f-addr') || !val('f-state') || !/^\d{6}$/.test(val('f-pin'))) { revealOnError(); showErr('delivery', 'Please fill name, address, state and a valid 6-digit PIN.'); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'))) { revealOnError(); showErr('delivery', 'Enter a valid email for your confirmation.'); return; }
+    // Address reached — the last thing we learn about a customer before payment.
+    if (window.mkLead) window.mkLead({ event: 'address', address1: val('f-addr'), city: val('f-city'), province: val('f-state'), pin: val('f-pin'), name: val('f-name') || undefined, email: val('f-email') || undefined });
     done.add('delivery'); buildRecap('delivery'); active = 'payment'; renderFlow(); scrollToSection('payment');
   });
 

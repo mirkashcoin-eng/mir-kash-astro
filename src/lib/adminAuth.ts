@@ -31,3 +31,14 @@ export function passcodeOk(key: string | null | undefined): boolean {
   for (let i = 0; i < set.length; i++) diff |= key.charCodeAt(i) ^ set.charCodeAt(i);
   return diff === 0;
 }
+
+// The gate every /api/admin/* route uses: a shared passcode (x-admin-key) OR a Firebase
+// ID token whose email is in the allowlist. Kept here so no route invents its own check.
+export async function requestIsAdmin(request: Request): Promise<boolean> {
+  if (passcodeOk(request.headers.get('x-admin-key'))) return true;
+  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  const { verifyFirebaseUser } = await import('./firebaseAuth');
+  const user = await verifyFirebaseUser(token);
+  return Boolean(user && isAdmin(user.email));
+}

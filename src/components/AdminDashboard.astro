@@ -25,13 +25,12 @@
   <div class="ad-shell" id="shell" hidden>
     <nav class="ad-nav">
       <div class="ad-nav__logo">MIR KASH</div>
-      <button class="ad-nav__item on" data-view="overview">Overview</button>
-      <button class="ad-nav__item" data-view="revenue">Revenue</button>
-      <button class="ad-nav__item" data-view="visitors">Visitors</button>
-      <button class="ad-nav__item" data-view="leads">Leads <span class="ad-nav__n" id="nLeads"></span></button>
-      <button class="ad-nav__item" data-view="orders">Recent orders <span class="ad-nav__n" id="nOrders"></span></button>
+      <span class="ad-nav__grp">People</span>
+      <button class="ad-nav__item on" data-view="people">Everyone <span class="ad-nav__n" id="nPeople"></span></button>
+      <span class="ad-nav__grp">Business</span>
+      <button class="ad-nav__item" data-view="overview">Overview</button>
+      <button class="ad-nav__item" data-view="orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
-      <button class="ad-nav__item" data-view="abandoned">Abandoned checkouts <span class="ad-nav__n" id="nAband"></span></button>
       <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
       <div class="ad-nav__foot">
         <span class="ad-nav__upd" id="updated"></span>
@@ -40,37 +39,31 @@
     </nav>
 
     <div class="ad-main">
-      <section class="ad-view" data-view="overview">
+      <section class="ad-view" data-view="people">
+        <h1 class="ad-display ad-h1">People</h1>
+        <p class="ad-sub">Everyone who's shown intent — what they did, what's in their bag, and where they stopped.</p>
+        <div class="ad-filters" id="peopleFilters"></div>
+        <div class="ad-searchwrap"><input class="ad-search" id="peopleSearch" type="search" placeholder="Search name, phone, email or bag…" autocomplete="off" /></div>
+        <div id="peopleBody"></div>
+      </section>
+      <section class="ad-view" data-view="overview" hidden>
         <h1 class="ad-display ad-h1">Overview</h1>
         <div class="ad-kpis" id="kpis"></div>
+        <div id="productsBody"></div>
         <div class="ad-panel">
           <div class="ad-panel__h"><span class="ad-panel__t">Recent orders</span><button class="ad-panel__more" data-view="orders" type="button">View all →</button></div>
           <div class="ad-scroll" id="ovOrders"></div>
         </div>
-      </section>
-      <section class="ad-view" data-view="revenue" hidden>
-        <h1 class="ad-display ad-h1">Revenue insights</h1>
-        <div id="revenueBody"></div>
-      </section>
-      <section class="ad-view" data-view="visitors" hidden>
-        <h1 class="ad-display ad-h1">Visitor funnel</h1>
-        <div id="funnelBody"></div>
-      </section>
-      <section class="ad-view" data-view="leads" hidden>
-        <h1 class="ad-display ad-h1">Leads</h1>
-        <div id="leadsBody"></div>
+        <p class="ad-oppnote">Page views, time on page and traffic sources live in Google Analytics — this dashboard covers people and money.</p>
       </section>
       <section class="ad-view" data-view="orders" hidden>
-        <h1 class="ad-display ad-h1">Recent orders</h1>
-        <div class="ad-panel"><div class="ad-scroll" id="allOrders"></div></div>
+        <h1 class="ad-display ad-h1">Orders &amp; revenue</h1>
+        <div id="revenueBody"></div>
+        <div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">All recent orders</span></div><div class="ad-scroll" id="allOrders"></div></div>
       </section>
       <section class="ad-view" data-view="fulfilment" hidden>
         <h1 class="ad-display ad-h1">Fulfilment &amp; payments</h1>
         <div id="fulfilBody"></div>
-      </section>
-      <section class="ad-view" data-view="abandoned" hidden>
-        <h1 class="ad-display ad-h1">Abandoned checkouts</h1>
-        <div class="ad-panel"><div class="ad-scroll" id="allAband"></div></div>
       </section>
       <section class="ad-view" data-view="demos" hidden>
         <h1 class="ad-display ad-h1">Home-demo bookings</h1>
@@ -79,10 +72,10 @@
     </div>
   </div>
 
-  <!-- Detail drawer — full abandoned-checkout breakdown (Shopify-style) -->
+  <!-- Detail drawer — a person's full journey, or a booking's detail -->
   <div class="ad-drawer" id="drawer" hidden>
     <div class="ad-drawer__scrim" id="drawerScrim"></div>
-    <aside class="ad-drawer__panel" role="dialog" aria-modal="true" aria-label="Abandoned checkout detail">
+    <aside class="ad-drawer__panel" role="dialog" aria-modal="true" aria-label="Detail">
       <button class="ad-drawer__close" id="drawerClose" type="button" aria-label="Close">&times;</button>
       <div id="drawerBody"></div>
     </aside>
@@ -96,6 +89,9 @@
     var LS = 'mk_admin_key';
     var ABANDONED = [];
     var DEMOS = [];
+    var PEOPLE = [];
+    var FILTER = 'all';   // active stage filter in the People view
+    var SEARCH = '';
     var AUTH = null; // { kind:'key', key } | { kind:'token' } — in memory only, never persisted
     var $ = function (id) { return document.getElementById(id); };
     // Auth header for follow-up admin actions, reusing this session's credential.
@@ -134,12 +130,6 @@
         return '<tr><td class="nm">' + esc(o.customer || 'Guest') + (o.email ? '<div class="sub">' + esc(o.email) + '</div>' : '') + '</td><td>' + esc(o.name) + '</td><td>' + esc(o.items || '—') + '</td><td>' + when(o.createdAt) + '</td><td class="r amt">' + esc(inr(o.total && o.total.amount, o.total && o.total.currencyCode)) + '</td><td>' + orderPill(o) + '</td></tr>';
       }).join('') + '</tbody></table>';
     }
-    function abandonedTable(rows) {
-      if (!rows.length) return '<p class="ad-note ad-pad">No abandoned checkouts yet.</p>';
-      return '<table class="ad-table ad-table--click"><thead><tr><th>Customer</th><th>Contact</th><th>Items</th><th class="r">Value</th><th>When</th><th></th></tr></thead><tbody>' + rows.map(function (r, i) {
-        return '<tr data-idx="' + i + '"><td class="nm">' + esc(r.customer || 'Unknown') + '</td><td class="sub">' + contact(r.email, r.phone) + '</td><td>' + esc(r.items || '—') + '</td><td class="r amt">' + esc(inr(r.total && r.total.amount, r.total && r.total.currencyCode)) + '</td><td>' + when(r.createdAt, true) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
-      }).join('') + '</tbody></table>';
-    }
     function demoPill(status) {
       if (status === 'completed') return '<span class="ad-pill ad-pill--done">Completed</span>';
       if (status === 'confirmed') return '<span class="ad-pill ad-pill--good">Confirmed</span>';
@@ -167,28 +157,30 @@
       ABANDONED = abandoned;
       var demos = data.demos || [];
       DEMOS = demos;
+      PEOPLE = data.people || [];
       $('nOrders').textContent = String(orders.length);
-      $('nAband').textContent = String(abandoned.length);
       $('nDemos').textContent = String(demos.length);
+      $('nPeople').textContent = PEOPLE.length ? String(PEOPLE.length) : '';
 
       var now = Date.now();
       var recent = orders.filter(function (o) { var t = new Date(o.createdAt).getTime(); return isFinite(t) && now - t <= 30 * 864e5 && !o.cancelled; });
       var revenue = recent.reduce(function (s, o) { return s + Number((o.total && o.total.amount) || 0); }, 0);
+      var f = data.funnel;
+      var conv = (f && f.visit) ? ((recent.length / f.visit) * 100).toFixed(1) + '%' : '—';
       $('kpis').innerHTML = [
-        { n: inr(String(revenue)), k: 'Revenue · 30d', d: recent.length + ' orders →', v: 'revenue' },
-        { n: String(orders.length), k: 'Recent orders', d: 'view all →', v: 'orders' },
-        { n: String(abandoned.length), k: 'Abandoned', d: 'view all →', v: 'abandoned' },
-        { n: String(demos.length), k: 'Home demos', d: 'view all →', v: 'demos' },
+        { n: inr(String(revenue)), k: 'Revenue · 30d', d: recent.length + ' orders →', v: 'orders' },
+        { n: String(PEOPLE.length), k: 'People captured', d: 'view all →', v: 'people' },
+        { n: String(abandoned.length), k: 'Abandoned', d: 'chase them →', v: 'people' },
+        { n: conv, k: 'Visitor → order', d: f ? 'last ' + f.days + 'd' : '', v: 'overview' },
       ].map(function (x) { return '<button type="button" class="ad-kpi ad-kpi--click" data-view="' + x.v + '"><span class="ad-kpi__n">' + esc(x.n) + '</span><span class="ad-kpi__k">' + esc(x.k) + '</span><span class="ad-kpi__d">' + esc(x.d) + '</span></button>'; }).join('');
 
       $('ovOrders').innerHTML = ordersTable(orders.slice(0, 8));
       $('allOrders').innerHTML = ordersTable(orders);
-      $('allAband').innerHTML = abandonedTable(abandoned);
       $('allDemos').innerHTML = demosTable(demos);
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
-      renderFunnel(data.funnel, orders);
-      renderLeads(data.leads);
+      renderProducts(data.products);
+      renderPeople();
 
       // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
       // once at setup so auto-refresh re-renders don't stack listeners.
@@ -200,77 +192,88 @@
       startAutoRefresh();
     }
 
-    // ── Leads (per-session: added to bag / entered phone) ─────────────────────
-    function renderLeads(leads) {
-      var body = $('leadsBody'); if (!body) return;
-      var nb = $('nLeads');
-      if (!leads) {
-        if (nb) nb.textContent = '';
-        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Leads aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p></div>';
-        return;
-      }
-      if (nb) nb.textContent = leads.length ? String(leads.length) : '';
-      if (!leads.length) {
-        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No leads captured yet. As visitors add bags or enter their phone, they’ll appear here with all their details.</p></div>';
-        return;
-      }
-      var rows = leads.map(function (l) {
-        var tel = (l.phone || '').replace(/[^0-9]/g, '');
-        var pill = l.stage === 'phone' ? '<span class="ad-pill ad-pill--good">Entered phone</span>' : '<span class="ad-pill ad-pill--wait">Added to bag</span>';
-        var acts = [];
-        if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">WhatsApp</a>');
-        if (tel) acts.push('<a class="ad-link" href="tel:+' + tel + '">Call</a>');
-        var items = (l.items && l.items.length) ? l.items.join(', ') : '—';
-        var contact = [l.phone ? esc(l.phone) : '', l.email ? esc(l.email) : ''].filter(Boolean).join(' · ') || '—';
-        return '<tr><td class="nm">' + esc(l.name || 'Visitor') + '<div class="sub">' + contact + '</div></td><td>' + pill + '</td><td>' + esc(items) + '</td><td>' + when(l.firstSeen, true) + '</td><td>' + when(l.lastSeen, true) + '</td><td class="r">' + acts.join(' ') + '</td></tr>';
+    // ── People (every visitor who showed intent, one row each) ────────────────
+    // The journey stages, in order. `key` matches Person.stage from the API.
+    var STAGES = [
+      { key: 'visited',  label: 'Just visited',   cls: 'ad-pill--wait' },
+      { key: 'cart',     label: 'Added to bag',   cls: 'ad-pill--wait' },
+      { key: 'phone',    label: 'Entered phone',  cls: 'ad-pill--good' },
+      { key: 'address',  label: 'Entered address', cls: 'ad-pill--good' },
+      { key: 'payment',  label: 'Abandoned at payment', cls: 'ad-pill--cancel' },
+      { key: 'ordered',  label: 'Ordered',        cls: 'ad-pill--done' },
+    ];
+    function stageMeta(k) {
+      for (var i = 0; i < STAGES.length; i++) if (STAGES[i].key === k) return STAGES[i];
+      return STAGES[0];
+    }
+    function stagePill(k) {
+      var m = stageMeta(k);
+      return '<span class="ad-pill ' + m.cls + '">' + esc(m.label) + '</span>';
+    }
+    function matchesSearch(p) {
+      if (!SEARCH) return true;
+      var hay = [p.name, p.phone, p.email, p.address, (p.items || []).join(' ')].join(' ').toLowerCase();
+      return hay.indexOf(SEARCH) > -1;
+    }
+    function visiblePeople() {
+      return PEOPLE.filter(function (p) {
+        return (FILTER === 'all' || p.stage === FILTER) && matchesSearch(p);
+      });
+    }
+    function renderFilters() {
+      var wrap = $('peopleFilters'); if (!wrap) return;
+      var counts = { all: PEOPLE.length };
+      PEOPLE.forEach(function (p) { counts[p.stage] = (counts[p.stage] || 0) + 1; });
+      var chips = [{ key: 'all', label: 'Everyone' }].concat(STAGES);
+      wrap.innerHTML = chips.map(function (c) {
+        var n = counts[c.key] || 0;
+        return '<button type="button" class="ad-chip' + (FILTER === c.key ? ' on' : '') + '" data-filter="' + c.key + '">' +
+          esc(c.label) + '<span class="ad-chip__n">' + n + '</span></button>';
       }).join('');
-      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Leads</span><span class="ad-chart-sub">' + leads.length + ' people · most recent first</span></div><div class="ad-scroll"><table class="ad-table"><thead><tr><th>Person</th><th>Stage</th><th>Bags added</th><th>First seen</th><th>Last seen</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    }
+    function renderPeople() {
+      renderFilters();
+      var body = $('peopleBody'); if (!body) return;
+      if (!PEOPLE.length) {
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No one captured yet. As visitors add bags, enter a phone or reach checkout, they’ll appear here — each with their full journey.</p></div>';
+        return;
+      }
+      var rows = visiblePeople();
+      if (!rows.length) {
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No one matches that filter.</p></div>';
+        return;
+      }
+      var html = rows.map(function (p) {
+        var idx = PEOPLE.indexOf(p);
+        var tel = (p.phone || '').replace(/[^0-9]/g, '');
+        var contact = [p.phone ? esc(p.phone) : '', p.email ? esc(p.email) : ''].filter(Boolean).join(' · ') || '—';
+        var bag = (p.cart && p.cart.lines && p.cart.lines.length)
+          ? p.cart.lines.map(function (l) { return l.quantity + '× ' + l.title; }).join(', ')
+          : ((p.items && p.items.length) ? p.items.join(', ') : '—');
+        var val = p.ordered ? inr(String(p.orderTotal), p.cartCurrency) : (p.cartValue ? inr(String(p.cartValue), p.cartCurrency) : '—');
+        var acts = [];
+        if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp</a>');
+        return '<tr data-person="' + idx + '"><td class="nm">' + esc(p.name || 'Visitor') + '<div class="sub">' + contact + '</div></td>' +
+          '<td>' + stagePill(p.stage) + '</td>' +
+          '<td>' + esc(bag) + '</td>' +
+          '<td class="r amt">' + esc(val) + '</td>' +
+          '<td class="r">' + p.visits + '</td>' +
+          '<td>' + when(p.lastSeen, true) + '</td>' +
+          '<td class="r">' + acts.join(' ') + '<span class="ad-rowview">View →</span></td></tr>';
+      }).join('');
+      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">' +
+        (FILTER === 'all' ? 'Everyone' : esc(stageMeta(FILTER).label)) + '</span><span class="ad-chart-sub">' + rows.length + ' of ' + PEOPLE.length + ' · most recent first</span></div>' +
+        '<div class="ad-scroll"><table class="ad-table ad-table--click"><thead><tr><th>Person</th><th>Stage</th><th>Their bag</th><th class="r">Value</th><th class="r">Visits</th><th>Last seen</th><th></th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
     }
 
-    // ── Visitor funnel ────────────────────────────────────────────────────────
-    function renderFunnel(funnel, orders) {
-      var body = $('funnelBody');
-      if (!body) return;
-      if (!funnel) { body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Visitor tracking isn’t available yet — it needs the Firestore rule for <code>analytics_daily</code>. Once that’s set, data appears here.</p></div>'; return; }
-      var now = Date.now(), DAY = 864e5;
-      var purchases = orders.filter(function (o) { var t = new Date(o.createdAt).getTime(); return !o.cancelled && isFinite(t) && now - t <= 30 * DAY; }).length;
-      var stages = [
-        { k: 'Visited the site', n: funnel.visit || 0 },
-        { k: 'Viewed a product', n: funnel.product_view || 0 },
-        { k: 'Added to bag', n: funnel.add_to_cart || 0 },
-        { k: 'Started checkout', n: funnel.checkout_start || 0 },
-        { k: 'Reached payment', n: funnel.payment_start || 0 },
-        { k: 'Purchased', n: purchases },
-      ];
-      var top = Math.max(stages[0].n, 1);
-      var totalEvents = stages.reduce(function (s, x) { return s + x.n; }, 0);
-      var rows = stages.map(function (s, i) {
-        var pctTop = top ? (s.n / top) * 100 : 0;
-        var pctVis = top ? Math.round((s.n / top) * 100) : 0;
-        var drop = '';
-        if (i > 0) {
-          var prev = stages[i - 1].n;
-          var dv = (prev > 0) ? Math.round((1 - s.n / prev) * 100) : 0;
-          drop = '<div class="ad-fdrop">↓ ' + (prev > 0 ? dv + '% drop-off' : '—') + '</div>';
-        }
-        return drop +
-          '<div class="ad-frow"><div class="ad-frow__top"><span class="ad-frow__k">' + esc(s.k) + '</span><span class="ad-frow__n">' + s.n + ' · ' + pctVis + '%</span></div>' +
-          '<div class="ad-hbar__track ad-ftrack"><span class="ad-hbar__fill" style="width:' + Math.max(pctTop, 2).toFixed(1) + '%"></span></div></div>';
-      }).join('');
-      var conv = top ? (purchases / top) * 100 : 0;
-      var browseDrop = funnel.visit ? Math.round((1 - (funnel.product_view || 0) / funnel.visit) * 100) : 0;
-      var payDrop = funnel.payment_start ? Math.round((1 - purchases / funnel.payment_start) * 100) : 0;
-      body.innerHTML =
-        revTiles([
-          { n: String(funnel.visit || 0), k: 'Visitors · ' + funnel.days + 'd', d: 'sessions' },
-          { n: String(funnel.add_to_cart || 0), k: 'Added to bag', d: '' },
-          { n: String(funnel.payment_start || 0), k: 'Reached payment', d: '' },
-          { n: (conv ? conv.toFixed(1) : '0') + '%', k: 'Conversion', d: 'visitor → order' },
-        ]) +
-        '<div class="ad-panel ad-chartcard"><div class="ad-chart-h"><span class="ad-panel__t">Where visitors go — and drop off</span><span class="ad-chart-sub">last ' + funnel.days + ' days</span></div><div class="ad-funnel">' + rows + '</div></div>' +
-        (totalEvents === 0
-          ? '<p class="ad-oppnote">Tracking just went live — this fills in as visitors browse the site. Check back in a day or two.</p>'
-          : '<p class="ad-oppnote">' + esc(browseDrop + '% leave after landing without opening a product, and ' + payDrop + '% who reach payment don’t finish — those are the two biggest leaks to fix.') + '</p>');
+    // ── Most-viewed products ──────────────────────────────────────────────────
+    function renderProducts(products) {
+      var body = $('productsBody'); if (!body) return;
+      if (!products || !products.length) { body.innerHTML = ''; return; }
+      var max = products[0].views || 1;
+      body.innerHTML = hbars('Most viewed products', 'views · adds to bag', products.map(function (p) {
+        return hbarRow(p.title, p.views + ' views · ' + p.cartAdds + ' adds', (p.views / max) * 100, '');
+      }).join(''));
     }
 
     // ── Fulfilment & payments ─────────────────────────────────────────────────
@@ -520,16 +523,33 @@
       el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); });
     });
 
-    // ── Abandoned-checkout detail drawer ──────────────────────────────────────
+    // People: filter chips + search + row → journey. Delegated, so re-renders (and the
+    // 45s auto-refresh) never stack listeners.
+    $('peopleFilters').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-filter]'); if (!b) return;
+      FILTER = b.getAttribute('data-filter');
+      renderPeople();
+    });
+    $('peopleSearch').addEventListener('input', function (e) {
+      SEARCH = (e.target.value || '').trim().toLowerCase();
+      renderPeople();
+    });
+    $('peopleBody').addEventListener('click', function (e) {
+      if (e.target.closest('a')) return;            // let WhatsApp/Call links through
+      var tr = e.target.closest('[data-person]'); if (!tr) return;
+      openPerson(Number(tr.getAttribute('data-person')));
+    });
+
+    // ── Person journey drawer ─────────────────────────────────────────────────
     function addr(a) {
       if (!a) return '<span class="ad-dv">—</span>';
       var lines = [a.name, a.address1, a.address2, [a.city, a.province, a.zip].filter(Boolean).join(', '), a.country].filter(Boolean);
       return lines.map(function (l) { return esc(l); }).join('<br>') || '<span class="ad-dv">—</span>';
     }
-    function buildDrawer(r) {
+    // The Shopify-side breakdown of an unpaid draft — kept intact from the old
+    // Abandoned-checkouts view, now shown inside the person it belongs to.
+    function abandonedSection(r) {
       var d = r.detail || {};
-      var when2 = when(r.createdAt, true);
-      var telDigits = (r.phone || '').replace(/[^0-9]/g, '');
       var lineRows = (d.lines || []).map(function (l) {
         var unit = inr(l.price && l.price.amount, l.price && l.price.currencyCode);
         var lineTot = l.price ? inr(String(Number(l.price.amount) * l.quantity), l.price.currencyCode) : '—';
@@ -538,29 +558,71 @@
       var money = function (label, m, strong) {
         return '<div class="ad-tot' + (strong ? ' ad-tot--strong' : '') + '"><span>' + label + '</span><span>' + esc(m ? inr(m.amount, m.currencyCode) : '—') + '</span></div>';
       };
+      return '<div class="ad-dsect"><h3 class="ad-dh3">Unpaid checkout · ' + esc(r.name || '') + '</h3>' +
+        '<p class="ad-dmeta">Started ' + when(r.createdAt, true) + ' — never paid.</p>' +
+        (d.address ? '<p class="ad-daddr">' + addr(d.address) + '</p>' : '') +
+        '<table class="ad-dtable"><tbody>' + (lineRows || '<tr><td class="ad-dv">No items</td></tr>') + '</tbody></table>' +
+        '<div class="ad-tots">' + money('Subtotal', d.subtotal) + money('Shipping', d.shipping) + money('Total', d.total, true) + '</div>' +
+        (d.adminUrl ? '<div class="ad-dactions"><a class="ad-dbtn ad-dbtn--fill" href="' + esc(d.adminUrl) + '" target="_blank" rel="noopener">Open draft in Shopify →</a></div>' : '') +
+        '</div>';
+    }
+    var STEP_LABEL = { first_seen: 'Visited the site', cart: 'Added to bag', phone: 'Entered phone', address: 'Entered address' };
+    function timeline(steps) {
+      if (!steps || !steps.length) return '<p class="ad-note">No journey recorded yet.</p>';
+      return '<ol class="ad-tl">' + steps.map(function (s) {
+        return '<li class="ad-tl__i ad-tl__i--' + esc(s.type) + '">' +
+          '<span class="ad-tl__when">' + when(s.at, true) + '</span>' +
+          '<span class="ad-tl__what">' + esc(STEP_LABEL[s.type] || s.type) + '</span>' +
+          (s.detail ? '<span class="ad-tl__d">' + esc(s.detail) + '</span>' : '') +
+          '</li>';
+      }).join('') + '</ol>';
+    }
+    function buildPersonDrawer(p, steps, loading) {
+      var tel = (p.phone || '').replace(/[^0-9]/g, '');
       var actions = [];
-      if (d.adminUrl) actions.push('<a class="ad-dbtn ad-dbtn--fill" href="' + esc(d.adminUrl) + '" target="_blank" rel="noopener">Open in Shopify →</a>');
-      if (telDigits) actions.push('<a class="ad-dbtn" href="https://wa.me/' + telDigits + '" target="_blank" rel="noopener">WhatsApp</a>');
-      if (telDigits) actions.push('<a class="ad-dbtn" href="tel:+' + telDigits + '">Call</a>');
-      if (r.email) actions.push('<a class="ad-dbtn" href="mailto:' + esc(r.email) + '">Email</a>');
-
+      if (tel) actions.push('<a class="ad-dbtn ad-dbtn--fill" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">WhatsApp</a>');
+      if (tel) actions.push('<a class="ad-dbtn" href="tel:+' + tel + '">Call</a>');
+      if (p.email) actions.push('<a class="ad-dbtn" href="mailto:' + esc(p.email) + '">Email</a>');
+      var bagRows = (p.cart && p.cart.lines && p.cart.lines.length)
+        ? p.cart.lines.map(function (l) {
+            return '<tr><td class="nm">' + esc(l.title) + (l.variant ? '<div class="sub">' + esc(l.variant) + '</div>' : '') +
+              '</td><td class="r">' + l.quantity + ' × ' + esc(inr(String(l.price), p.cartCurrency)) + '</td>' +
+              '<td class="r amt">' + esc(inr(String(l.price * l.quantity), p.cartCurrency)) + '</td></tr>';
+          }).join('')
+        : '';
       return '' +
-        '<div class="ad-dhead">' +
-          '<span class="ad-pill ad-pill--cancel">Abandoned at payment</span>' +
-          '<h2 class="ad-display ad-dtitle">' + esc(r.customer || 'Unknown customer') + '</h2>' +
-          '<p class="ad-dmeta">' + esc(r.name) + ' · ' + when2 + '</p>' +
+        '<div class="ad-dhead">' + stagePill(p.stage) +
+          '<h2 class="ad-display ad-dtitle">' + esc(p.name || 'Visitor') + '</h2>' +
+          '<p class="ad-dmeta">' + esc([p.phone, p.email].filter(Boolean).join(' · ') || '—') + '</p>' +
+          '<p class="ad-dmeta">' + p.visits + (p.visits === 1 ? ' session' : ' sessions') + ' · first seen ' + when(p.firstSeen, true) +
+            (p.source === 'legacy-checkout' ? ' · <span class="ad-tag">from earlier checkout capture</span>' : '') + '</p>' +
         '</div>' +
         (actions.length ? '<div class="ad-dactions">' + actions.join('') + '</div>' : '') +
-        '<div class="ad-dsect"><h3 class="ad-dh3">Contact</h3>' +
-          '<div class="ad-drow"><span class="ad-dk">Email</span><span class="ad-dvv">' + (r.email ? esc(r.email) : '<span class="ad-dv">—</span>') + '</span></div>' +
-          '<div class="ad-drow"><span class="ad-dk">Phone</span><span class="ad-dvv">' + (r.phone ? esc(r.phone) : '<span class="ad-dv">—</span>') + '</span></div>' +
-        '</div>' +
-        '<div class="ad-dsect"><h3 class="ad-dh3">Shipping address</h3><p class="ad-daddr">' + addr(d.address) + '</p></div>' +
-        '<div class="ad-dsect"><h3 class="ad-dh3">Items</h3>' +
-          '<table class="ad-dtable"><tbody>' + (lineRows || '<tr><td class="ad-dv">No items</td></tr>') + '</tbody></table>' +
-          '<div class="ad-tots">' + money('Subtotal', d.subtotal) + money('Shipping', d.shipping) + money('Total', d.total, true) + '</div>' +
-        '</div>' +
-        (d.tags && d.tags.length ? '<div class="ad-dsect"><h3 class="ad-dh3">Tags</h3><p class="ad-dtags">' + d.tags.map(function (t) { return '<span class="ad-tag">' + esc(t) + '</span>'; }).join('') + '</p></div>' : '');
+        (p.address ? '<div class="ad-dsect"><h3 class="ad-dh3">Delivery address</h3><p class="ad-daddr">' + esc(p.address) + '</p></div>' : '') +
+        (bagRows
+          ? '<div class="ad-dsect"><h3 class="ad-dh3">Their bag</h3><table class="ad-dtable"><tbody>' + bagRows + '</tbody></table>' +
+            '<div class="ad-tots"><div class="ad-tot ad-tot--strong"><span>Bag value</span><span>' + esc(inr(String(p.cartValue), p.cartCurrency)) + '</span></div></div></div>'
+          : '') +
+        (p.abandoned ? abandonedSection(p.abandoned) : '') +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Journey</h3>' +
+          (loading ? '<p class="ad-note">Loading…</p>' : timeline(steps)) + '</div>';
+    }
+    // Open a person: paint what we already have, then fill in the stitched timeline.
+    async function openPerson(idx) {
+      var p = PEOPLE[idx]; if (!p) return;
+      $('drawerBody').innerHTML = buildPersonDrawer(p, null, true);
+      $('drawerBody').scrollTop = 0;
+      $('drawer').hidden = false;
+      document.body.style.overflow = 'hidden';
+      var steps = [];
+      try {
+        var headers = await authHeaders();
+        if (headers) {
+          var resp = await fetch('/api/admin/journey?id=' + encodeURIComponent(p.id), { headers: headers });
+          if (resp.ok) steps = (await resp.json()).steps || [];
+        }
+      } catch (e) { /* show what we have */ }
+      if (!$('drawer').hidden) $('drawerBody').innerHTML = buildPersonDrawer(p, steps, false);
     }
     // ── Home-demo detail + confirm/complete ───────────────────────────────────
     function fmtISO(iso) {
@@ -670,22 +732,18 @@
     }
 
     function openDrawer(kind, idx) {
-      var r = (kind === 'demo' ? DEMOS : ABANDONED)[idx];
+      var r = DEMOS[idx];
       if (!r) return;
-      $('drawerBody').innerHTML = (kind === 'demo') ? buildDemoDrawer(r) : buildDrawer(r);
+      $('drawerBody').innerHTML = buildDemoDrawer(r);
       $('drawerBody').scrollTop = 0;
       $('drawer').hidden = false;
       document.body.style.overflow = 'hidden';
-      if (kind === 'demo') wireDemoActions(idx);
+      wireDemoActions(idx);
     }
     function closeDrawer() {
       $('drawer').hidden = true;
       document.body.style.overflow = '';
     }
-    $('allAband').addEventListener('click', function (e) {
-      var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
-      if (tr) openDrawer('abandoned', Number(tr.getAttribute('data-idx')));
-    });
     $('allDemos').addEventListener('click', function (e) {
       var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
       if (tr) openDrawer('demo', Number(tr.getAttribute('data-idx')));
@@ -745,6 +803,8 @@
   .ad-nav__item.on { background: rgba(255,255,255,.1); color: #fff; }
   .ad-nav__n { margin-left: auto; font-size: 10px; color: rgba(255,255,255,.45); font-variant-numeric: tabular-nums; }
   .ad-nav__item.on .ad-nav__n { color: #e7b7ae; }
+  .ad-nav__grp { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.32); padding: 16px 12px 5px; }
+  .ad-nav__grp:first-of-type { padding-top: 4px; }
   .ad-nav__foot { margin-top: auto; padding: 12px; }
   .ad-nav__out { background: none; border: none; cursor: pointer; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: #e7b7ae; }
   .ad-nav__upd { display: block; font-size: 9.5px; letter-spacing: .04em; color: rgba(255,255,255,.4); padding: 0 12px 9px; }
@@ -867,6 +927,27 @@
   .ad-fill--warn { background: #c2872b; }
   .ad-hbar__val { font-family: var(--serif); font-size: 16px; color: var(--depth); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .ad-oppnote { font-size: 12.5px; color: var(--mid); margin: -8px 0 20px; padding: 0 2px; line-height: 1.5; }
+
+  /* People: filters, search, journey timeline */
+  .ad-sub { font-size: 13px; color: var(--mid); margin: -14px 0 18px; line-height: 1.5; }
+  .ad-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+  .ad-chip { display: inline-flex; align-items: center; gap: 7px; font-family: 'Jost', sans-serif; font-size: 12px; color: var(--mid); background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .ad-chip:hover { border-color: var(--cherry); color: var(--cherry); }
+  .ad-chip.on { background: var(--depth); border-color: var(--depth); color: #fff; }
+  .ad-chip__n { font-size: 10.5px; font-variant-numeric: tabular-nums; opacity: .65; }
+  .ad-searchwrap { margin-bottom: 16px; }
+  .ad-search { width: 100%; max-width: 380px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--depth); background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 10px 13px; }
+  .ad-search:focus { outline: none; border-color: var(--cherry); }
+
+  .ad-tl { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid var(--line); }
+  .ad-tl__i { position: relative; padding: 0 0 18px 16px; }
+  .ad-tl__i::before { content: ''; position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--line); border: 2px solid #fff; }
+  .ad-tl__i--phone::before, .ad-tl__i--address::before { background: var(--cherry); }
+  .ad-tl__i--cart::before { background: #c9a227; }
+  .ad-tl__i:last-child { padding-bottom: 0; }
+  .ad-tl__when { display: block; font-size: 10.5px; letter-spacing: .04em; color: var(--faint); }
+  .ad-tl__what { display: block; font-size: 13px; color: var(--depth); margin-top: 2px; }
+  .ad-tl__d { display: block; font-size: 12px; color: var(--mid); margin-top: 2px; line-height: 1.45; }
 
   /* Visitor funnel */
   .ad-funnel { display: flex; flex-direction: column; }

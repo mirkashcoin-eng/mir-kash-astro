@@ -1,9 +1,8 @@
 import type { APIRoute } from 'astro';
-import { verifyFirebaseUser } from '~/lib/firebaseAuth';
-import { isAdmin, passcodeOk } from '~/lib/adminAuth';
+import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders } from '~/lib/shopify/admin';
-import { getFunnel } from '~/lib/analytics';
-import { getLeads } from '~/lib/leads';
+import { getFunnel, getProductStats } from '~/lib/analytics';
+import { getPeople, personKey, type Person } from '~/lib/leads';
 
 export const prerender = false;
 
@@ -17,29 +16,59 @@ const json = (obj: unknown, status = 200) =>
     },
   });
 
-// Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email
-// must be in the ADMIN_EMAILS allowlist. India Admin data only.
-export const GET: APIRoute = async ({ request }) => {
-  // Two ways in: a shared passcode (x-admin-key header) OR a Firebase admin token.
-  const key = request.headers.get('x-admin-key');
-  let ok = passcodeOk(key);
-  if (!ok) {
-    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-    const user = token ? await verifyFirebaseUser(token) : null;
-    ok = Boolean(user && isAdmin(user.email));
-  }
-  if (!ok) return json({ error: 'Not authorised' }, 401);
+// A person plus whatever Shopify knows about them. Shopify is authoritative for the
+// two money stages — an open payment draft (abandoned) and a real order.
+interface PersonRow extends Person {
+  abandoned: unknown | null;
+  ordered: boolean;
+  orderTotal: number;
+}
 
-  const [demos, nativeAbandoned, draftAbandoned, orders, funnel, leads] = await Promise.all([
+// Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email
+// must be in the ADMIN_EMAILS allowlist, or the shared passcode. India Admin data only.
+export const GET: APIRoute = async ({ request }) => {
+  if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
+
+  const [demos, nativeAbandoned, draftAbandoned, orders, funnel, people, products] = await Promise.all([
     getDemoBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
     getAbandonedDrafts(),    // India store — open Cashfree payment drafts
     getRecentOrders(),
     getFunnel(30),           // first-party visitor funnel (anonymous)
-    getLeads(200),           // per-session leads (add-to-cart / phone entered)
+    getPeople(500),          // durable people (phone-keyed), with their journey data
+    getProductStats(20),     // most-viewed products
   ]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  return json({ demos, abandoned, orders, funnel, leads });
+
+  // Overlay Shopify state onto each person, matched on the same phone key the People
+  // collection is keyed by (falling back to email, which the global store fills in).
+  const abandonedBy = new Map<string, (typeof abandoned)[number]>();
+  for (const a of abandoned) {
+    const k = personKey(a.phone) || (a.email || '').toLowerCase();
+    if (k && !abandonedBy.has(k)) abandonedBy.set(k, a);
+  }
+  const orderBy = new Map<string, (typeof orders)[number]>();
+  for (const o of orders) {
+    if (o.cancelled) continue;
+    const k = personKey(o.phone) || (o.email || '').toLowerCase();
+    if (k && !orderBy.has(k)) orderBy.set(k, o);
+  }
+
+  const rows: PersonRow[] = (people ?? []).map((p) => {
+    const byEmail = (p.email || '').toLowerCase();
+    const a = abandonedBy.get(p.id) || (byEmail ? abandonedBy.get(byEmail) : undefined) || null;
+    const o = orderBy.get(p.id) || (byEmail ? orderBy.get(byEmail) : undefined) || null;
+    return {
+      ...p,
+      // Money stages outrank anything the browser told us.
+      stage: o ? 'ordered' : a ? 'payment' : p.stage,
+      abandoned: a,
+      ordered: Boolean(o),
+      orderTotal: Number(o?.total?.amount || 0),
+    };
+  });
+
+  return json({ demos, abandoned, orders, funnel, people: rows, products });
 };

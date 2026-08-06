@@ -13,7 +13,8 @@ async function handle(request: Request, url: URL): Promise<Response> {
   if (!e) {
     try { e = (await request.text()).trim(); } catch { /* ignore */ }
   }
-  if (e) await recordEvent(e.slice(0, 40));
+  const product = (url.searchParams.get('product') || '').slice(0, 120);
+  if (e) await recordEvent(e.slice(0, 40), product || undefined);
   return noContent();
 }
 

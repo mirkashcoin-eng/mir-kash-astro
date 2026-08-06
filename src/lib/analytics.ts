@@ -15,17 +15,60 @@ function dayKey(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
 }
 
-// Increment one stage's counter for today. Best-effort — never throws.
-export async function recordEvent(name: string): Promise<void> {
+// Increment one stage's counter for today, plus that product's own counters when the
+// event names one. Best-effort — never throws.
+export async function recordEvent(name: string, product?: string): Promise<void> {
   if (!(FUNNEL_EVENTS as readonly string[]).includes(name)) return;
   const db = adminDb();
   if (!db) return;
   try {
-    await db.collection('analytics_daily').doc(dayKey()).set(
-      { [name]: FieldValue.increment(1), total: FieldValue.increment(1), day: dayKey() },
-      { merge: true },
-    );
+    const writes: Promise<unknown>[] = [
+      db.collection('analytics_daily').doc(dayKey()).set(
+        { [name]: FieldValue.increment(1), total: FieldValue.increment(1), day: dayKey() },
+        { merge: true },
+      ),
+    ];
+    // Per-product tally — powers "most viewed products" in /admin. Doc id is a slug of
+    // the title so it stays stable and safe as a Firestore key.
+    if (product && (name === 'product_view' || name === 'add_to_cart')) {
+      const id = product.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
+      if (id) {
+        writes.push(db.collection('product_stats').doc(id).set({
+          title: product,
+          [name === 'product_view' ? 'views' : 'cartAdds']: FieldValue.increment(1),
+          lastAt: FieldValue.serverTimestamp(),
+        }, { merge: true }));
+      }
+    }
+    await Promise.all(writes);
   } catch { /* best-effort analytics; never surface */ }
+}
+
+export interface ProductStat {
+  id: string;
+  title: string;
+  views: number;
+  cartAdds: number;
+}
+
+// Most-viewed products first. Returns null if unavailable, so /admin can degrade.
+export async function getProductStats(max = 20): Promise<ProductStat[] | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('product_stats').orderBy('views', 'desc').limit(max).get();
+    return snap.docs.map((d) => {
+      const v = d.data() as Record<string, unknown>;
+      return {
+        id: d.id,
+        title: (v.title as string) || d.id,
+        views: Number(v.views || 0),
+        cartAdds: Number(v.cartAdds || 0),
+      };
+    });
+  } catch {
+    return null;
+  }
 }
 
 export interface Funnel {

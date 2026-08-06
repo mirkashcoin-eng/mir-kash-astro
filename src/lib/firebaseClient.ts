@@ -9,10 +9,7 @@ import {
   setPersistence, browserLocalPersistence,
   type Auth, type User,
 } from 'firebase/auth';
-import {
-  getFirestore, doc, getDoc, setDoc, collection, addDoc, serverTimestamp,
-  query, orderBy, limit as fbLimit, getDocs, type Firestore,
-} from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 
 const cfg = {
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
@@ -138,35 +135,3 @@ export async function ensureAccountFromCheckout(
   }
 }
 
-// Lead capture — written client-side to a write-only `checkout_leads` collection.
-export async function saveLead(phone: string, email?: string | null): Promise<void> {
-  if (!init()) return;
-  try {
-    await addDoc(collection(db!, 'checkout_leads'), {
-      phone, email: email ?? null, source: 'india-checkout', created_at: serverTimestamp(),
-    });
-  } catch { /* best-effort */ }
-}
-
-export interface CheckoutLead { phone: string | null; email: string | null; source: string | null; createdAt: string | null }
-
-// Founders' dashboard — reads recent checkout leads. Requires a Firestore rule that
-// allows the signed-in admin email to read `checkout_leads` (see .env.example). Returns
-// [] when Firebase isn't configured or the rule denies the read.
-export async function getCheckoutLeads(max = 100): Promise<CheckoutLead[]> {
-  if (!init()) return [];
-  try {
-    const snap = await getDocs(query(collection(db!, 'checkout_leads'), orderBy('created_at', 'desc'), fbLimit(max)));
-    return snap.docs.map((d) => {
-      const v = d.data() as { phone?: string; email?: string; source?: string; created_at?: { toDate?: () => Date } };
-      return {
-        phone: v.phone ?? null,
-        email: v.email ?? null,
-        source: v.source ?? null,
-        createdAt: v.created_at?.toDate ? v.created_at.toDate().toISOString() : null,
-      };
-    });
-  } catch {
-    return [];
-  }
-}

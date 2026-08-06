@@ -11,9 +11,16 @@ declare global {
   }
   interface Window {
     // First-party analytics + lead capture (defined inline in BaseLayout).
-    mkTrack?: (event: string) => void;
+    mkTrack?: (event: string, opts?: { product?: string }) => void;
     mkSid?: string;
-    mkLead?: (data: { event: 'add_to_cart' | 'phone'; item?: string; phone?: string; email?: string; name?: string; uid?: string }) => void;
+    mkLead?: (data: {
+      event: 'add_to_cart' | 'phone' | 'address';
+      item?: string; phone?: string; email?: string; name?: string; uid?: string;
+      address1?: string; city?: string; province?: string; pin?: string;
+      cart?: { total: number; currency: string; quantity: number; lines: Array<{ title: string; variant: string | null; quantity: number; price: number }> };
+    }) => void;
+    // Trims a Shopify cart payload down to what /admin stores.
+    cartSnapshot?: (cart: unknown) => { total: number; currency: string; quantity: number; lines: Array<{ title: string; variant: string | null; quantity: number; price: number }> } | undefined;
   }
 }
 

@@ -23,6 +23,11 @@ const fontsUrl = fontsHref ?? '';
 // Cache-bust the static stylesheet per deploy so design changes reach browsers immediately.
 const buildId = (typeof process !== 'undefined' ? process.env.VERCEL_GIT_COMMIT_SHA : undefined)?.slice(0, 8) || 'dev';
 
+// GA4 measurement id (G-XXXXXXX). Set PUBLIC_GA4_ID to switch page analytics on; the
+// existing gtag.js is already loaded for Google Ads, so this only adds a config line.
+const ga4Id = (typeof process !== 'undefined' ? process.env.PUBLIC_GA4_ID : undefined)
+  || (import.meta.env.PUBLIC_GA4_ID as string | undefined) || '';
+
 const orgJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -56,13 +61,14 @@ const orgJsonLd = {
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
 
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) — Ads conversions + (when configured) GA4 page analytics -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>
-    <script is:inline>
+    <script is:inline define:vars={{ ga4Id }}>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'AW-18098313640');
+      if (ga4Id) gtag('config', ga4Id);
     </script>
 
     <!-- Microsoft Clarity -->
@@ -93,8 +99,25 @@ const orgJsonLd = {
     <!-- First-party funnel (anonymous counts) + per-session lead capture. No cookies. -->
     <script is:inline define:vars={{ mkMarket: market }}>
       // Anonymous funnel beacon — GET image (POST text/plain is blocked by Astro CSRF).
-      window.mkTrack = function (e) {
-        try { (new Image()).src = '/api/track?e=' + encodeURIComponent(e) + '&t=' + Date.now(); } catch (_) {}
+      // Optional `opts.product` also bumps that product's view/cart counters.
+      window.mkTrack = function (e, opts) {
+        try {
+          var q = '/api/track?e=' + encodeURIComponent(e) + '&t=' + Date.now();
+          if (opts && opts.product) q += '&product=' + encodeURIComponent(opts.product);
+          (new Image()).src = q;
+        } catch (_) {}
+      };
+      // Trim a Shopify cart payload to what /admin needs: what's in the bag + its value.
+      window.cartSnapshot = function (cart) {
+        try {
+          if (!cart) return undefined;
+          return {
+            total: cart.total, currency: cart.currency, quantity: cart.totalQuantity,
+            lines: (cart.lines || []).map(function (l) {
+              return { title: l.title, variant: l.variantTitle, quantity: l.quantity, price: l.price };
+            }),
+          };
+        } catch (_) { return undefined; }
       };
       // Stable anonymous session id, so a visitor's cart adds + phone tie to one lead.
       try {
