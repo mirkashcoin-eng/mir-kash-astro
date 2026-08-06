@@ -7,7 +7,7 @@ function makePage() {
     const seen = 'mk_purchase_' + txnId;
     if (!store[seen] && typeof gtag === 'function') {
       store[seen] = '1';
-      const payload = { transaction_id: txnId, currency };
+      const payload = { transaction_id: txnId, currency, market: 'india' };
       if (!isCod && value > 0) payload.value = value;
       gtag('event', 'purchase', payload);
     }
@@ -19,7 +19,7 @@ let p = makePage();
 const order = { txnId: '#1042', value: 4999, currency: 'INR', isCod: false };
 p.fire(order); p.fire(order); p.fire(order);
 assert.equal(p.sent.length, 1, 'refreshing must not double-count revenue');
-assert.deepEqual(p.sent[0][2], { transaction_id: '#1042', currency: 'INR', value: 4999 });
+assert.deepEqual(p.sent[0][2], { transaction_id: '#1042', currency: 'INR', market: 'india', value: 4999 });
 
 // Distinct orders in one session must each convert.
 p = makePage();

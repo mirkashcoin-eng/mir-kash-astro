@@ -66,12 +66,18 @@ const orgJsonLd = {
 
     <!-- Google tag (gtag.js) — one load, two products: Ads conversions + GA4 analytics -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>
-    <script is:inline define:vars={{ ga4Id }}>
+    <script is:inline define:vars={{ ga4Id, market, currency: marketConfig.currency }}>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'AW-18098313640');
-      if (ga4Id) gtag('config', ga4Id);
+      // One GA4 property for every market (they share a domain now), separated by a
+      // `market` user property. Register it as a custom dimension in GA4 Admin →
+      // Custom definitions to report India vs global side by side.
+      if (ga4Id) {
+        gtag('set', 'user_properties', { market: market });
+        gtag('config', ga4Id, { market: market, currency: currency });
+      }
     </script>
 
     <!-- Microsoft Clarity -->

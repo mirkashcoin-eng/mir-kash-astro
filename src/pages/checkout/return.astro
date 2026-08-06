@@ -95,7 +95,9 @@ const copy = isCod
         var seen = 'mk_purchase_' + txnId;
         if (!sessionStorage.getItem(seen) && typeof gtag === 'function') {
           sessionStorage.setItem(seen, '1');
-          var payload = { transaction_id: txnId, currency: currency };
+          // Tagged india: this page only ever handles the Cashfree (India) flow —
+          // global checkout completes on Shopify's domain, which reports separately.
+          var payload = { transaction_id: txnId, currency: currency, market: 'india' };
           if (!isCod && value > 0) payload.value = value;
           gtag('event', 'purchase', payload);
         }
