@@ -4,7 +4,7 @@
 import crypto from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { completeDraftOrder } from '~/lib/shopify/admin';
-import { clearCart, clearBuyNowCart } from '~/lib/cart-session';
+import { clearCart, clearBuyNowCart, clearClickId } from '~/lib/cart-session';
 
 const API_VERSION = '2023-08-01';
 
@@ -190,6 +190,9 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
       // Clear only the cart this order used, so a buy-now never empties the main bag.
       if (cf.cartKind === 'buynow') clearBuyNowCart(cookies, 'india');
       else clearCart(cookies, 'india');
+      // The referral is spent — it's on the order now. Leaving it would credit the
+      // affiliate again for the buyer's next, unrelated purchase.
+      clearClickId(cookies);
     }
     return { status: 'paid', orderName: order.orderName ?? order.name, amount: cf.amount, currency: cf.currency };
   }

@@ -176,16 +176,19 @@ export async function createDraftOrder(args: {
   optin?: boolean; // customer agreed to WhatsApp order updates
   cod?: boolean; // Cash on Delivery (else Cashfree online payment)
   cfOrderId?: string; // Cashfree order id — stored so the reconciler can recover paid-but-open drafts
+  clickId?: string; // affiliate click id (from the mk_click cookie), if the visitor came via /go/*
 }): Promise<DraftOrderResult | null> {
   const payTag = args.cod ? 'cod' : 'cashfree';
   const input: Record<string, unknown> = {
     email: args.email,
     phone: args.phone,
     tags: args.optin ? [payTag, 'web-otp', 'wa-optin'] : [payTag, 'web-otp'],
-    // Carries through to the order's note_attributes; the WhatsApp service reads wa_optin.
+    // Carries through to the order's note_attributes; the WhatsApp service reads wa_optin,
+    // and click_id is what ties the sale back to an affiliate.
     customAttributes: [
       ...(args.optin ? [{ key: 'wa_optin', value: 'true' }] : []),
       ...(args.cfOrderId ? [{ key: 'cf_order_id', value: args.cfOrderId }] : []),
+      ...(args.clickId ? [{ key: 'click_id', value: args.clickId }] : []),
     ],
     shippingLine: { title: 'Free Shipping', price: '0' },
     lineItems: args.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
@@ -856,6 +859,7 @@ export interface RecentOrder {
   etaAt: string | null;        // estimated delivery
   cancelled: boolean;
   adminUrl: string | null;
+  clickId: string | null; // affiliate click this order came from, if any
 }
 
 const RECENT_ORDERS = /* GraphQL */ `
@@ -866,6 +870,7 @@ const RECENT_ORDERS = /* GraphQL */ `
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
         shippingAddress { name phone }
+        customAttributes { key value }
         fulfillments(first: 1) { displayStatus createdAt inTransitAt deliveredAt estimatedDeliveryAt }
         lineItems(first: 5) { edges { node { title quantity } } }
       } }
@@ -880,6 +885,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
       displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
       totalPriceSet: { shopMoney: Money } | null;
       shippingAddress: { name: string | null; phone: string | null } | null;
+      customAttributes: Array<{ key: string; value: string }>;
       fulfillments: Array<{ displayStatus: string | null; createdAt: string | null; inTransitAt: string | null; deliveredAt: string | null; estimatedDeliveryAt: string | null }>;
       lineItems: { edges: Array<{ node: { title: string; quantity: number } }> };
     } }> };
@@ -905,6 +911,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
       etaAt: f?.estimatedDeliveryAt ?? null,
       cancelled: !!node.cancelledAt,
       adminUrl: domain ? `https://${domain}/admin/orders/${node.id.split('/').pop() ?? ''}` : null,
+      clickId: node.customAttributes?.find((a) => a.key === 'click_id')?.value ?? null,
     };
   });
 }

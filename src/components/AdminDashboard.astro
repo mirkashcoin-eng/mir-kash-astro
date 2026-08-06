@@ -32,6 +32,7 @@
       <button class="ad-nav__item" data-view="orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
+      <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
       <div class="ad-nav__foot">
         <span class="ad-nav__upd" id="updated"></span>
         <button class="ad-nav__out" id="lockBtn" type="button">Lock dashboard</button>
@@ -68,6 +69,20 @@
       <section class="ad-view" data-view="demos" hidden>
         <h1 class="ad-display ad-h1">Home-demo bookings</h1>
         <div class="ad-panel"><div class="ad-scroll" id="allDemos"></div></div>
+      </section>
+      <section class="ad-view" data-view="affiliates" hidden>
+        <h1 class="ad-display ad-h1">Affiliates</h1>
+        <p class="ad-sub">Give a creator their own link. Any India order that starts from it is credited to them.</p>
+        <div class="ad-panel ad-affnew">
+          <div class="ad-panel__h"><span class="ad-panel__t">New link</span></div>
+          <form class="ad-affform" id="affForm">
+            <label class="ad-flabel">Link name<input class="ad-finput" id="affSlug" type="text" placeholder="priya" autocomplete="off" /></label>
+            <label class="ad-flabel">Creator (optional)<input class="ad-finput" id="affLabel" type="text" placeholder="Priya Sharma" autocomplete="off" /></label>
+            <button class="ad-dbtn ad-dbtn--fill" id="affCreate" type="submit">Create link</button>
+          </form>
+          <p class="ad-actmsg" id="affMsg"></p>
+        </div>
+        <div id="affBody"></div>
       </section>
     </div>
   </div>
@@ -180,6 +195,7 @@
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
       renderProducts(data.products);
+      renderAffiliates(data.affiliates);
       renderPeople();
 
       // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
@@ -273,6 +289,38 @@
       body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">' +
         (FILTER === 'all' ? 'Everyone' : esc(stageMeta(FILTER).label)) + '</span><span class="ad-chart-sub">' + rows.length + ' of ' + PEOPLE.length + ' · most recent first</span></div>' +
         '<div class="ad-scroll"><table class="ad-table ad-table--click"><thead><tr><th>Person</th><th>Stage</th><th>Their bag</th><th class="r">Value</th><th class="r">Visits</th><th>Last seen</th><th></th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
+    }
+
+    // ── Affiliates ────────────────────────────────────────────────────────────
+    var SITE = 'https://www.mirkash.com';
+    function affLink(slug) { return SITE + '/api/go/' + slug; }
+    function renderAffiliates(rows) {
+      var body = $('affBody'); if (!body) return;
+      var nb = $('nAff');
+      if (!rows) {
+        if (nb) nb.textContent = '';
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Affiliates aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p></div>';
+        return;
+      }
+      if (nb) nb.textContent = rows.length ? String(rows.length) : '';
+      if (!rows.length) {
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No affiliate links yet. Create one above and send it to the creator — clicks and sales will show up here.</p></div>';
+        return;
+      }
+      var html = rows.map(function (a) {
+        var link = affLink(a.slug);
+        return '<tr><td class="nm">' + esc(a.label || a.slug) +
+            '<div class="sub"><span class="ad-afflink" data-copy="' + esc(link) + '">' + esc(link) + '</span></div></td>' +
+          '<td class="r">' + a.clicks + '</td>' +
+          '<td class="r">' + a.orders + '</td>' +
+          '<td class="r amt">' + esc(inr(String(a.revenue), a.currency)) + '</td>' +
+          '<td class="r">' + (a.clicks ? a.conversionRate.toFixed(1) + '%' : '—') + '</td></tr>';
+      }).join('');
+      var revenue = rows.reduce(function (s, a) { return s + Number(a.revenue || 0); }, 0);
+      var cur = (rows[0] && rows[0].currency) || 'INR';
+      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Performance</span><span class="ad-chart-sub">' +
+        esc(inr(String(revenue), cur)) + ' from ' + rows.length + (rows.length === 1 ? ' link' : ' links') + '</span></div>' +
+        '<div class="ad-scroll"><table class="ad-table"><thead><tr><th>Affiliate</th><th class="r">Clicks</th><th class="r">Orders</th><th class="r">Revenue</th><th class="r">Conv.</th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
     }
 
     // ── Most-viewed products ──────────────────────────────────────────────────
@@ -547,6 +595,44 @@
       if (e.target.closest('a')) return;            // let WhatsApp/Call links through
       var tr = e.target.closest('[data-person]'); if (!tr) return;
       openPerson(Number(tr.getAttribute('data-person')));
+    });
+
+    // Affiliates: create a link, and click any link to copy it.
+    function affMsg(t, bad) {
+      var el = $('affMsg'); if (!el) return;
+      el.textContent = t || '';
+      el.classList.toggle('is-bad', !!bad);
+    }
+    $('affForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var slug = ($('affSlug').value || '').trim().toLowerCase();
+      if (!slug) { affMsg('Give the link a name first.', true); return; }
+      var btn = $('affCreate'); btn.disabled = true; affMsg('Creating…');
+      var headers = await authHeaders();
+      if (!headers) { affMsg('Session expired — reload and sign in again.', true); btn.disabled = false; return; }
+      headers['Content-Type'] = 'application/json';
+      try {
+        var resp = await fetch('/api/admin/affiliate', {
+          method: 'POST', headers: headers,
+          body: JSON.stringify({ slug: slug, label: ($('affLabel').value || '').trim() }),
+        });
+        var res = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !res || !res.ok) { affMsg((res && res.error) || 'Could not create the link.', true); btn.disabled = false; return; }
+        $('affSlug').value = ''; $('affLabel').value = '';
+        affMsg('Created ' + affLink(res.slug) + ' — click it below to copy.');
+        refresh();
+      } catch (err) { affMsg('Network error — try again.', true); }
+      btn.disabled = false;
+    });
+    $('affBody').addEventListener('click', function (e) {
+      var el = e.target.closest('[data-copy]'); if (!el) return;
+      var link = el.getAttribute('data-copy');
+      try {
+        navigator.clipboard.writeText(link);
+        var was = el.textContent;
+        el.textContent = 'Copied ✓';
+        setTimeout(function () { el.textContent = was; }, 1200);
+      } catch (err) { affMsg('Copy failed — select the link manually.', true); }
     });
 
     // ── Person journey drawer ─────────────────────────────────────────────────
@@ -959,6 +1045,14 @@
   .ad-tl__when { display: block; font-size: 10.5px; letter-spacing: .04em; color: var(--faint); }
   .ad-tl__what { display: block; font-size: 13px; color: var(--depth); margin-top: 2px; }
   .ad-tl__d { display: block; font-size: 12px; color: var(--mid); margin-top: 2px; line-height: 1.45; }
+
+  /* Affiliates */
+  .ad-affnew { padding-bottom: 4px; }
+  .ad-affform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 16px 18px 8px; }
+  .ad-affform .ad-flabel { flex: 1 1 180px; margin: 0; }
+  .ad-afflink { cursor: pointer; border-bottom: 1px dotted var(--rule); }
+  .ad-afflink:hover { color: var(--cherry); border-bottom-color: var(--cherry); }
+  .ad-actmsg.is-bad { color: var(--cherry); }
 
   /* Visitor funnel */
   .ad-funnel { display: flex; flex-direction: column; }

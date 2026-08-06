@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { resolveCheckoutCartId, clearCart, clearBuyNowCart } from '~/lib/cart-session';
+import { resolveCheckoutCartId, clearCart, clearBuyNowCart, getClickId, clearClickId } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
 import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { createCashfreeOrder } from '~/lib/cashfree';
@@ -114,7 +114,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   const discount = cart.discountAmount > 0
     ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
     : undefined;
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod, cfOrderId: orderId || undefined });
+  // Affiliate attribution, if this visitor arrived through a /go link.
+  const clickId = getClickId(cookies) || undefined;
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod, cfOrderId: orderId || undefined, clickId });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);
@@ -127,6 +129,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     if (!completed) return bad('Could not place your order', 502);
     if (isBuyNow) clearBuyNowCart(cookies, 'india');
     else clearCart(cookies, 'india');
+    clearClickId(cookies); // referral is on the order now — don't credit it twice
     return new Response(
       JSON.stringify({ cod: true, orderName: completed.orderName ?? completed.name }),
       { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },

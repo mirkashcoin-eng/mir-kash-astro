@@ -73,3 +73,20 @@ export function resolveCheckoutCartId(
 ): string | null {
   return isBuyNow ? getBuyNowCartId(cookies, store) : getCartId(cookies, store);
 }
+
+// ── Affiliate click ───────────────────────────────────────────────────────────
+// Set when a visitor arrives via /go/{affiliate}; read at checkout so the order
+// carries the click id. Not per-store — one visitor, one referral, either market.
+const CLICK_COOKIE = 'mk_click';
+
+export function getClickId(cookies: AstroCookies): string | null {
+  return cookies.get(CLICK_COOKIE)?.value ?? null;
+}
+
+export function setClickId(cookies: AstroCookies, clickId: string): void {
+  cookies.set(CLICK_COOKIE, clickId, cookieOpts);
+}
+
+export function clearClickId(cookies: AstroCookies): void {
+  cookies.delete(CLICK_COOKIE, { path: '/' });
+}

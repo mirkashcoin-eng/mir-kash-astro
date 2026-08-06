@@ -3,6 +3,7 @@ import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders, type AbandonedCheckout } from '~/lib/shopify/admin';
 import { getFunnel, getProductStats } from '~/lib/analytics';
 import { getPeople, personKey, type Person } from '~/lib/leads';
+import { getAffiliateSummary } from '~/lib/clicks';
 
 export const prerender = false;
 
@@ -41,6 +42,9 @@ export const GET: APIRoute = async ({ request }) => {
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+
+  // Needs `orders` (Shopify is authoritative for revenue), so it runs after the batch.
+  const affiliates = await getAffiliateSummary(orders);
 
   // Overlay Shopify state onto each person, matched on the same phone key the People
   // collection is keyed by (falling back to email, which the global store fills in).
@@ -101,5 +105,5 @@ export const GET: APIRoute = async ({ request }) => {
     };
   });
 
-  return json({ demos, abandoned, orders, funnel, people: rows, products });
+  return json({ demos, abandoned, orders, funnel, people: rows, products, affiliates });
 };
