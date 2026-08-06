@@ -23,10 +23,13 @@ const fontsUrl = fontsHref ?? '';
 // Cache-bust the static stylesheet per deploy so design changes reach browsers immediately.
 const buildId = (typeof process !== 'undefined' ? process.env.VERCEL_GIT_COMMIT_SHA : undefined)?.slice(0, 8) || 'dev';
 
-// GA4 measurement id (G-XXXXXXX). Set PUBLIC_GA4_ID to switch page analytics on; the
-// existing gtag.js is already loaded for Google Ads, so this only adds a config line.
+// GA4 (mirkash.com) for page views, top pages, time on page and traffic sources.
+// Sits alongside the Google Ads tag on the same already-loaded gtag.js — a measurement
+// id is public by design (it ships to every browser), so it lives in code like the Ads
+// one rather than in env, where a missing value would silently disable analytics.
+// PUBLIC_GA4_ID still overrides it, e.g. to point a staging deploy at another property.
 const ga4Id = (typeof process !== 'undefined' ? process.env.PUBLIC_GA4_ID : undefined)
-  || (import.meta.env.PUBLIC_GA4_ID as string | undefined) || '';
+  || (import.meta.env.PUBLIC_GA4_ID as string | undefined) || 'G-FZN0YD1X1R';
 
 const orgJsonLd = {
   '@context': 'https://schema.org',
@@ -61,7 +64,7 @@ const orgJsonLd = {
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
 
-    <!-- Google tag (gtag.js) — Ads conversions + (when configured) GA4 page analytics -->
+    <!-- Google tag (gtag.js) — one load, two products: Ads conversions + GA4 analytics -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>
     <script is:inline define:vars={{ ga4Id }}>
       window.dataLayer = window.dataLayer || [];
