@@ -66,17 +66,20 @@ const orgJsonLd = {
 
     <!-- Google tag (gtag.js) — one load, two products: Ads conversions + GA4 analytics -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>
-    <script is:inline define:vars={{ ga4Id, market, currency: marketConfig.currency }}>
+    <script is:inline define:vars={{ ga4Id, market, currency: marketConfig.currency, country: marketConfig.countryCode }}>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'AW-18098313640');
-      // One GA4 property for every market (they share a domain now), separated by a
-      // `market` user property. Register it as a custom dimension in GA4 Admin →
-      // Custom definitions to report India vs global side by side.
+      // One GA4 property for every market (they share a domain now), split two ways:
+      //   market  — india | global, the coarse axis these two storefronts report on
+      //   country — ISO code of the market being browsed, for per-country detail
+      // GA4 infers a country from IP already; this is the *store* country, which is
+      // what pricing and shipping actually follow. Register both in GA4 Admin →
+      // Custom definitions before they show up in reports.
       if (ga4Id) {
-        gtag('set', 'user_properties', { market: market });
-        gtag('config', ga4Id, { market: market, currency: currency });
+        gtag('set', 'user_properties', { market: market, country: country });
+        gtag('config', ga4Id, { market: market, country: country, currency: currency });
       }
     </script>
 
