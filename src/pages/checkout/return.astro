@@ -15,11 +15,15 @@ const codOrder = Astro.url.searchParams.get('order') || undefined;
 const orderId = Astro.url.searchParams.get('order_id') ?? '';
 let status: FinalizeStatus = 'error';
 let orderName: string | undefined;
+let amount = 0;
+let currency = 'INR';
 
 if (!isCod && orderId) {
   const result = await finalizeOrder(orderId, Astro.cookies);
   status = result.status;
   orderName = result.orderName;
+  amount = result.amount ?? 0;
+  currency = result.currency ?? 'INR';
 }
 
 const COPY: Record<FinalizeStatus, { title: string; body: string }> = {
@@ -77,6 +81,27 @@ const copy = isCod
   </main>
 
   <SiteFooter />
+
+  {displayStatus === 'paid' && displayOrder && (
+    <script
+      is:inline
+      define:vars={{ txnId: displayOrder, value: amount, currency, isCod }}
+    >
+      // Purchase conversion for GA4 + Google Ads. Guarded by the order id in
+      // sessionStorage so a refresh (or the back button) can't book the sale twice.
+      // COD orders don't pass through Cashfree, so we have no verified amount for
+      // them — send the event without a value rather than reporting a false zero.
+      try {
+        var seen = 'mk_purchase_' + txnId;
+        if (!sessionStorage.getItem(seen) && typeof gtag === 'function') {
+          sessionStorage.setItem(seen, '1');
+          var payload = { transaction_id: txnId, currency: currency };
+          if (!isCod && value > 0) payload.value = value;
+          gtag('event', 'purchase', payload);
+        }
+      } catch (_) {}
+    </script>
+  )}
 
   <style is:global>
     :root {

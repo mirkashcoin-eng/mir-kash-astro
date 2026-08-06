@@ -111,6 +111,8 @@ export interface CashfreeOrder {
   orderStatus: string; // PAID | ACTIVE | EXPIRED | TERMINATED ...
   draftOrderId: string | null; // reconstructed Shopify GID from order_tags
   cartKind: 'main' | 'buynow'; // which cart this order came from
+  amount: number; // what was actually charged — for the purchase conversion
+  currency: string;
 }
 
 export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder | null> {
@@ -123,6 +125,8 @@ export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder |
     const json = (await res.json()) as {
       order_status?: string;
       order_tags?: Record<string, string> | null;
+      order_amount?: number | string;
+      order_currency?: string;
     };
     if (!res.ok || !json.order_status) {
       console.error('[cashfree] getOrder failed:', res.status, JSON.stringify(json));
@@ -133,6 +137,8 @@ export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder |
       orderStatus: json.order_status,
       draftOrderId: num ? draftGid(num) : null,
       cartKind: json.order_tags?.cart_kind === 'buynow' ? 'buynow' : 'main',
+      amount: Number(json.order_amount) || 0,
+      currency: json.order_currency || 'INR',
     };
   } catch (err) {
     console.error('[cashfree] getOrder error:', err);
@@ -165,6 +171,8 @@ export type FinalizeStatus = 'paid' | 'pending' | 'failed' | 'error';
 export interface FinalizeResult {
   status: FinalizeStatus;
   orderName?: string;
+  amount?: number;   // paid orders only — feeds the GA4/Ads purchase conversion
+  currency?: string;
 }
 
 export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Promise<FinalizeResult> {
@@ -183,7 +191,7 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
       if (cf.cartKind === 'buynow') clearBuyNowCart(cookies, 'india');
       else clearCart(cookies, 'india');
     }
-    return { status: 'paid', orderName: order.orderName ?? order.name };
+    return { status: 'paid', orderName: order.orderName ?? order.name, amount: cf.amount, currency: cf.currency };
   }
 
   if (cf.orderStatus === 'ACTIVE') return { status: 'pending' };
