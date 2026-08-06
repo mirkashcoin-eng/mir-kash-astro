@@ -100,6 +100,12 @@ const copy = isCod
           var payload = { transaction_id: txnId, currency: currency, market: 'india', country: 'IN' };
           if (!isCod && value > 0) payload.value = value;
           gtag('event', 'purchase', payload);
+
+          // Google Ads conversion — same action the Shopify pixel reports global
+          // sales to, so India and global sales roll up into one "Purchase" goal.
+          var adsPayload = { send_to: 'AW-18098313640/0yRaCMK76NwcEKiz-bVD', transaction_id: txnId, currency: currency };
+          if (!isCod && value > 0) adsPayload.value = value;
+          gtag('event', 'conversion', adsPayload);
         }
       } catch (_) {}
     </script>
