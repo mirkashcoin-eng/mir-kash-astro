@@ -24,7 +24,7 @@
   <!-- Console -->
   <div class="ad-shell" id="shell" hidden>
     <nav class="ad-nav">
-      <div class="ad-nav__logo">MIR KASH</div>
+      <div class="ad-nav__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></div>
       <span class="ad-nav__grp">People</span>
       <button class="ad-nav__item on" data-view="people">Everyone <span class="ad-nav__n" id="nPeople"></span></button>
       <span class="ad-nav__grp">Business</span>
@@ -210,6 +210,15 @@
       var m = stageMeta(k);
       return '<span class="ad-pill ' + m.cls + '">' + esc(m.label) + '</span>';
     }
+    // Best label we have: a real name, else the phone, else the email. Legacy imports
+    // only ever carry a phone, so "Visitor" is a genuine last resort.
+    function personName(p) { return p.name || p.phone || p.email || 'Visitor'; }
+    // Contact line under the title — skip whatever's already used as the title.
+    function personSub(p) {
+      var title = personName(p);
+      return [p.phone, p.email].filter(function (v) { return v && v !== title; })
+        .map(esc).join(' · ') || '';
+    }
     function matchesSearch(p) {
       if (!SEARCH) return true;
       var hay = [p.name, p.phone, p.email, p.address, (p.items || []).join(' ')].join(' ').toLowerCase();
@@ -246,14 +255,14 @@
       var html = rows.map(function (p) {
         var idx = PEOPLE.indexOf(p);
         var tel = (p.phone || '').replace(/[^0-9]/g, '');
-        var contact = [p.phone ? esc(p.phone) : '', p.email ? esc(p.email) : ''].filter(Boolean).join(' · ') || '—';
         var bag = (p.cart && p.cart.lines && p.cart.lines.length)
           ? p.cart.lines.map(function (l) { return l.quantity + '× ' + l.title; }).join(', ')
           : ((p.items && p.items.length) ? p.items.join(', ') : '—');
         var val = p.ordered ? inr(String(p.orderTotal), p.cartCurrency) : (p.cartValue ? inr(String(p.cartValue), p.cartCurrency) : '—');
         var acts = [];
         if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp</a>');
-        return '<tr data-person="' + idx + '"><td class="nm">' + esc(p.name || 'Visitor') + '<div class="sub">' + contact + '</div></td>' +
+        var sub = personSub(p);
+        return '<tr data-person="' + idx + '"><td class="nm">' + esc(personName(p)) + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</td>' +
           '<td>' + stagePill(p.stage) + '</td>' +
           '<td>' + esc(bag) + '</td>' +
           '<td class="r amt">' + esc(val) + '</td>' +
@@ -797,7 +806,9 @@
      login card and the dashboard must truly disappear when hidden — never both shown. */
   .ad-gate[hidden], .ad-shell[hidden] { display: none !important; }
   .ad-nav { background: var(--depth); color: #fff; padding: 20px 14px; display: flex; flex-direction: column; gap: 3px; position: sticky; top: 0; height: 100vh; }
-  .ad-nav__logo { font-family: var(--serif); font-size: 15px; letter-spacing: .22em; color: #fff; padding: 6px 12px 20px; }
+  .ad-nav__logo { padding: 6px 12px 20px; }
+  /* The wordmark ships as dark artwork; invert it to read white on the dark sidebar. */
+  .ad-nav__logo img { height: 18px; width: auto; display: block; filter: brightness(0) invert(1); }
   .ad-nav__item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font-family: 'Jost', sans-serif; font-size: 12.5px; color: rgba(255,255,255,.62); background: none; border: none; cursor: pointer; padding: 11px 12px; border-radius: 4px; transition: background .15s, color .15s; }
   .ad-nav__item:hover { color: #fff; }
   .ad-nav__item.on { background: rgba(255,255,255,.1); color: #fff; }
@@ -931,17 +942,17 @@
   /* People: filters, search, journey timeline */
   .ad-sub { font-size: 13px; color: var(--mid); margin: -14px 0 18px; line-height: 1.5; }
   .ad-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
-  .ad-chip { display: inline-flex; align-items: center; gap: 7px; font-family: 'Jost', sans-serif; font-size: 12px; color: var(--mid); background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .ad-chip { display: inline-flex; align-items: center; gap: 7px; font-family: 'Jost', sans-serif; font-size: 12px; color: var(--mid); background: #fff; border: 1px solid var(--rule); border-radius: 999px; padding: 7px 13px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
   .ad-chip:hover { border-color: var(--cherry); color: var(--cherry); }
   .ad-chip.on { background: var(--depth); border-color: var(--depth); color: #fff; }
   .ad-chip__n { font-size: 10.5px; font-variant-numeric: tabular-nums; opacity: .65; }
   .ad-searchwrap { margin-bottom: 16px; }
-  .ad-search { width: 100%; max-width: 380px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--depth); background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 10px 13px; }
+  .ad-search { width: 100%; max-width: 380px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--depth); background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 10px 13px; }
   .ad-search:focus { outline: none; border-color: var(--cherry); }
 
-  .ad-tl { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid var(--line); }
+  .ad-tl { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid var(--rule); }
   .ad-tl__i { position: relative; padding: 0 0 18px 16px; }
-  .ad-tl__i::before { content: ''; position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--line); border: 2px solid #fff; }
+  .ad-tl__i::before { content: ''; position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--rule); border: 2px solid #fff; }
   .ad-tl__i--phone::before, .ad-tl__i--address::before { background: var(--cherry); }
   .ad-tl__i--cart::before { background: #c9a227; }
   .ad-tl__i:last-child { padding-bottom: 0; }

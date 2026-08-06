@@ -25,7 +25,7 @@ export interface CartSnapshot {
 
 export interface LeadInput {
   sessionId: string;
-  event: 'add_to_cart' | 'phone' | 'address';
+  event: 'visit' | 'add_to_cart' | 'phone' | 'address';
   phone?: string;
   email?: string;
   name?: string;
@@ -75,13 +75,45 @@ export async function recordLead(l: LeadInput): Promise<void> {
     if (l.cart) { patch.cart = l.cart; patch.cartValue = l.cart.total; patch.cartCurrency = l.cart.currency; }
     await ref.set(patch, { merge: true });
 
-    // Link this session to the durable person. The phone can arrive on this event or
-    // on an earlier one in the same session (e.g. address follows phone), so fall back
-    // to whatever the session already holds.
+    // Link this session to a person. Identified people are keyed by phone; everyone
+    // else gets an anonymous person keyed by session id, so cart-adders who never
+    // leave a number are still visible (and get folded in later if they do).
     const known = (l.phone as string) || ((snap.data() as Record<string, unknown> | undefined)?.phone as string) || '';
     const key = personKey(known);
-    if (key) await linkPerson(db, key, l, known, now);
+    if (key) {
+      // Identity just became known — absorb the anonymous record for this session.
+      await mergeAnonInto(db, key, l.sessionId);
+      await linkPerson(db, key, l, known, now);
+    } else {
+      await linkPerson(db, ANON_PREFIX + l.sessionId, l, '', now);
+    }
   } catch { /* best-effort */ }
+}
+
+// Anonymous people are keyed `anon:{sessionId}` so they can never collide with a
+// 10-digit phone key.
+export const ANON_PREFIX = 'anon:';
+
+// Fold an anonymous person into the now-known phone identity, then delete it, so one
+// human is never two rows. Carries over only what the anon record uniquely holds.
+async function mergeAnonInto(
+  db: FirebaseFirestore.Firestore,
+  key: string,
+  sessionId: string,
+): Promise<void> {
+  const anonRef = db.collection('people').doc(ANON_PREFIX + sessionId);
+  const anon = await anonRef.get();
+  if (!anon.exists) return;
+  const v = anon.data() as Record<string, unknown>;
+  const carry: Record<string, unknown> = {};
+  // firstSeen from the anon record is earlier by definition — it started the journey.
+  if (v.firstSeen) carry.firstSeen = v.firstSeen;
+  if (v.cartAt) carry.cartAt = v.cartAt;
+  if (v.cart) { carry.cart = v.cart; carry.cartValue = v.cartValue; carry.cartCurrency = v.cartCurrency; }
+  if (Array.isArray(v.items) && v.items.length) carry.items = FieldValue.arrayUnion(...(v.items as string[]));
+  if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
+  if (Object.keys(carry).length) await db.collection('people').doc(key).set(carry, { merge: true });
+  await anonRef.delete();
 }
 
 // Upsert `people/{key}` and attach the session. Counters are incremented per event so
@@ -96,14 +128,15 @@ async function linkPerson(
   const ref = db.collection('people').doc(key);
   const snap = await ref.get();
   const patch: Record<string, unknown> = {
-    phone,
     lastSeen: now,
     sessionIds: FieldValue.arrayUnion(l.sessionId),
   };
+  if (phone) patch.phone = phone;          // absent while still anonymous
   if (!snap.exists) { patch.firstSeen = now; patch.source = 'web'; }
   if (l.email) patch.email = l.email;
   if (l.name) patch.name = l.name;
   if (l.market) patch.market = l.market;
+  if (l.event === 'visit' && !snap.exists) patch.visitAt = now;
   if (l.event === 'phone') patch.phoneAt = now;
   if (l.event === 'add_to_cart') {
     patch.cartAt = now;

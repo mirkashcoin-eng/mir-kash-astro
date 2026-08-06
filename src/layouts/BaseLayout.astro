@@ -139,8 +139,15 @@ const orgJsonLd = {
           });
         } catch (_) {}
       };
-      try { if (!sessionStorage.getItem('mk_v')) { sessionStorage.setItem('mk_v', '1'); window.mkTrack('visit'); } }
-      catch (_) { window.mkTrack('visit'); }
+      // Once per tab-session: bump the anonymous funnel, and open this visitor's row
+      // in /admin so people who browse without ever leaving a number are still visible.
+      try {
+        if (!sessionStorage.getItem('mk_v')) {
+          sessionStorage.setItem('mk_v', '1');
+          window.mkTrack('visit');
+          if (window.mkLead) window.mkLead({ event: 'visit' });
+        }
+      } catch (_) { window.mkTrack('visit'); }
     </script>
   </head>
   <body data-market={market}>
