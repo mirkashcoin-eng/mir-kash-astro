@@ -29,6 +29,7 @@
       <button class="ad-nav__item on" data-view="people">Everyone <span class="ad-nav__n" id="nPeople"></span></button>
       <span class="ad-nav__grp">Business</span>
       <button class="ad-nav__item" data-view="overview">Overview</button>
+      <button class="ad-nav__item" data-view="daily">Daily funnel</button>
       <button class="ad-nav__item" data-view="orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
@@ -64,6 +65,19 @@
           <div class="ad-scroll" id="ovOrders"></div>
         </div>
         <p class="ad-oppnote">Page views, time on page and traffic sources live in Google Analytics — this dashboard covers people and money.</p>
+      </section>
+      <section class="ad-view" data-view="daily" hidden>
+        <h1 class="ad-display ad-h1">Daily funnel</h1>
+        <p class="ad-sub">One month at a time. Each column is a day (IST); each row counts the people who reached that step.</p>
+        <div class="ad-daterow">
+          <span class="ad-customrange">
+            <button class="ad-dbtn" id="monthPrev" type="button" aria-label="Previous month">‹</button>
+            <input class="ad-finput ad-dateinput" id="monthPick" type="month" aria-label="Month" />
+            <button class="ad-dbtn" id="monthNext" type="button" aria-label="Next month">›</button>
+          </span>
+          <button class="ad-chip ad-chip--date" id="monthCsv" type="button">Download CSV</button>
+        </div>
+        <div id="dailyBody"></div>
       </section>
       <section class="ad-view" data-view="orders" hidden>
         <h1 class="ad-display ad-h1">Orders &amp; revenue</h1>
@@ -259,6 +273,7 @@
       renderProducts(data.products);
       renderAffiliates(data.affiliates);
       renderPeople();
+      renderDaily();
       renderBadges(); // after renderFulfilment, which computes the pending count
 
       // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
@@ -362,6 +377,118 @@
           '" data-date="' + d.key + '">' + esc(d.label) + '</button>';
       }).join('');
       var cr = $('customRange'); if (cr) cr.hidden = DATE_FILTER !== 'custom';
+    }
+
+    // ── Daily funnel grid ─────────────────────────────────────────────────────
+    // One column per day of a month, one row per funnel step. A person counts on
+    // the day they FIRST reached a step, so each row is "how many new people got
+    // this far that day" — the columns are comparable and nobody is double-counted.
+    var MONTH = '';       // 'YYYY-MM'; set on first render
+    // The IST calendar day (YYYY-MM-DD) an instant falls on. Firestore stores UTC,
+    // but the store's day is Mumbai's, so bucketing must match the People filters.
+    function istDay(ts) {
+      if (!ts) return '';
+      var t = new Date(ts).getTime();
+      if (!isFinite(t) || !t) return '';
+      return new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    }
+    function currentIstMonth() { return istDay(Date.now()).slice(0, 7); }
+    function daysInMonth(m) {
+      var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
+      return new Date(y, mo, 0).getDate(); // day 0 of next month = last day of this one
+    }
+    // The nine rows, in funnel order. Each returns the day a person counts on, or
+    // '' to skip them. Product-count rows are mutually exclusive buckets.
+    var DAILY_ROWS = [
+      { key: 'visits',   label: 'Unique visitors',    day: function (p) { return istDay(p.firstSeen); } },
+      { key: 'p1',       label: 'Viewed 1 product',   day: function (p) { return p.viewed.length === 1 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
+      { key: 'p2',       label: 'Viewed 2 products',  day: function (p) { return p.viewed.length === 2 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
+      { key: 'p3',       label: 'Viewed 2+ products', day: function (p) { return p.viewed.length > 2 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
+      { key: 'cart',     label: 'Added to cart',      day: function (p) { return istDay(p.cartAt); } },
+      { key: 'phone',    label: 'Added phone number', day: function (p) { return istDay(p.phoneAt); } },
+      { key: 'address',  label: 'Added address',      day: function (p) { return istDay(p.addressAt); } },
+    ];
+    // Builds { rowKey: { 'YYYY-MM-DD': n } } for the given month.
+    function dailyCounts(month) {
+      var grid = {};
+      DAILY_ROWS.forEach(function (r) { grid[r.key] = {}; });
+      grid.checkout = {}; grid.ordered = {};
+      var bump = function (key, day) {
+        if (!day || day.slice(0, 7) !== month) return;
+        grid[key][day] = (grid[key][day] || 0) + 1;
+      };
+      PEOPLE.forEach(function (p) {
+        DAILY_ROWS.forEach(function (r) { bump(r.key, r.day(p)); });
+      });
+      // The two money steps come from Shopify, which is authoritative for both.
+      ABANDONED.forEach(function (a) { bump('checkout', istDay(a.createdAt)); });
+      ORDERS.forEach(function (o) {
+        if (o.cancelled) return;
+        bump('checkout', istDay(o.createdAt)); // an order necessarily attempted checkout
+        bump('ordered', istDay(o.createdAt));
+      });
+      return grid;
+    }
+    function renderDaily() {
+      var body = $('dailyBody'); if (!body) return;
+      if (!MONTH) MONTH = currentIstMonth();
+      var pick = $('monthPick'); if (pick && pick.value !== MONTH) pick.value = MONTH;
+      var n = daysInMonth(MONTH);
+      var grid = dailyCounts(MONTH);
+      var rows = DAILY_ROWS.concat([
+        { key: 'checkout', label: 'Attempted checkout' },
+        { key: 'ordered', label: 'Ordered' },
+      ]);
+      var head = '<tr><th class="ad-daily__lab">Step</th>';
+      for (var d = 1; d <= n; d++) head += '<th class="r">' + d + '</th>';
+      head += '<th class="r ad-daily__tot">Total</th></tr>';
+      var bodyHtml = rows.map(function (r) {
+        var cells = '', total = 0;
+        for (var i = 1; i <= n; i++) {
+          var key = MONTH + '-' + (i < 10 ? '0' + i : i);
+          var v = grid[r.key][key] || 0;
+          total += v;
+          cells += '<td class="r' + (v ? '' : ' ad-daily__z') + '">' + (v || '·') + '</td>';
+        }
+        return '<tr><td class="ad-daily__lab">' + esc(r.label) + '</td>' + cells +
+          '<td class="r ad-daily__tot">' + total + '</td></tr>';
+      }).join('');
+      body.innerHTML = '<div class="ad-panel"><div class="ad-scroll">' +
+        '<table class="ad-table ad-daily"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table>' +
+        '</div></div>' +
+        '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST. ' +
+        'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.</p>';
+    }
+    function dailyCsv() {
+      var n = daysInMonth(MONTH), grid = dailyCounts(MONTH);
+      var rows = DAILY_ROWS.concat([
+        { key: 'checkout', label: 'Attempted checkout' },
+        { key: 'ordered', label: 'Ordered' },
+      ]);
+      var head = ['Step'];
+      for (var d = 1; d <= n; d++) head.push(String(d));
+      var lines = [head.join(',')];
+      rows.forEach(function (r) {
+        var line = ['"' + r.label + '"'];
+        for (var i = 1; i <= n; i++) {
+          var key = MONTH + '-' + (i < 10 ? '0' + i : i);
+          line.push(String(grid[r.key][key] || 0));
+        }
+        lines.push(line.join(','));
+      });
+      var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mir-kash-funnel-' + MONTH + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    // Step the month picker by ±1, staying on a valid YYYY-MM.
+    function shiftMonth(delta) {
+      var y = Number(MONTH.slice(0, 4)), m = Number(MONTH.slice(5, 7)) + delta;
+      var d = new Date(y, m - 1, 1);
+      MONTH = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      renderDaily();
     }
 
     function matchesSearch(p) {
@@ -738,6 +865,13 @@
     ['dateFrom', 'dateTo'].forEach(function (id) {
       var el = $(id); if (el) el.addEventListener('change', renderPeople);
     });
+    // Daily funnel: month stepper, direct picker, and CSV export.
+    $('monthPrev').addEventListener('click', function () { shiftMonth(-1); });
+    $('monthNext').addEventListener('click', function () { shiftMonth(1); });
+    $('monthPick').addEventListener('change', function (e) {
+      if (e.target.value) { MONTH = e.target.value; renderDaily(); }
+    });
+    $('monthCsv').addEventListener('click', dailyCsv);
     $('peopleBody').addEventListener('click', function (e) {
       if (e.target.closest('a')) return;            // let WhatsApp/Call links through
       var tr = e.target.closest('[data-person]'); if (!tr) return;
@@ -1092,6 +1226,13 @@
   .ad-link:hover { color: var(--cherry); border-color: var(--cherry); }
 
   /* Clickable rows */
+  /* Daily funnel: 31 day columns + a total, so cells go tight and numbers align. */
+  .ad-daily { min-width: 900px; font-variant-numeric: tabular-nums; }
+  .ad-daily th, .ad-daily td { padding: 8px 6px; font-size: 12px; }
+  /* Sticky first column so step names stay readable while scrolling 31 days. */
+  .ad-daily__lab { text-align: left; white-space: nowrap; font-weight: 600; color: var(--depth); position: sticky; left: 0; background: #fff; padding-left: 16px !important; padding-right: 14px !important; }
+  .ad-daily__z { color: #d8d0c4; }
+  .ad-daily__tot { font-weight: 600; color: var(--depth); border-left: 1px solid var(--rule); padding-right: 16px !important; }
   .ad-table--click tbody tr { cursor: pointer; transition: background .12s; }
   .ad-table--click tbody tr:hover { background: #faf7f1; }
   .ad-rowview { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--faint); white-space: nowrap; }

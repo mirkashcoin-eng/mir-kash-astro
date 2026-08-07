@@ -8,7 +8,7 @@ export const prerender = false;
 // checkOrigin).
 const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-const EVENTS = ['visit', 'add_to_cart', 'phone', 'address'] as const;
+const EVENTS = ['visit', 'product_view', 'add_to_cart', 'phone', 'address'] as const;
 
 export const POST: APIRoute = async ({ request }) => {
   let body: Record<string, unknown>;

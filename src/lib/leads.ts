@@ -25,7 +25,7 @@ export interface CartSnapshot {
 
 export interface LeadInput {
   sessionId: string;
-  event: 'visit' | 'add_to_cart' | 'phone' | 'address';
+  event: 'visit' | 'product_view' | 'add_to_cart' | 'phone' | 'address';
   phone?: string;
   email?: string;
   name?: string;
@@ -71,6 +71,8 @@ export async function recordLead(l: LeadInput): Promise<void> {
     if (l.province) patch.province = l.province;
     if (l.pin) patch.pin = l.pin;
     if (l.event === 'add_to_cart' && l.item) patch.items = FieldValue.arrayUnion(l.item);
+    // Distinct products seen — arrayUnion dedupes, so the length is the product count.
+    if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); }
     // Latest bag wins — it already includes everything added before it.
     if (l.cart) { patch.cart = l.cart; patch.cartValue = l.cart.total; patch.cartCurrency = l.cart.currency; }
     await ref.set(patch, { merge: true });
@@ -111,6 +113,8 @@ async function mergeAnonInto(
   if (v.cartAt) carry.cartAt = v.cartAt;
   if (v.cart) { carry.cart = v.cart; carry.cartValue = v.cartValue; carry.cartCurrency = v.cartCurrency; }
   if (Array.isArray(v.items) && v.items.length) carry.items = FieldValue.arrayUnion(...(v.items as string[]));
+  if (Array.isArray(v.viewed) && v.viewed.length) carry.viewed = FieldValue.arrayUnion(...(v.viewed as string[]));
+  if (v.viewedAt) carry.viewedAt = v.viewedAt;
   if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
   if (Object.keys(carry).length) await db.collection('people').doc(key).set(carry, { merge: true });
   await anonRef.delete();
@@ -137,6 +141,7 @@ async function linkPerson(
   if (l.name) patch.name = l.name;
   if (l.market) patch.market = l.market;
   if (l.event === 'visit' && !snap.exists) patch.visitAt = now;
+  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); }
   if (l.event === 'phone') patch.phoneAt = now;
   if (l.event === 'add_to_cart') {
     patch.cartAt = now;
@@ -164,6 +169,7 @@ export interface Person {
   phone: string | null;
   email: string | null;
   items: string[];
+  viewed: string[];           // distinct product pages opened
   cart: CartSnapshot | null;  // their bag: lines + value
   cartValue: number;
   cartCurrency: string;
@@ -176,6 +182,11 @@ export interface Person {
   cartAdds: number;
   firstSeen: string | null;
   lastSeen: string | null;
+  // When each step was first reached — powers the day-by-day funnel grid in /admin.
+  viewedAt: string | null;
+  cartAt: string | null;
+  phoneAt: string | null;
+  addressAt: string | null;
 }
 
 const iso = (t: unknown): string | null =>
@@ -208,6 +219,12 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         phone: (v.phone as string) ?? null,
         email: (v.email as string) ?? null,
         items: Array.isArray(v.items) ? (v.items as string[]) : [],
+        // A product in the bag was necessarily seen, so union the two — otherwise
+        // sessions predating product_view tracking would report 0 products viewed.
+        viewed: [...new Set([
+          ...(Array.isArray(v.viewed) ? (v.viewed as string[]) : []),
+          ...(Array.isArray(v.items) ? (v.items as string[]) : []),
+        ])],
         cart: (v.cart as CartSnapshot) ?? null,
         cartValue: Number(v.cartValue || 0),
         cartCurrency: (v.cartCurrency as string) || 'INR',
@@ -220,6 +237,10 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         cartAdds: Number(v.cartAdds || 0),
         firstSeen: iso(v.firstSeen),
         lastSeen: iso(v.lastSeen),
+        viewedAt: iso(v.viewedAt),
+        cartAt: iso(v.cartAt),
+        phoneAt: iso(v.phoneAt),
+        addressAt: iso(v.addressAt),
       };
     });
   } catch {
