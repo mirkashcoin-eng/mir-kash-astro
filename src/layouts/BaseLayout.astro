@@ -179,6 +179,9 @@ const orgJsonLd = {
           } catch (_) {}
           if (window.mkLead) window.mkLead(Object.assign({ event: 'visit' }, src));
         }
+        // Every page, every load — `visit` above fires once per tab, so it can't
+        // build a path. Product pages send their own event from ProductPage.astro.
+        if (window.mkLead) window.mkLead({ event: 'page_view', page: location.pathname });
       } catch (_) { window.mkTrack('visit'); }
     </script>
   </head>

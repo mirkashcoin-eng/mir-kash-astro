@@ -25,7 +25,7 @@ export interface CartSnapshot {
 
 export interface LeadInput {
   sessionId: string;
-  event: 'visit' | 'product_view' | 'add_to_cart' | 'phone' | 'address';
+  event: 'visit' | 'page_view' | 'product_view' | 'add_to_cart' | 'phone' | 'address';
   phone?: string;
   email?: string;
   name?: string;
@@ -44,6 +44,7 @@ export interface LeadInput {
   utmMedium?: string;
   utmCampaign?: string;
   landing?: string;
+  page?: string;    // path of the page just loaded (page_view)
   bot?: string;     // crawler name, '' for humans
   country?: string; // ISO code from the CDN edge
 }
@@ -116,8 +117,19 @@ export async function recordLead(l: LeadInput): Promise<void> {
     if (l.pin) patch.pin = l.pin;
     if (l.event === 'add_to_cart' && l.item) patch.items = FieldValue.arrayUnion(l.item);
     // Distinct products seen — arrayUnion dedupes, so the length is the product count.
-    // `viewed` is a set, so it has no order — keep the latest separately.
-  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); patch.lastViewed = l.item; }
+    // `viewed` is a set and has no order, so the latest is kept separately.
+    if (l.event === 'product_view' && l.item) {
+      patch.viewedAt = now;
+      patch.viewed = FieldValue.arrayUnion(l.item);
+      patch.lastViewed = l.item;
+    }
+    // Distinct pages seen. Also a set, so it's bounded by the size of the site
+    // rather than by how much someone browses.
+    if (l.event === 'page_view' && l.page) {
+      patch.pages = FieldValue.arrayUnion(l.page);
+      patch.pageViews = FieldValue.increment(1);
+      patch.lastPage = l.page;
+    }
     // Latest bag wins — it already includes everything added before it.
     if (l.cart) { patch.cart = l.cart; patch.cartValue = l.cart.total; patch.cartCurrency = l.cart.currency; }
     await ref.set(patch, { merge: true });
@@ -160,6 +172,8 @@ async function mergeAnonInto(
   if (Array.isArray(v.items) && v.items.length) carry.items = FieldValue.arrayUnion(...(v.items as string[]));
   if (Array.isArray(v.viewed) && v.viewed.length) carry.viewed = FieldValue.arrayUnion(...(v.viewed as string[]));
   if (v.viewedAt) carry.viewedAt = v.viewedAt;
+  if (Array.isArray(v.pages) && v.pages.length) carry.pages = FieldValue.arrayUnion(...(v.pages as string[]));
+  if (v.pageViews) carry.pageViews = FieldValue.increment(Number(v.pageViews) || 0);
   // The anon record holds the true first touch — it started the journey.
   for (const k of ['referrer', 'utmSource', 'utmMedium', 'utmCampaign', 'landing', 'country']) {
     if (v[k]) carry[k] = v[k];
@@ -202,7 +216,16 @@ async function linkPerson(
   if (l.market) patch.market = l.market;
   if (l.event === 'visit' && !snap.exists) patch.visitAt = now;
   // `viewed` is a set, so it has no order — keep the latest separately.
-  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); patch.lastViewed = l.item; }
+  if (l.event === 'product_view' && l.item) {
+    patch.viewedAt = now;
+    patch.viewed = FieldValue.arrayUnion(l.item);
+    patch.lastViewed = l.item;
+  }
+  if (l.event === 'page_view' && l.page) {
+    patch.pages = FieldValue.arrayUnion(l.page);
+    patch.pageViews = FieldValue.increment(1);
+    patch.lastPage = l.page;
+  }
   if (l.event === 'phone') patch.phoneAt = now;
   if (l.event === 'add_to_cart') {
     patch.cartAt = now;
@@ -253,6 +276,9 @@ export interface Person {
   sourceLabel: string | null;  // readable: 'Instagram', 'priya · diwali'
   landing: string | null;      // first page they hit
   lastViewed: string | null;   // most recent product page opened
+  pages: string[];             // distinct paths visited
+  pageViews: number;           // total page loads, including repeats
+  lastPage: string | null;
   bot: string | null;          // crawler name; null for real visitors
   country: string | null;
 }
@@ -313,6 +339,9 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         sourceLabel: sourceLabel(v),
         landing: (v.landing as string) ?? null,
         lastViewed: (v.lastViewed as string) ?? null,
+        pages: Array.isArray(v.pages) ? (v.pages as string[]) : [],
+        pageViews: Number(v.pageViews || 0),
+        lastPage: (v.lastPage as string) ?? null,
         bot: (v.bot as string) ?? null,
         country: (v.country as string) ?? null,
       };

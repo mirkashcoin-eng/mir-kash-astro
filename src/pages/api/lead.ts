@@ -9,7 +9,7 @@ export const prerender = false;
 // checkOrigin).
 const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-const EVENTS = ['visit', 'product_view', 'add_to_cart', 'phone', 'address'] as const;
+const EVENTS = ['visit', 'page_view', 'product_view', 'add_to_cart', 'phone', 'address'] as const;
 
 export const POST: APIRoute = async ({ request }) => {
   let body: Record<string, unknown>;
@@ -52,6 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
     utmMedium: str(body.utmMedium, 60),
     utmCampaign: str(body.utmCampaign, 80),
     landing: str(body.landing, 200),
+    page: str(body.page, 200),
     // The request's own user-agent decides this, not the posted body — a page
     // shouldn't be able to disguise a crawler as a person.
     bot: botName(request.headers.get('user-agent') ?? '') || str(body.bot, 40),

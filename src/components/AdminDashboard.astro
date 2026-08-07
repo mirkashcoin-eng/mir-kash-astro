@@ -521,7 +521,7 @@
     function matchesSearch(p) {
       if (!SEARCH) return true;
       var hay = [p.name, p.phone, p.email, p.address, p.sourceLabel, p.bot,
-        (p.items || []).join(' '), (p.viewed || []).join(' ')].join(' ').toLowerCase();
+        (p.items || []).join(' '), (p.viewed || []).join(' '), (p.pages || []).join(' ')].join(' ').toLowerCase();
       return hay.indexOf(SEARCH) > -1;
     }
     function visiblePeople() {
@@ -563,9 +563,23 @@
       var html = rows.map(function (p) {
         var idx = PEOPLE.indexOf(p);
         var tel = (p.phone || '').replace(/[^0-9]/g, '');
-        var bag = (p.cart && p.cart.lines && p.cart.lines.length)
-          ? p.cart.lines.map(function (l) { return l.quantity + '× ' + l.title; }).join(', ')
-          : ((p.items && p.items.length) ? p.items.join(', ') : '—');
+        // Most rows are browsers with an empty bag, so the column falls back to what
+        // they actually looked at rather than showing a dash for nearly everyone.
+        var bag;
+        if (p.cart && p.cart.lines && p.cart.lines.length) {
+          bag = esc(p.cart.lines.map(function (l) { return l.quantity + '× ' + l.title; }).join(', '));
+        } else if (p.items && p.items.length) {
+          bag = esc(p.items.join(', '));
+        } else if (p.viewed && p.viewed.length) {
+          bag = '<span class="ad-browsed">' + esc(p.viewed.slice(0, 2).join(', ')) +
+            (p.viewed.length > 2 ? ' +' + (p.viewed.length - 2) : '') + '</span>' +
+            '<div class="sub">viewed, not bagged</div>';
+        } else if (p.pageViews) {
+          bag = '<span class="ad-browsed">' + p.pageViews + (p.pageViews === 1 ? ' page' : ' pages') + '</span>' +
+            (p.lastPage ? '<div class="sub">' + esc(p.lastPage) + '</div>' : '');
+        } else {
+          bag = '—';
+        }
         var val = p.ordered ? inr(String(p.orderTotal), p.cartCurrency) : (p.cartValue ? inr(String(p.cartValue), p.cartCurrency) : '—');
         var acts = [];
         if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp</a>');
@@ -576,7 +590,7 @@
         return '<tr data-person="' + idx + '"><td class="nm">' + esc(personName(p)) + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</td>' +
           '<td>' + stagePill(p.stage) + '</td>' +
           '<td>' + src + '</td>' +
-          '<td>' + esc(bag) + '</td>' +
+          '<td>' + bag + '</td>' +
           '<td class="r amt">' + esc(val) + '</td>' +
           '<td class="r">' + p.visits + '</td>' +
           '<td>' + when(p.lastSeen, true) + '</td>' +
@@ -1020,6 +1034,9 @@
         facts.push(['Products viewed', String(p.viewed.length)]);
         if (p.lastViewed) facts.push(['Last viewed', p.lastViewed]);
       }
+      if (p.pageViews) {
+        facts.push(['Pages viewed', p.pageViews + ((p.pages || []).length > 1 ? ' (' + p.pages.length + ' unique)' : '')]);
+      }
       if (p.orderCount > 1) facts.push(['Orders', p.orderCount + ' · repeat buyer']);
       if (p.lifetimeValue) facts.push(['Lifetime value', inr(String(p.lifetimeValue), p.cartCurrency)]);
       if (p.daysToPurchase !== null && p.daysToPurchase !== undefined) {
@@ -1039,6 +1056,14 @@
         ? '<div class="ad-dsect"><h3 class="ad-dh3">Viewed but not bagged</h3><p class="ad-daddr">' +
           esc(browsedOnly.join(', ')) + '</p></div>'
         : '';
+      // Every distinct page they opened. Products are listed above by name, so this
+      // is mostly the non-product path — home, shop, story, care, checkout.
+      var pagesHtml = (p.pages && p.pages.length)
+        ? '<div class="ad-dsect"><h3 class="ad-dh3">Pages visited</h3><ul class="ad-dpages">' +
+          p.pages.map(function (pg) {
+            return '<li>' + esc(pg) + (pg === p.landing ? '<span class="ad-tag">landed here</span>' : '') + '</li>';
+          }).join('') + '</ul></div>'
+        : '';
       return '' +
         '<div class="ad-dhead">' + stagePill(p.stage) +
           '<h2 class="ad-display ad-dtitle">' + esc(p.name || 'Visitor') + '</h2>' +
@@ -1050,6 +1075,7 @@
         factsHtml +
         (p.address ? '<div class="ad-dsect"><h3 class="ad-dh3">Delivery address</h3><p class="ad-daddr">' + esc(p.address) + '</p></div>' : '') +
         browsedHtml +
+        pagesHtml +
         (bagRows
           ? '<div class="ad-dsect"><h3 class="ad-dh3">Their bag</h3><table class="ad-dtable"><tbody>' + bagRows + '</tbody></table>' +
             '<div class="ad-tots"><div class="ad-tot ad-tot--strong"><span>Bag value</span><span>' + esc(inr(String(p.cartValue), p.cartCurrency)) + '</span></div></div></div>'
@@ -1302,6 +1328,10 @@
   /* Sticky first column so step names stay readable while scrolling 31 days. */
   .ad-daily__lab { text-align: left; white-space: nowrap; font-weight: 600; color: var(--depth); position: sticky; left: 0; background: #fff; padding-left: 16px !important; padding-right: 14px !important; }
   .ad-daily__z { color: #d8d0c4; }
+  /* Browsing shown where the bag would be — present, but visibly not a purchase. */
+  .ad-browsed { color: var(--mid); }
+  .ad-dpages { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .ad-dpages li { font-size: 13px; color: var(--depth); font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); display: flex; align-items: center; gap: 8px; }
   .ad-bottoggle { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--mid); cursor: pointer; }
   .ad-bottoggle input { accent-color: var(--cherry); cursor: pointer; }
   .ad-daily__tot { font-weight: 600; color: var(--depth); border-left: 1px solid var(--rule); padding-right: 16px !important; }
