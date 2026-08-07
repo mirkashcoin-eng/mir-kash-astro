@@ -125,7 +125,7 @@
 </main>
 
 <script>
-  import { getIdToken, signInWithGoogle, signOut } from '~/lib/firebaseClient';
+  import { getIdToken, getSessionUser, signInWithGoogle, signOut } from '~/lib/firebaseClient';
 
   (function () {
     var LS = 'mk_admin_key';
@@ -811,12 +811,42 @@
     function showGate() { $('gate').hidden = false; }
     function setStatus(msg) { var s = $('signinStatus'); if (s) s.textContent = msg || ''; }
 
-    // Security: always require an explicit sign-in on every visit. Never auto-enter
-    // from a stored secret or a lingering session — the gate is the only way in, and
-    // the dashboard is not rendered (and no data is fetched) until auth succeeds.
-    function init() {
+    // Resume a Google session if there is one, so a refresh doesn't sign you out.
+    // The passcode is still NEVER persisted: it's a shared secret with no expiry and
+    // no way to revoke it, so anyone holding the device would have permanent access.
+    // A Firebase session is different in kind — the server re-verifies the token and
+    // re-checks ADMIN_EMAILS on every request, and it expires and can be revoked.
+    async function init() {
       try { localStorage.removeItem(LS); } catch (e) {} // purge any passcode a prior build stored
+      // Show the gate straight away rather than a blank page while the session check
+      // runs; it's hidden again below if we get in. The sign-in button is disabled
+      // meanwhile, so a click can't race the resume.
       showGate();
+      var gbtn = $('googleBtn');
+      if (gbtn) gbtn.disabled = true;
+      setStatus('Checking your session…');
+      try {
+        // Firebase restores the session asynchronously, so wait for the initial auth
+        // state — currentUser is still null at this point on a fresh load.
+        var user = await getSessionUser();
+        if (user) {
+          var token = await getIdToken();
+          if (token) {
+            var r = await callData({ Authorization: 'Bearer ' + token });
+            // Only a 200 lets us in; a signed-in non-admin still gets the gate.
+            if (r.data) {
+              AUTH = { kind: 'token' };
+              $('gate').hidden = true;
+              setStatus('');
+              render(r.data);
+              return;
+            }
+          }
+        }
+      } catch (e) { /* fall through to the gate */ }
+      // No session, or it isn't an admin — hand over to the normal sign-in.
+      setStatus('');
+      if (gbtn) gbtn.disabled = false;
     }
 
     // ── Google sign-in (primary) ──────────────────────────────────────────────
