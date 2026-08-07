@@ -76,7 +76,12 @@
         <div class="ad-panel ad-affnew">
           <div class="ad-panel__h"><span class="ad-panel__t">New link</span></div>
           <form class="ad-affform" id="affForm">
-            <label class="ad-flabel">Link name<input class="ad-finput" id="affSlug" type="text" placeholder="priya" autocomplete="off" /></label>
+            <label class="ad-flabel">Link name
+              <span class="ad-affslug">
+                <input class="ad-finput" id="affSlug" type="text" placeholder="priya" autocomplete="off" />
+                <button class="ad-affgen" id="affGen" type="button" title="Use a random code instead">Random</button>
+              </span>
+            </label>
             <label class="ad-flabel">Creator (optional)<input class="ad-finput" id="affLabel" type="text" placeholder="Priya Sharma" autocomplete="off" /></label>
             <button class="ad-dbtn ad-dbtn--fill" id="affCreate" type="submit">Create link</button>
           </form>
@@ -293,7 +298,15 @@
 
     // ── Affiliates ────────────────────────────────────────────────────────────
     var SITE = 'https://www.mirkash.com';
-    function affLink(slug) { return SITE + '/api/go/' + slug; }
+    function affLink(slug) { return SITE + '/go/' + slug; }
+    // Random code, minus the characters people misread or mistype when a link is
+    // read aloud or copied by hand: 0/o, 1/l/i.
+    var CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+    function randomSlug(n) {
+      var out = '';
+      for (var i = 0; i < (n || 8); i++) out += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
+      return out;
+    }
     function renderAffiliates(rows) {
       var body = $('affBody'); if (!body) return;
       var nb = $('nAff');
@@ -603,6 +616,11 @@
       el.textContent = t || '';
       el.classList.toggle('is-bad', !!bad);
     }
+    $('affGen').addEventListener('click', function () {
+      $('affSlug').value = randomSlug(8);
+      affMsg('');
+      $('affSlug').focus();
+    });
     $('affForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       var slug = ($('affSlug').value || '').trim().toLowerCase();
@@ -1050,6 +1068,10 @@
   .ad-affnew { padding-bottom: 4px; }
   .ad-affform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 16px 18px 8px; }
   .ad-affform .ad-flabel { flex: 1 1 180px; margin: 0; }
+  .ad-affslug { display: flex; gap: 6px; align-items: stretch; }
+  .ad-affslug .ad-finput { flex: 1; min-width: 0; }
+  .ad-affgen { flex: none; font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 0 11px; cursor: pointer; transition: border-color .15s, color .15s; }
+  .ad-affgen:hover { border-color: var(--cherry); color: var(--cherry); }
   .ad-afflink { cursor: pointer; border-bottom: 1px dotted var(--rule); }
   .ad-afflink:hover { color: var(--cherry); border-bottom-color: var(--cherry); }
   .ad-actmsg.is-bad { color: var(--cherry); }

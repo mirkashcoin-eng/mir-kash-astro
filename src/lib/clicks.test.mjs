@@ -12,7 +12,22 @@ for (const bad of ['', 'ab', 'Priya', 'a_b', 'a b', '-lead', 'trail-', '../etc',
   assert.ok(!SLUG_RE.test(bad), `should reject ${JSON.stringify(bad)}`);
 }
 
-// ── Redirect target (mirrors safePath in /api/go/[affiliate].ts) ─────────────
+// ── Random codes (mirrors randomSlug in AdminDashboard.astro) ───────────────
+// Generated codes must always satisfy the rule the server enforces, or "Random"
+// would hand you a link the create endpoint rejects.
+const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+const randomSlug = (n = 8) =>
+  Array.from({ length: n }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+for (let i = 0; i < 5000; i++) {
+  const s = randomSlug();
+  assert.ok(SLUG_RE.test(s), `generated code must be a valid slug: ${s}`);
+}
+// Look-alike characters are excluded so codes survive being read aloud or retyped.
+for (const c of ['0', 'o', '1', 'l', 'i']) {
+  assert.ok(!CODE_CHARS.includes(c), `${c} is too easily confused to appear in a code`);
+}
+
+// ── Redirect target (mirrors safePath in /go/[affiliate].ts) ────────────────
 const safePath = (raw) => (!raw || !raw.startsWith('/') || raw.startsWith('//') ? '/' : raw);
 assert.equal(safePath('/products/tote'), '/products/tote');
 assert.equal(safePath(null), '/');

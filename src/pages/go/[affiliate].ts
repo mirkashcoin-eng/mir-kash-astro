@@ -4,7 +4,7 @@ import { setClickId } from '~/lib/cart-session';
 
 export const prerender = false;
 
-// Affiliate landing: https://mirkash.com/api/go/{slug}?to=/products/some-bag
+// Affiliate landing: https://mirkash.com/go/{slug}?to=/products/some-bag
 // Mints a click id, logs it against the affiliate, drops it in a cookie, then sends
 // the visitor on. The cookie is read at checkout so the order carries the click id.
 //
