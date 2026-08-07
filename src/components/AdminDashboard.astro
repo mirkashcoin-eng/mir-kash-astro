@@ -326,6 +326,7 @@
     var DATE_PRESETS = [
       { key: 'all', label: 'All time' },
       { key: 'today', label: 'Today' },
+      { key: 'yesterday', label: 'Yesterday' },
       { key: '7d', label: 'Last 7 days' },
       { key: '30d', label: 'Last 30 days' },
       { key: 'month', label: 'This month' },
@@ -343,6 +344,8 @@
     function activeRange() {
       if (DATE_FILTER === 'all') return null;
       if (DATE_FILTER === 'today') return { from: istMidnight(0), to: null };
+      // The only preset that closes at the top — yesterday excludes today.
+      if (DATE_FILTER === 'yesterday') return { from: istMidnight(1), to: istMidnight(0) - 1 };
       if (DATE_FILTER === '7d') return { from: istMidnight(6), to: null };
       if (DATE_FILTER === '30d') return { from: istMidnight(29), to: null };
       if (DATE_FILTER === 'month') {
@@ -493,7 +496,8 @@
 
     function matchesSearch(p) {
       if (!SEARCH) return true;
-      var hay = [p.name, p.phone, p.email, p.address, (p.items || []).join(' ')].join(' ').toLowerCase();
+      var hay = [p.name, p.phone, p.email, p.address, p.sourceLabel,
+        (p.items || []).join(' '), (p.viewed || []).join(' ')].join(' ').toLowerCase();
       return hay.indexOf(SEARCH) > -1;
     }
     function visiblePeople() {
@@ -539,8 +543,12 @@
         var acts = [];
         if (tel) acts.push('<a class="ad-link" href="https://wa.me/' + tel + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp</a>');
         var sub = personSub(p);
+        var src = p.sourceLabel
+          ? esc(p.sourceLabel) + (p.orderCount > 1 ? '<div class="sub">repeat buyer</div>' : '')
+          : (p.orderCount > 1 ? '<span class="sub">repeat buyer</span>' : '—');
         return '<tr data-person="' + idx + '"><td class="nm">' + esc(personName(p)) + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</td>' +
           '<td>' + stagePill(p.stage) + '</td>' +
+          '<td>' + src + '</td>' +
           '<td>' + esc(bag) + '</td>' +
           '<td class="r amt">' + esc(val) + '</td>' +
           '<td class="r">' + p.visits + '</td>' +
@@ -549,7 +557,7 @@
       }).join('');
       body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">' +
         (FILTER === 'all' ? 'Everyone' : esc(stageMeta(FILTER).label)) + '</span><span class="ad-chart-sub">' + rows.length + ' of ' + PEOPLE.length + ' · most recent first</span></div>' +
-        '<div class="ad-scroll"><table class="ad-table ad-table--click"><thead><tr><th>Person</th><th>Stage</th><th>Their bag</th><th class="r">Value</th><th class="r">Visits</th><th>Last seen</th><th></th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
+        '<div class="ad-scroll"><table class="ad-table ad-table--click"><thead><tr><th>Person</th><th>Stage</th><th>Source</th><th>Their bag</th><th class="r">Value</th><th class="r">Visits</th><th>Last seen</th><th></th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
     }
 
     // ── Affiliates ────────────────────────────────────────────────────────────
@@ -971,6 +979,33 @@
               '<td class="r amt">' + esc(inr(String(l.price * l.quantity), p.cartCurrency)) + '</td></tr>';
           }).join('')
         : '';
+      // Acquisition + behaviour: how they found us, what they browsed, how they buy.
+      var facts = [];
+      if (p.sourceLabel) facts.push(['Came from', p.sourceLabel]);
+      if (p.landing) facts.push(['Landed on', p.landing]);
+      if (p.viewed && p.viewed.length) {
+        facts.push(['Products viewed', String(p.viewed.length)]);
+        if (p.lastViewed) facts.push(['Last viewed', p.lastViewed]);
+      }
+      if (p.orderCount > 1) facts.push(['Orders', p.orderCount + ' · repeat buyer']);
+      if (p.lifetimeValue) facts.push(['Lifetime value', inr(String(p.lifetimeValue), p.cartCurrency)]);
+      if (p.daysToPurchase !== null && p.daysToPurchase !== undefined) {
+        facts.push(['Time to purchase', p.daysToPurchase === 0 ? 'Same day' :
+          p.daysToPurchase + (p.daysToPurchase === 1 ? ' day' : ' days')]);
+      }
+      var factsHtml = facts.length
+        ? '<div class="ad-dsect"><h3 class="ad-dh3">Acquisition &amp; behaviour</h3><dl class="ad-dfacts">' +
+          facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') +
+          '</dl></div>'
+        : '';
+      // Everything they opened but never bagged — the clearest "what to nudge" signal.
+      var bagged = {};
+      (p.items || []).forEach(function (t) { bagged[t] = 1; });
+      var browsedOnly = (p.viewed || []).filter(function (t) { return !bagged[t]; });
+      var browsedHtml = browsedOnly.length
+        ? '<div class="ad-dsect"><h3 class="ad-dh3">Viewed but not bagged</h3><p class="ad-daddr">' +
+          esc(browsedOnly.join(', ')) + '</p></div>'
+        : '';
       return '' +
         '<div class="ad-dhead">' + stagePill(p.stage) +
           '<h2 class="ad-display ad-dtitle">' + esc(p.name || 'Visitor') + '</h2>' +
@@ -979,7 +1014,9 @@
             (p.source === 'legacy-checkout' ? ' · <span class="ad-tag">from earlier checkout capture</span>' : '') + '</p>' +
         '</div>' +
         (actions.length ? '<div class="ad-dactions">' + actions.join('') + '</div>' : '') +
+        factsHtml +
         (p.address ? '<div class="ad-dsect"><h3 class="ad-dh3">Delivery address</h3><p class="ad-daddr">' + esc(p.address) + '</p></div>' : '') +
+        browsedHtml +
         (bagRows
           ? '<div class="ad-dsect"><h3 class="ad-dh3">Their bag</h3><table class="ad-dtable"><tbody>' + bagRows + '</tbody></table>' +
             '<div class="ad-tots"><div class="ad-tot ad-tot--strong"><span>Bag value</span><span>' + esc(inr(String(p.cartValue), p.cartCurrency)) + '</span></div></div></div>'
@@ -1262,6 +1299,11 @@
   .ad-dvv { color: var(--depth); text-align: right; word-break: break-word; }
   .ad-dv { color: var(--faint); }
   .ad-daddr { font-size: 13.5px; color: var(--depth); line-height: 1.65; }
+  /* Acquisition facts: label above value, two per row on anything but a phone. */
+  .ad-dfacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 0; }
+  .ad-dfacts dt { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin-bottom: 3px; }
+  .ad-dfacts dd { font-size: 13.5px; color: var(--depth); margin: 0; word-break: break-word; }
+  @media (max-width: 480px) { .ad-dfacts { grid-template-columns: 1fr; } }
   .ad-dtable { width: 100%; border-collapse: collapse; }
   .ad-dtable td { font-size: 13px; color: var(--ink); padding: 9px 0; border-bottom: 1px solid #efeae1; vertical-align: top; }
   .ad-dtable tr:last-child td { border-bottom: none; }

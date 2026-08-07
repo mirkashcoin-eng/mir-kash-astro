@@ -23,6 +23,18 @@ interface PersonRow extends Person {
   abandoned: AbandonedCheckout | null;
   ordered: boolean;
   orderTotal: number;
+  orderCount: number;          // live orders — >1 means a repeat buyer
+  lifetimeValue: number;       // summed across those orders
+  daysToPurchase: number | null; // first seen → first order, in days
+}
+
+// Whole days between two instants; null unless both are usable and ordered.
+function daysBetween(from: string | null, to: string | null): number | null {
+  if (!from || !to) return null;
+  const a = new Date(from).getTime();
+  const b = new Date(to).getTime();
+  if (!isFinite(a) || !isFinite(b) || b < a) return null;
+  return Math.floor((b - a) / 864e5);
 }
 
 // Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email
@@ -54,16 +66,28 @@ export const GET: APIRoute = async ({ request }) => {
     if (k && !abandonedBy.has(k)) abandonedBy.set(k, a);
   }
   const orderBy = new Map<string, (typeof orders)[number]>();
+  // Every live order per person, so we can tell a repeat buyer from a first-timer
+  // and date the FIRST purchase (orders arrive newest-first).
+  const ordersFor = new Map<string, (typeof orders)[number][]>();
   for (const o of orders) {
     if (o.cancelled) continue;
     const k = personKey(o.phone) || (o.email || '').toLowerCase();
-    if (k && !orderBy.has(k)) orderBy.set(k, o);
+    if (!k) continue;
+    if (!orderBy.has(k)) orderBy.set(k, o);
+    const list = ordersFor.get(k) ?? [];
+    list.push(o);
+    ordersFor.set(k, list);
   }
 
   const rows: PersonRow[] = (people ?? []).map((p) => {
     const byEmail = (p.email || '').toLowerCase();
     const a = abandonedBy.get(p.id) || (byEmail ? abandonedBy.get(byEmail) : undefined) || null;
     const o = orderBy.get(p.id) || (byEmail ? orderBy.get(byEmail) : undefined) || null;
+    const mine = ordersFor.get(p.id) || (byEmail ? ordersFor.get(byEmail) : undefined) || [];
+    // Oldest order dates the first purchase; `orders` arrives newest-first.
+    const firstOrder = mine.length
+      ? mine.reduce((old, x) => (new Date(x.createdAt) < new Date(old.createdAt) ? x : old))
+      : null;
 
     // Shopify knows far more about a checkout than our own beacons captured — name,
     // shipping address, line items, totals. Promote it onto the person so the table
@@ -102,6 +126,9 @@ export const GET: APIRoute = async ({ request }) => {
       abandoned: a,
       ordered: Boolean(o),
       orderTotal: Number(o?.total?.amount || 0),
+      orderCount: mine.length,
+      lifetimeValue: mine.reduce((s, x) => s + Number(x.total?.amount || 0), 0),
+      daysToPurchase: daysBetween(p.firstSeen, firstOrder?.createdAt ?? null),
     };
   });
 

@@ -38,6 +38,38 @@ export interface LeadInput {
   province?: string;
   pin?: string;
   cart?: CartSnapshot; // full bag (add_to_cart)
+  // Acquisition, sent on the first hit of a session only.
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  landing?: string;
+}
+
+// Where a visit came from, as one readable label. UTM wins over the referring
+// domain because it's what we deliberately tagged; bare domains get tidied.
+export function sourceLabel(v: Record<string, unknown>): string | null {
+  const utm = (v.utmSource as string) || '';
+  if (utm) {
+    const campaign = (v.utmCampaign as string) || '';
+    return campaign ? `${utm} · ${campaign}` : utm;
+  }
+  const ref = (v.referrer as string) || '';
+  if (!ref) return null;
+  try {
+    const host = new URL(ref).hostname.replace(/^www\./, '');
+    const known: Record<string, string> = {
+      'instagram.com': 'Instagram', 'l.instagram.com': 'Instagram',
+      'facebook.com': 'Facebook', 'm.facebook.com': 'Facebook', 'l.facebook.com': 'Facebook',
+      'google.com': 'Google', 'google.co.in': 'Google',
+      'pinterest.com': 'Pinterest', 'in.pinterest.com': 'Pinterest',
+      'linkedin.com': 'LinkedIn', 'lnkd.in': 'LinkedIn',
+      't.co': 'X/Twitter', 'youtube.com': 'YouTube',
+    };
+    return known[host] || host;
+  } catch {
+    return null;
+  }
 }
 
 // Person key: digits only, last 10 (so +91XXXXXXXXXX, 91XXXXXXXXXX and XXXXXXXXXX
@@ -57,7 +89,15 @@ export async function recordLead(l: LeadInput): Promise<void> {
     const snap = await ref.get();
     const now = FieldValue.serverTimestamp();
     const patch: Record<string, unknown> = { sessionId: l.sessionId, lastSeen: now };
-    if (!snap.exists) patch.firstSeen = now;
+    if (!snap.exists) {
+      patch.firstSeen = now;
+      // First touch only — a later direct visit must not erase how they found us.
+      if (l.referrer) patch.referrer = l.referrer;
+      if (l.utmSource) patch.utmSource = l.utmSource;
+      if (l.utmMedium) patch.utmMedium = l.utmMedium;
+      if (l.utmCampaign) patch.utmCampaign = l.utmCampaign;
+      if (l.landing) patch.landing = l.landing;
+    }
     if (l.event === 'phone') patch.phoneAt = now;
     if (l.event === 'add_to_cart') patch.cartAt = now;
     if (l.event === 'address') patch.addressAt = now;
@@ -72,7 +112,8 @@ export async function recordLead(l: LeadInput): Promise<void> {
     if (l.pin) patch.pin = l.pin;
     if (l.event === 'add_to_cart' && l.item) patch.items = FieldValue.arrayUnion(l.item);
     // Distinct products seen — arrayUnion dedupes, so the length is the product count.
-    if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); }
+    // `viewed` is a set, so it has no order — keep the latest separately.
+  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); patch.lastViewed = l.item; }
     // Latest bag wins — it already includes everything added before it.
     if (l.cart) { patch.cart = l.cart; patch.cartValue = l.cart.total; patch.cartCurrency = l.cart.currency; }
     await ref.set(patch, { merge: true });
@@ -115,6 +156,10 @@ async function mergeAnonInto(
   if (Array.isArray(v.items) && v.items.length) carry.items = FieldValue.arrayUnion(...(v.items as string[]));
   if (Array.isArray(v.viewed) && v.viewed.length) carry.viewed = FieldValue.arrayUnion(...(v.viewed as string[]));
   if (v.viewedAt) carry.viewedAt = v.viewedAt;
+  // The anon record holds the true first touch — it started the journey.
+  for (const k of ['referrer', 'utmSource', 'utmMedium', 'utmCampaign', 'landing']) {
+    if (v[k]) carry[k] = v[k];
+  }
   if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
   if (Object.keys(carry).length) await db.collection('people').doc(key).set(carry, { merge: true });
   await anonRef.delete();
@@ -136,12 +181,22 @@ async function linkPerson(
     sessionIds: FieldValue.arrayUnion(l.sessionId),
   };
   if (phone) patch.phone = phone;          // absent while still anonymous
-  if (!snap.exists) { patch.firstSeen = now; patch.source = 'web'; }
+  if (!snap.exists) {
+    patch.firstSeen = now;
+    patch.source = 'web';
+    // How this person first found us — never overwritten on later visits.
+    if (l.referrer) patch.referrer = l.referrer;
+    if (l.utmSource) patch.utmSource = l.utmSource;
+    if (l.utmMedium) patch.utmMedium = l.utmMedium;
+    if (l.utmCampaign) patch.utmCampaign = l.utmCampaign;
+    if (l.landing) patch.landing = l.landing;
+  }
   if (l.email) patch.email = l.email;
   if (l.name) patch.name = l.name;
   if (l.market) patch.market = l.market;
   if (l.event === 'visit' && !snap.exists) patch.visitAt = now;
-  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); }
+  // `viewed` is a set, so it has no order — keep the latest separately.
+  if (l.event === 'product_view' && l.item) { patch.viewedAt = now; patch.viewed = FieldValue.arrayUnion(l.item); patch.lastViewed = l.item; }
   if (l.event === 'phone') patch.phoneAt = now;
   if (l.event === 'add_to_cart') {
     patch.cartAt = now;
@@ -187,6 +242,11 @@ export interface Person {
   cartAt: string | null;
   phoneAt: string | null;
   addressAt: string | null;
+  // Acquisition (first touch).
+  referrer: string | null;
+  sourceLabel: string | null;  // readable: 'Instagram', 'priya · diwali'
+  landing: string | null;      // first page they hit
+  lastViewed: string | null;   // most recent product page opened
 }
 
 const iso = (t: unknown): string | null =>
@@ -241,6 +301,10 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         cartAt: iso(v.cartAt),
         phoneAt: iso(v.phoneAt),
         addressAt: iso(v.addressAt),
+        referrer: (v.referrer as string) ?? null,
+        sourceLabel: sourceLabel(v),
+        landing: (v.landing as string) ?? null,
+        lastViewed: (v.lastViewed as string) ?? null,
       };
     });
   } catch {

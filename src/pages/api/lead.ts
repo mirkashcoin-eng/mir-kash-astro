@@ -46,6 +46,11 @@ export const POST: APIRoute = async ({ request }) => {
     city: str(body.city, 80),
     province: str(body.province, 80),
     pin: str(body.pin, 10),
+    referrer: str(body.referrer, 300),
+    utmSource: str(body.utmSource, 60),
+    utmMedium: str(body.utmMedium, 60),
+    utmCampaign: str(body.utmCampaign, 80),
+    landing: str(body.landing, 200),
     cart,
   });
   return noContent();

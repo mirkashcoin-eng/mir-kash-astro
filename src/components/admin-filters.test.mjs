@@ -40,6 +40,18 @@ assert.ok(inRange({ lastSeen: null, firstSeen: null }, null), 'but survive "All 
 const endOfDay = { from: null, to: midnight + day - 1 };
 assert.ok(inRange({ lastSeen: new Date(midnight + day - 1000).toISOString() }, endOfDay), 'late that day still counts');
 
+// "Yesterday" is the one preset closed at both ends: it must contain all of
+// yesterday and none of today.
+const yest = { from: istMidnight(1), to: istMidnight(0) - 1 };
+const stamp = (ms) => ({ lastSeen: new Date(ms).toISOString() });
+assert.ok(inRange(stamp(istMidnight(1)), yest), 'yesterday 00:00 is in');
+assert.ok(inRange(stamp(istMidnight(0) - 1), yest), 'yesterday 23:59:59.999 is in');
+assert.ok(!inRange(stamp(istMidnight(0)), yest), 'today 00:00 is out');
+assert.ok(!inRange(stamp(istMidnight(2)), yest), 'the day before is out');
+// Today and yesterday must not overlap, or rows would be counted in both.
+assert.ok(!inRange(stamp(istMidnight(0)), yest) && inRange(stamp(istMidnight(0)), { from: istMidnight(0), to: null }),
+  'the boundary instant belongs to today alone');
+
 // Mirrors unreadCount(): only records newer than the mark.
 function unreadCount(mark, rows, stamp) {
   if (!mark) return 0;
