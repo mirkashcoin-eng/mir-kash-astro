@@ -44,6 +44,14 @@
         <h1 class="ad-display ad-h1">People</h1>
         <p class="ad-sub">Everyone who's shown intent — what they did, what's in their bag, and where they stopped.</p>
         <div class="ad-filters" id="peopleFilters"></div>
+        <div class="ad-daterow">
+          <div class="ad-filters ad-filters--dates" id="peopleDates"></div>
+          <span class="ad-customrange" id="customRange" hidden>
+            <input class="ad-finput ad-dateinput" id="dateFrom" type="date" aria-label="From date" />
+            <span class="ad-daterow__to">to</span>
+            <input class="ad-finput ad-dateinput" id="dateTo" type="date" aria-label="To date" />
+          </span>
+        </div>
         <div class="ad-searchwrap"><input class="ad-search" id="peopleSearch" type="search" placeholder="Search name, phone, email or bag…" autocomplete="off" /></div>
         <div id="peopleBody"></div>
       </section>
@@ -110,7 +118,11 @@
     var ABANDONED = [];
     var DEMOS = [];
     var PEOPLE = [];
+    var ORDERS = [];
+    var AFFILIATES = [];
+    var FULFIL_PENDING = 0;
     var FILTER = 'all';   // active stage filter in the People view
+    var DATE_FILTER = 'all';
     var SEARCH = '';
     var AUTH = null; // { kind:'key', key } | { kind:'token' } — in memory only, never persisted
     var $ = function (id) { return document.getElementById(id); };
@@ -161,12 +173,58 @@
         return '<tr data-idx="' + i + '"><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + demoPill(d.status) + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
     }
+    // ── Unread badges ─────────────────────────────────────────────────────────
+    // Each nav badge counts records newer than the last time that tab was opened,
+    // so it reads as "new since you last looked" rather than a running total.
+    // Marks live in localStorage — view timestamps, not credentials, so they can
+    // safely outlive the session (unlike the passcode, which never persists).
+    var SEEN_LS = 'mk_admin_seen';
+    var SEEN = {};
+    try { SEEN = JSON.parse(localStorage.getItem(SEEN_LS) || '{}') || {}; } catch (e) { SEEN = {}; }
+    function saveSeen() { try { localStorage.setItem(SEEN_LS, JSON.stringify(SEEN)); } catch (e) {} }
+    // Records created after the mark. First ever visit has no mark — show nothing
+    // rather than flagging the entire backlog as "new".
+    function unreadCount(view, rows, stamp) {
+      var mark = SEEN[view];
+      if (!mark) return 0;
+      var n = 0;
+      for (var i = 0; i < rows.length; i++) {
+        var t = new Date(stamp(rows[i]) || 0).getTime();
+        if (isFinite(t) && t > mark) n++;
+      }
+      return n;
+    }
+    function setBadge(id, n) {
+      var el = $(id); if (!el) return;
+      el.textContent = n ? String(n) : '';
+      el.classList.toggle('is-new', !!n);
+    }
+    // Opening a tab clears its badge and re-marks it as read from now.
+    function markSeen(view) {
+      SEEN[view] = Date.now();
+      saveSeen();
+      renderBadges();
+    }
+    // Badges reflect the data currently loaded; called after each fetch and on
+    // every tab switch.
+    function renderBadges() {
+      var byCreated = function (r) { return r.createdAt; };
+      setBadge('nPeople', unreadCount('people', PEOPLE, function (p) { return p.lastSeen || p.firstSeen; }));
+      setBadge('nOrders', unreadCount('orders', ORDERS, byCreated));
+      setBadge('nDemos', unreadCount('demos', DEMOS, byCreated));
+      setBadge('nAff', unreadCount('affiliates', AFFILIATES, function (a) { return a.createdAt; }));
+      // Fulfilment is a work queue, not a feed: the badge is how much is waiting
+      // on you right now, so it stays a live count rather than an unread mark.
+      setBadge('nFulfil', FULFIL_PENDING);
+    }
+
     function switchView(view) {
       var items = document.querySelectorAll('.ad-nav__item');
       for (var i = 0; i < items.length; i++) items[i].classList.toggle('on', items[i].getAttribute('data-view') === view);
       var views = document.querySelectorAll('.ad-view');
       for (var j = 0; j < views.length; j++) views[j].hidden = views[j].getAttribute('data-view') !== view;
       var main = document.querySelector('.ad-main'); if (main) main.scrollTo(0, 0);
+      markSeen(view);
     }
 
     function render(data) {
@@ -178,9 +236,8 @@
       var demos = data.demos || [];
       DEMOS = demos;
       PEOPLE = data.people || [];
-      $('nOrders').textContent = String(orders.length);
-      $('nDemos').textContent = String(demos.length);
-      $('nPeople').textContent = PEOPLE.length ? String(PEOPLE.length) : '';
+      ORDERS = orders;
+      AFFILIATES = data.affiliates || [];
 
       var now = Date.now();
       var recent = orders.filter(function (o) { var t = new Date(o.createdAt).getTime(); return isFinite(t) && now - t <= 30 * 864e5 && !o.cancelled; });
@@ -202,6 +259,7 @@
       renderProducts(data.products);
       renderAffiliates(data.affiliates);
       renderPeople();
+      renderBadges(); // after renderFulfilment, which computes the pending count
 
       // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
       // once at setup so auto-refresh re-renders don't stack listeners.
@@ -211,7 +269,14 @@
       }
       stampUpdated();
       startAutoRefresh();
+      // The open tab can't have unread items — mark it read on the first paint.
+      if (!FIRST_PAINT_DONE) {
+        FIRST_PAINT_DONE = true;
+        var open = document.querySelector('.ad-nav__item.on');
+        if (open) markSeen(open.getAttribute('data-view'));
+      }
     }
+    var FIRST_PAINT_DONE = false;
 
     // ── People (every visitor who showed intent, one row each) ────────────────
     // The journey stages, in order. `key` matches Person.stage from the API.
@@ -240,20 +305,83 @@
       return [p.phone, p.email].filter(function (v) { return v && v !== title; })
         .map(esc).join(' · ') || '';
     }
+    // ── Date range ────────────────────────────────────────────────────────────
+    // Presets are relative to the store's day (IST), so "today" means today in
+    // Mumbai regardless of where the founder is browsing from.
+    var DATE_PRESETS = [
+      { key: 'all', label: 'All time' },
+      { key: 'today', label: 'Today' },
+      { key: '7d', label: 'Last 7 days' },
+      { key: '30d', label: 'Last 30 days' },
+      { key: 'month', label: 'This month' },
+      { key: 'custom', label: 'Custom' },
+    ];
+    // Midnight IST for a given day-offset, as epoch ms.
+    function istMidnight(daysAgo) {
+      var nowIst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      nowIst.setHours(0, 0, 0, 0);
+      nowIst.setDate(nowIst.getDate() - (daysAgo || 0));
+      // Reinterpret that IST wall-clock time as a real instant (IST = UTC+5:30).
+      return nowIst.getTime() - (nowIst.getTimezoneOffset() * 60000) - (5.5 * 3600000);
+    }
+    // { from, to } in epoch ms; null bound = open-ended.
+    function activeRange() {
+      if (DATE_FILTER === 'all') return null;
+      if (DATE_FILTER === 'today') return { from: istMidnight(0), to: null };
+      if (DATE_FILTER === '7d') return { from: istMidnight(6), to: null };
+      if (DATE_FILTER === '30d') return { from: istMidnight(29), to: null };
+      if (DATE_FILTER === 'month') {
+        var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        return { from: istMidnight(d.getDate() - 1), to: null };
+      }
+      if (DATE_FILTER === 'custom') {
+        var f = ($('dateFrom') || {}).value, t = ($('dateTo') || {}).value;
+        if (!f && !t) return null;
+        return {
+          from: f ? new Date(f + 'T00:00:00+05:30').getTime() : null,
+          // `to` is inclusive: the whole of that day counts.
+          to: t ? new Date(t + 'T23:59:59.999+05:30').getTime() : null,
+        };
+      }
+      return null;
+    }
+    // A person belongs to the range if they were active in it — lastSeen is the
+    // "when did this person matter" signal, falling back to firstSeen.
+    function inRange(p, range) {
+      if (!range) return true;
+      var t = new Date(p.lastSeen || p.firstSeen || 0).getTime();
+      if (!isFinite(t) || !t) return false;
+      if (range.from && t < range.from) return false;
+      if (range.to && t > range.to) return false;
+      return true;
+    }
+    function renderDateFilters() {
+      var wrap = $('peopleDates'); if (!wrap) return;
+      wrap.innerHTML = DATE_PRESETS.map(function (d) {
+        return '<button type="button" class="ad-chip ad-chip--date' + (DATE_FILTER === d.key ? ' on' : '') +
+          '" data-date="' + d.key + '">' + esc(d.label) + '</button>';
+      }).join('');
+      var cr = $('customRange'); if (cr) cr.hidden = DATE_FILTER !== 'custom';
+    }
+
     function matchesSearch(p) {
       if (!SEARCH) return true;
       var hay = [p.name, p.phone, p.email, p.address, (p.items || []).join(' ')].join(' ').toLowerCase();
       return hay.indexOf(SEARCH) > -1;
     }
     function visiblePeople() {
+      var range = activeRange();
       return PEOPLE.filter(function (p) {
-        return (FILTER === 'all' || p.stage === FILTER) && matchesSearch(p);
+        return (FILTER === 'all' || p.stage === FILTER) && matchesSearch(p) && inRange(p, range);
       });
     }
     function renderFilters() {
       var wrap = $('peopleFilters'); if (!wrap) return;
-      var counts = { all: PEOPLE.length };
-      PEOPLE.forEach(function (p) { counts[p.stage] = (counts[p.stage] || 0) + 1; });
+      // Counts follow the date range, so a chip never promises rows the table won't show.
+      var range = activeRange();
+      var pool = PEOPLE.filter(function (p) { return inRange(p, range); });
+      var counts = { all: pool.length };
+      pool.forEach(function (p) { counts[p.stage] = (counts[p.stage] || 0) + 1; });
       var chips = [{ key: 'all', label: 'Everyone' }].concat(STAGES);
       wrap.innerHTML = chips.map(function (c) {
         var n = counts[c.key] || 0;
@@ -263,6 +391,7 @@
     }
     function renderPeople() {
       renderFilters();
+      renderDateFilters();
       var body = $('peopleBody'); if (!body) return;
       if (!PEOPLE.length) {
         body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No one captured yet. As visitors add bags, enter a phone or reach checkout, they’ll appear here — each with their full journey.</p></div>';
@@ -309,13 +438,10 @@
     }
     function renderAffiliates(rows) {
       var body = $('affBody'); if (!body) return;
-      var nb = $('nAff');
       if (!rows) {
-        if (nb) nb.textContent = '';
         body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Affiliates aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p></div>';
         return;
       }
-      if (nb) nb.textContent = rows.length ? String(rows.length) : '';
       if (!rows.length) {
         body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No affiliate links yet. Create one above and send it to the creator — clicks and sales will show up here.</p></div>';
         return;
@@ -401,8 +527,7 @@
         opsPanel('Payments pending', payPending.length, opsRows(payPending, 'payment'), 'No pending payments — everything is paid.');
       var ids = {};
       toFulfil.concat(payPending).forEach(function (o) { ids[o.id] = 1; });
-      var badge = Object.keys(ids).length;
-      var nb = $('nFulfil'); if (nb) nb.textContent = badge ? String(badge) : '';
+      FULFIL_PENDING = Object.keys(ids).length;
     }
 
     // ── Revenue insights (charts) ─────────────────────────────────────────────
@@ -603,6 +728,15 @@
     $('peopleSearch').addEventListener('input', function (e) {
       SEARCH = (e.target.value || '').trim().toLowerCase();
       renderPeople();
+    });
+    $('peopleDates').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-date]'); if (!b) return;
+      DATE_FILTER = b.getAttribute('data-date');
+      renderPeople();
+    });
+    // Custom range: re-filter as either bound changes.
+    ['dateFrom', 'dateTo'].forEach(function (id) {
+      var el = $(id); if (el) el.addEventListener('change', renderPeople);
     });
     $('peopleBody').addEventListener('click', function (e) {
       if (e.target.closest('a')) return;            // let WhatsApp/Call links through
@@ -917,6 +1051,9 @@
   .ad-nav__item:hover { color: #fff; }
   .ad-nav__item.on { background: rgba(255,255,255,.1); color: #fff; }
   .ad-nav__n { margin-left: auto; font-size: 10px; color: rgba(255,255,255,.45); font-variant-numeric: tabular-nums; }
+  /* Unread — a real notification, not a running total. */
+  .ad-nav__n.is-new { background: var(--cherry); color: #fff; border-radius: 999px; min-width: 17px; padding: 1px 5px; text-align: center; font-weight: 500; }
+  .ad-nav__item.on .ad-nav__n.is-new { color: #fff; }
   .ad-nav__item.on .ad-nav__n { color: #e7b7ae; }
   .ad-nav__grp { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.32); padding: 16px 12px 5px; }
   .ad-nav__grp:first-of-type { padding-top: 4px; }
@@ -1050,6 +1187,13 @@
   .ad-chip:hover { border-color: var(--cherry); color: var(--cherry); }
   .ad-chip.on { background: var(--depth); border-color: var(--depth); color: #fff; }
   .ad-chip__n { font-size: 10.5px; font-variant-numeric: tabular-nums; opacity: .65; }
+  .ad-daterow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .ad-filters--dates { margin-bottom: 0; }
+  .ad-chip--date { font-size: 11.5px; padding: 6px 11px; }
+  .ad-customrange { display: inline-flex; align-items: center; gap: 8px; }
+  .ad-customrange[hidden] { display: none; }
+  .ad-dateinput { width: auto; font-size: 12px; padding: 6px 9px; }
+  .ad-daterow__to { font-size: 11.5px; color: var(--faint); }
   .ad-searchwrap { margin-bottom: 16px; }
   .ad-search { width: 100%; max-width: 380px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--depth); background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 10px 13px; }
   .ad-search:focus { outline: none; border-color: var(--cherry); }
