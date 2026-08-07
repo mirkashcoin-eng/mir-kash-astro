@@ -387,6 +387,7 @@
     // the day they FIRST reached a step, so each row is "how many new people got
     // this far that day" — the columns are comparable and nobody is double-counted.
     var MONTH = '';       // 'YYYY-MM'; set on first render
+    var SHOW_BOTS = false; // crawlers are recorded but excluded from counts by default
     // The IST calendar day (YYYY-MM-DD) an instant falls on. Firestore stores UTC,
     // but the store's day is Mumbai's, so bucketing must match the People filters.
     function istDay(ts) {
@@ -421,6 +422,9 @@
         grid[key][day] = (grid[key][day] || 0) + 1;
       };
       PEOPLE.forEach(function (p) {
+        // Crawlers never buy, so counting them would inflate the top of the funnel
+        // and depress every conversion rate below it.
+        if (p.bot && !SHOW_BOTS) return;
         DAILY_ROWS.forEach(function (r) { bump(r.key, r.day(p)); });
       });
       // The two money steps come from Shopify, which is authoritative for both.
@@ -456,10 +460,30 @@
         return '<tr><td class="ad-daily__lab">' + esc(r.label) + '</td>' + cells +
           '<td class="r ad-daily__tot">' + total + '</td></tr>';
       }).join('');
+      // Crawler activity for this month — worth watching while AI search grows.
+      var bots = {};
+      var botTotal = 0;
+      PEOPLE.forEach(function (p) {
+        if (!p.bot) return;
+        if (istDay(p.firstSeen).slice(0, 7) !== MONTH) return;
+        bots[p.bot] = (bots[p.bot] || 0) + 1;
+        botTotal++;
+      });
+      var botNames = Object.keys(bots).sort(function (a, b) { return bots[b] - bots[a]; });
+      var botHtml = botTotal
+        ? '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Crawlers</span>' +
+          '<label class="ad-bottoggle"><input type="checkbox" id="showBots"' + (SHOW_BOTS ? ' checked' : '') +
+          ' /> Count them in the grid above</label></div>' +
+          '<div class="ad-pad"><p class="ad-note">' + botTotal + ' crawler ' +
+          (botTotal === 1 ? 'visit' : 'visits') + ' this month · ' +
+          botNames.map(function (n) { return esc(n) + ' ' + bots[n]; }).join(' · ') +
+          '</p></div></div>'
+        : '';
       body.innerHTML = '<div class="ad-panel"><div class="ad-scroll">' +
         '<table class="ad-table ad-daily"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table>' +
-        '</div></div>' +
-        '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST. ' +
+        '</div></div>' + botHtml +
+        '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST' +
+        (SHOW_BOTS ? '' : ', excluding crawlers') + '. ' +
         'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.</p>';
     }
     function dailyCsv() {
@@ -496,13 +520,16 @@
 
     function matchesSearch(p) {
       if (!SEARCH) return true;
-      var hay = [p.name, p.phone, p.email, p.address, p.sourceLabel,
+      var hay = [p.name, p.phone, p.email, p.address, p.sourceLabel, p.bot,
         (p.items || []).join(' '), (p.viewed || []).join(' ')].join(' ').toLowerCase();
       return hay.indexOf(SEARCH) > -1;
     }
     function visiblePeople() {
       var range = activeRange();
       return PEOPLE.filter(function (p) {
+        // Crawlers are recorded but aren't people to follow up with. Searching for
+        // one by name still finds it.
+        if (p.bot && !SEARCH) return false;
         return (FILTER === 'all' || p.stage === FILTER) && matchesSearch(p) && inRange(p, range);
       });
     }
@@ -510,7 +537,7 @@
       var wrap = $('peopleFilters'); if (!wrap) return;
       // Counts follow the date range, so a chip never promises rows the table won't show.
       var range = activeRange();
-      var pool = PEOPLE.filter(function (p) { return inRange(p, range); });
+      var pool = PEOPLE.filter(function (p) { return !p.bot && inRange(p, range); });
       var counts = { all: pool.length };
       pool.forEach(function (p) { counts[p.stage] = (counts[p.stage] || 0) + 1; });
       var chips = [{ key: 'all', label: 'Everyone' }].concat(STAGES);
@@ -880,6 +907,10 @@
       if (e.target.value) { MONTH = e.target.value; renderDaily(); }
     });
     $('monthCsv').addEventListener('click', dailyCsv);
+    // Delegated: the toggle is re-created on every grid render.
+    $('dailyBody').addEventListener('change', function (e) {
+      if (e.target && e.target.id === 'showBots') { SHOW_BOTS = e.target.checked; renderDaily(); }
+    });
     $('peopleBody').addEventListener('click', function (e) {
       if (e.target.closest('a')) return;            // let WhatsApp/Call links through
       var tr = e.target.closest('[data-person]'); if (!tr) return;
@@ -981,7 +1012,9 @@
         : '';
       // Acquisition + behaviour: how they found us, what they browsed, how they buy.
       var facts = [];
+      if (p.bot) facts.push(['Crawler', p.bot]);
       if (p.sourceLabel) facts.push(['Came from', p.sourceLabel]);
+      if (p.country) facts.push(['Country', p.country]);
       if (p.landing) facts.push(['Landed on', p.landing]);
       if (p.viewed && p.viewed.length) {
         facts.push(['Products viewed', String(p.viewed.length)]);
@@ -1269,6 +1302,8 @@
   /* Sticky first column so step names stay readable while scrolling 31 days. */
   .ad-daily__lab { text-align: left; white-space: nowrap; font-weight: 600; color: var(--depth); position: sticky; left: 0; background: #fff; padding-left: 16px !important; padding-right: 14px !important; }
   .ad-daily__z { color: #d8d0c4; }
+  .ad-bottoggle { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--mid); cursor: pointer; }
+  .ad-bottoggle input { accent-color: var(--cherry); cursor: pointer; }
   .ad-daily__tot { font-weight: 600; color: var(--depth); border-left: 1px solid var(--rule); padding-right: 16px !important; }
   .ad-table--click tbody tr { cursor: pointer; transition: background .12s; }
   .ad-table--click tbody tr:hover { background: #faf7f1; }

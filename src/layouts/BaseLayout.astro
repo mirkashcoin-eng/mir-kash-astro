@@ -10,6 +10,9 @@ interface Props {
 
 const { title, description = 'Mir Kash — luxury vegan handbags. Made slowly. Worn forever. Hurts nothing.', path, fontsHref } = Astro.props;
 const { market, marketConfig } = Astro.locals;
+// Captured server-side from the request headers, so it survives blocked or failed
+// client JS. The browser can still add UTM params, which headers don't carry.
+const { botName: mkBot = '', referrer: mkRef = '', country: mkCountry = '' } = Astro.locals;
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -109,7 +112,7 @@ const orgJsonLd = {
     </script>
 
     <!-- First-party funnel (anonymous counts) + per-session lead capture. No cookies. -->
-    <script is:inline define:vars={{ mkMarket: market }}>
+    <script is:inline define:vars={{ mkMarket: market, mkBot, mkRef, mkCountry }}>
       // Anonymous funnel beacon — GET image (POST text/plain is blocked by Astro CSRF).
       // Optional `opts.product` also bumps that product's view/cart counters.
       window.mkTrack = function (e, opts) {
@@ -166,10 +169,13 @@ const orgJsonLd = {
             if (utm) src.utmSource = utm;
             if (q.get('utm_medium')) src.utmMedium = q.get('utm_medium');
             if (q.get('utm_campaign')) src.utmCampaign = q.get('utm_campaign');
-            if (document.referrer && document.referrer.indexOf(location.host) === -1) {
-              src.referrer = document.referrer;
-            }
+            // The server already dropped same-origin referrers; prefer it, since the
+            // header is there even when document.referrer isn't.
+            var ref = mkRef || (document.referrer && document.referrer.indexOf(location.host) === -1 ? document.referrer : '');
+            if (ref) src.referrer = ref;
             src.landing = location.pathname;
+            if (mkBot) src.bot = mkBot;
+            if (mkCountry) src.country = mkCountry;
           } catch (_) {}
           if (window.mkLead) window.mkLead(Object.assign({ event: 'visit' }, src));
         }

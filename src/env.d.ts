@@ -7,6 +7,11 @@ declare global {
     interface Locals {
       market: Market;
       marketConfig: MarketConfig;
+      // Request-derived visitor context, stamped by middleware. Server-side, so it
+      // survives blocked/failed client JS and can't be spoofed by the page.
+      botName: string;   // '' for humans; 'ChatGPT', 'Googlebot', … for crawlers
+      referrer: string;  // off-site Referer header only
+      country: string;   // ISO code from the CDN edge
     }
   }
   interface Window {

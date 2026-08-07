@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { recordLead } from '~/lib/leads';
+import { botName } from '~/middleware';
 
 export const prerender = false;
 
@@ -51,6 +52,10 @@ export const POST: APIRoute = async ({ request }) => {
     utmMedium: str(body.utmMedium, 60),
     utmCampaign: str(body.utmCampaign, 80),
     landing: str(body.landing, 200),
+    // The request's own user-agent decides this, not the posted body — a page
+    // shouldn't be able to disguise a crawler as a person.
+    bot: botName(request.headers.get('user-agent') ?? '') || str(body.bot, 40),
+    country: str(body.country, 4),
     cart,
   });
   return noContent();

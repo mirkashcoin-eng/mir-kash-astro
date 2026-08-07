@@ -44,6 +44,8 @@ export interface LeadInput {
   utmMedium?: string;
   utmCampaign?: string;
   landing?: string;
+  bot?: string;     // crawler name, '' for humans
+  country?: string; // ISO code from the CDN edge
 }
 
 // Where a visit came from, as one readable label. UTM wins over the referring
@@ -97,6 +99,8 @@ export async function recordLead(l: LeadInput): Promise<void> {
       if (l.utmMedium) patch.utmMedium = l.utmMedium;
       if (l.utmCampaign) patch.utmCampaign = l.utmCampaign;
       if (l.landing) patch.landing = l.landing;
+      if (l.bot) patch.bot = l.bot;
+      if (l.country) patch.country = l.country;
     }
     if (l.event === 'phone') patch.phoneAt = now;
     if (l.event === 'add_to_cart') patch.cartAt = now;
@@ -157,7 +161,7 @@ async function mergeAnonInto(
   if (Array.isArray(v.viewed) && v.viewed.length) carry.viewed = FieldValue.arrayUnion(...(v.viewed as string[]));
   if (v.viewedAt) carry.viewedAt = v.viewedAt;
   // The anon record holds the true first touch — it started the journey.
-  for (const k of ['referrer', 'utmSource', 'utmMedium', 'utmCampaign', 'landing']) {
+  for (const k of ['referrer', 'utmSource', 'utmMedium', 'utmCampaign', 'landing', 'country']) {
     if (v[k]) carry[k] = v[k];
   }
   if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
@@ -190,6 +194,8 @@ async function linkPerson(
     if (l.utmMedium) patch.utmMedium = l.utmMedium;
     if (l.utmCampaign) patch.utmCampaign = l.utmCampaign;
     if (l.landing) patch.landing = l.landing;
+    if (l.bot) patch.bot = l.bot;
+    if (l.country) patch.country = l.country;
   }
   if (l.email) patch.email = l.email;
   if (l.name) patch.name = l.name;
@@ -247,6 +253,8 @@ export interface Person {
   sourceLabel: string | null;  // readable: 'Instagram', 'priya · diwali'
   landing: string | null;      // first page they hit
   lastViewed: string | null;   // most recent product page opened
+  bot: string | null;          // crawler name; null for real visitors
+  country: string | null;
 }
 
 const iso = (t: unknown): string | null =>
@@ -305,6 +313,8 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         sourceLabel: sourceLabel(v),
         landing: (v.landing as string) ?? null,
         lastViewed: (v.lastViewed as string) ?? null,
+        bot: (v.bot as string) ?? null,
+        country: (v.country as string) ?? null,
       };
     });
   } catch {

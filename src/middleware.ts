@@ -10,6 +10,28 @@ import {
 } from '~/lib/markets';
 
 const BOT_UA = /bot|crawl|spider|googlebot|bingbot|facebookexternalhit|slurp|duckduckbot/i;
+
+// Crawlers worth naming, so /admin can show how often AI search reads the site
+// rather than lumping them under a single "bot" bucket. Order matters: the first
+// match wins, so put specific names before generic ones.
+const NAMED_BOTS: Array<[RegExp, string]> = [
+  [/GPTBot/i, 'ChatGPT'],
+  [/OAI-SearchBot|ChatGPT-User/i, 'ChatGPT Search'],
+  [/PerplexityBot|Perplexity-User/i, 'Perplexity'],
+  [/ClaudeBot|Claude-User|anthropic-ai/i, 'Claude'],
+  [/Google-Extended/i, 'Google AI'],
+  [/Googlebot/i, 'Googlebot'],
+  [/bingbot|BingPreview/i, 'Bingbot'],
+  [/Applebot/i, 'Applebot'],
+  [/facebookexternalhit|meta-externalagent/i, 'Facebook'],
+  [/Bytespider/i, 'Bytespider'],
+];
+
+// The crawler's name, or '' for an ordinary visitor.
+export function botName(ua: string): string {
+  for (const [re, name] of NAMED_BOTS) if (re.test(ua)) return name;
+  return BOT_UA.test(ua) ? 'Other bot' : '';
+}
 const SKIP_PATHS = [/^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/];
 
 function shouldSkip(pathname: string, ua: string): boolean {
@@ -40,7 +62,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.market = market.store;
   context.locals.marketConfig = market;
 
-  if (shouldSkip(pathname, request.headers.get('user-agent') ?? '')) {
+  // Visitor context from the request itself. The Referer header is only useful on
+  // the first hit — after that it's our own domain — so same-origin is dropped here
+  // rather than in the page. Set before the skip below, so bots are still labelled.
+  const ua = request.headers.get('user-agent') ?? '';
+  const ref = request.headers.get('referer') ?? '';
+  let offsite = '';
+  try {
+    // Must be a real http(s) origin: `javascript:` and friends parse cleanly but
+    // have no host, so a bare `!== url.host` check would let them through.
+    const r = new URL(ref);
+    if (/^https?:$/.test(r.protocol) && r.host && r.host !== url.host) offsite = ref;
+  } catch { /* malformed or absent Referer — treat as absent */ }
+  context.locals.botName = botName(ua);
+  context.locals.referrer = offsite;
+  context.locals.country = readCountry(request);
+
+  if (shouldSkip(pathname, ua)) {
     return next();
   }
 
