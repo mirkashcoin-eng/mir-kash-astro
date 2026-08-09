@@ -4,13 +4,14 @@ const prefix = marketConfig.urlPrefix;
 const shopHref = `${prefix}/shop`;
 const homeHref = prefix || '/';
 
-const items = [
-  { num: '01', word: 'Shop All', href: shopHref },
-  { num: '02', word: 'Materials', href: `${prefix}/pages/materials` },
-  { num: '03', word: 'Journal', href: `${prefix}/blog` },
-  { num: '04', word: 'About', href: `${prefix}/pages/about` },
+// Numbers come from a CSS counter (below), so they stay sequential even when an
+// item is hidden. India adds a Home Demo item (Mumbai-only, revealed client-side).
+const items: Array<{ word: string; href: string; geo?: string; hidden?: boolean }> = [
+  { word: 'Shop All', href: shopHref },
+  { word: 'Materials', href: `${prefix}/pages/materials`, geo: 'materials' },
+  { word: 'About', href: `${prefix}/pages/about` },
 ];
-if (marketConfig.isDefault) items.push({ num: '05', word: 'Try at Home', href: `${prefix}/book-demo` });
+if (marketConfig.isDefault) items.push({ word: 'Home Demo', href: `${prefix}/book-demo`, geo: 'demo', hidden: true });
 ---
 <div class="nav-drawer" id="navDrawer" aria-hidden="true">
   <button class="nav-drawer__scrim" aria-label="Close menu" type="button"></button>
@@ -23,9 +24,9 @@ if (marketConfig.isDefault) items.push({ num: '05', word: 'Try at Home', href: `
     <nav class="nav-drawer__nav">
       <ol class="nav-drawer__list">
         {items.map((i) => (
-          <li>
+          <li data-geo={i.geo} hidden={i.hidden}>
             <a href={i.href}>
-              <span class="nav-num">{i.num}</span>
+              <span class="nav-num"></span>
               <span class="nav-word">{i.word}</span>
             </a>
           </li>
@@ -35,7 +36,7 @@ if (marketConfig.isDefault) items.push({ num: '05', word: 'Try at Home', href: `
 
     <div class="nav-drawer__foot">
       <a href={`${prefix}/account`}>Account</a>
-      {marketConfig.isDefault && <a href={`${prefix}/book-demo`}>Try at Home</a>}
+      {marketConfig.isDefault && <a href={`${prefix}/book-demo`} data-geo="demo" hidden>Home Demo</a>}
       <span class="nav-drawer__sig">{marketConfig.countryName} · {marketConfig.currency} {marketConfig.currencySymbol}</span>
     </div>
   </div>
@@ -69,3 +70,11 @@ if (marketConfig.isDefault) items.push({ num: '05', word: 'Try at Home', href: `
     });
   })();
 </script>
+
+<style>
+  /* Auto-number visible items so hiding one (e.g. Materials for Mumbai) keeps 01,02,03. */
+  .nav-drawer__list { counter-reset: mknav; }
+  .nav-drawer__list > li[hidden] { display: none; }
+  .nav-drawer__list > li { counter-increment: mknav; }
+  .nav-drawer__list .nav-num::before { content: counter(mknav, decimal-leading-zero); }
+</style>

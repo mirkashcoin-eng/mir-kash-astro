@@ -7,14 +7,17 @@ const homeHref = prefix || '/';
 const cartHref = `${prefix}/cart`;
 const cartCount = getCartCount(Astro.cookies, market);
 
-const navItems = [
+// Base header: Shop All · Materials · About. On the India store we also render a
+// Home Demo link, hidden by default; a Mumbai visitor gets Materials swapped for
+// Home Demo client-side (see geo script below). So the header is always 3 items:
+//   • outside Mumbai / global → Shop All · Materials · About
+//   • Mumbai                  → Shop All · About · Home Demo
+const navItems: Array<{ word: string; href: string; geo?: string; hidden?: boolean }> = [
   { word: 'Shop All',  href: `${prefix}/shop` },
-  { word: 'Materials', href: `${prefix}/pages/materials` },
-  { word: 'Journal',   href: `${prefix}/blog` },
+  { word: 'Materials', href: `${prefix}/pages/materials`, geo: 'materials' },
   { word: 'About',     href: `${prefix}/pages/about` },
 ];
-// Home demos are Mumbai-only — only surface the link on the India storefront.
-if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix}/book-demo` });
+if (marketConfig.isDefault) navItems.push({ word: 'Home Demo', href: `${prefix}/book-demo`, geo: 'demo', hidden: true });
 ---
 <div class="page-header hdr--solid">
   <header class="site-header site-header--minimal">
@@ -47,7 +50,7 @@ if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix
     <div class="hdr-nav-row">
       <nav class="main-nav">
         {navItems.map((i) => (
-          <a href={i.href}>{i.word}</a>
+          <a href={i.href} data-geo={i.geo} hidden={i.hidden}>{i.word}</a>
         ))}
       </nav>
     </div>
@@ -107,7 +110,23 @@ if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix
   })();
 </script>
 
+{marketConfig.isDefault && (
+  <script is:inline>
+    // Home Demo is Mumbai-only. Pages are CDN-cached, so detect location per-user
+    // client-side and, for Mumbai visitors, swap Materials → Home Demo across the
+    // header, drawer and footer. Non-Mumbai visitors keep Materials, no Home Demo.
+    (function () {
+      fetch('/api/geo').then(function (r) { return r.json(); }).then(function (g) {
+        if (!g || !g.mumbai) return;
+        document.querySelectorAll('[data-geo="materials"]').forEach(function (el) { el.hidden = true; });
+        document.querySelectorAll('[data-geo="demo"]').forEach(function (el) { el.hidden = false; });
+      }).catch(function () {});
+    })();
+  </script>
+)}
+
 <style>
+  .main-nav a[hidden] { display: none !important; }
   .hdr-account { position: relative; }
   .hdr-account__dot {
     position: absolute; top: 6px; right: 6px; width: 7px; height: 7px;
