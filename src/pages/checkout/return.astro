@@ -5,18 +5,28 @@ import { finalizeOrder, type FinalizeStatus } from '~/lib/cashfree';
 
 export const prerender = false;
 
+interface OrderItem { title: string; quantity: number; image: string | null; price: { amount: string; currencyCode: string } | null }
+
 // Never cache — this finalizes a specific order for a specific buyer.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
-// Cash on Delivery returns here directly (no gateway to verify) with ?cod=1&order=…
+// Cash on Delivery returns here directly (no gateway to verify) with
+// ?cod=1&order=…&amount=…&items=… (items/amount threaded from /api/checkout/create,
+// since COD orders never round-trip through Cashfree to get finalized here).
 const isCod = Astro.url.searchParams.get('cod') === '1';
 const codOrder = Astro.url.searchParams.get('order') || undefined;
+const codAmount = Number(Astro.url.searchParams.get('amount')) || 0;
+let codItems: Array<{ title: string; quantity: number; price: string | null }> = [];
+try {
+  codItems = JSON.parse(Astro.url.searchParams.get('items') || '[]');
+} catch { /* malformed/absent — leave empty */ }
 
 const orderId = Astro.url.searchParams.get('order_id') ?? '';
 let status: FinalizeStatus = 'error';
 let orderName: string | undefined;
 let amount = 0;
 let currency = 'INR';
+let items: OrderItem[] = [];
 
 if (!isCod && orderId) {
   const result = await finalizeOrder(orderId, Astro.cookies);
@@ -24,6 +34,9 @@ if (!isCod && orderId) {
   orderName = result.orderName;
   amount = result.amount ?? 0;
   currency = result.currency ?? 'INR';
+  items = result.items ?? [];
+} else if (isCod) {
+  amount = codAmount;
 }
 
 const COPY: Record<FinalizeStatus, { title: string; body: string }> = {
@@ -54,6 +67,13 @@ const copy = isCod
       body: 'Your order is confirmed for Cash on Delivery. Please keep the amount ready to pay when your bag is delivered. A confirmation is on its way.',
     }
   : COPY[status];
+
+// Normalize India (Money objects) and COD (raw amount strings) line items into one
+// display shape for the summary card.
+const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+const summaryItems = isCod
+  ? codItems.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price ? Number(i.price) : null, image: null as string | null }))
+  : items.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price ? Number(i.price.amount) : null, image: i.image }));
 ---
 <BaseLayout title="Order — Mir Kash" path="/checkout/return">
   <header class="hdr">
@@ -68,6 +88,25 @@ const copy = isCod
       <h1 class="ret__title">{copy.title}</h1>
       {displayStatus === 'paid' && displayOrder && <p class="ret__order">Order {displayOrder}</p>}
       <p class="ret__body">{copy.body}</p>
+
+      {displayStatus === 'paid' && summaryItems.length > 0 && (
+        <div class="ret__summary">
+          {summaryItems.map((item) => (
+            <div class="ret__item">
+              {item.image ? <img class="ret__item-img" src={item.image} alt={item.title} loading="lazy" /> : <span class="ret__item-img" />}
+              <div class="ret__item-info">
+                <div class="ret__item-title">{item.title}</div>
+                <div class="ret__item-sub">Qty {item.quantity}</div>
+              </div>
+              {item.price !== null && <div class="ret__item-price">{inr(item.price * item.quantity)}</div>}
+            </div>
+          ))}
+          {amount > 0 && (
+            <div class="ret__row ret__row--total"><span>Total</span><span>{inr(amount)}</span></div>
+          )}
+        </div>
+      )}
+
       <div class="ret__actions">
         {displayStatus === 'paid' ? (
           <a class="ret__btn" href="/shop">Continue shopping</a>
@@ -85,26 +124,27 @@ const copy = isCod
   {displayStatus === 'paid' && displayOrder && (
     <script
       is:inline
-      define:vars={{ txnId: displayOrder, value: amount, currency, isCod }}
+      define:vars={{ txnId: displayOrder, value: amount, currency, items: summaryItems.map((i) => ({ item_name: i.title, price: i.price, quantity: i.quantity })) }}
     >
       // Purchase conversion for GA4 + Google Ads. Guarded by the order id in
       // sessionStorage so a refresh (or the back button) can't book the sale twice.
-      // COD orders don't pass through Cashfree, so we have no verified amount for
-      // them — send the event without a value rather than reporting a false zero.
+      // COD orders' amount now comes from completeDraftOrder's total (threaded through
+      // the return-URL query params in CheckoutPage.astro), so both payment paths report
+      // a real value here — no longer "no verified amount for COD" as before.
       try {
         var seen = 'mk_purchase_' + txnId;
         if (!sessionStorage.getItem(seen) && typeof gtag === 'function') {
           sessionStorage.setItem(seen, '1');
           // Tagged india: this page only ever handles the Cashfree (India) flow —
           // global checkout completes on Shopify's domain, which reports separately.
-          var payload = { transaction_id: txnId, currency: currency, market: 'india', country: 'IN' };
-          if (!isCod && value > 0) payload.value = value;
+          var payload = { transaction_id: txnId, currency: currency, market: 'india', country: 'IN', items: items };
+          if (value > 0) payload.value = value;
           gtag('event', 'purchase', payload);
 
           // Google Ads conversion — same action the Shopify pixel reports global
           // sales to, so India and global sales roll up into one "Purchase" goal.
-          var adsPayload = { send_to: 'AW-18098313640/0yRaCMK76NwcEKiz-bVD', transaction_id: txnId, currency: currency };
-          if (!isCod && value > 0) adsPayload.value = value;
+          var adsPayload = { send_to: 'AW-18098313640/0yRaCMK76NwcEKiz-bVD', transaction_id: txnId, currency: currency, items: items };
+          if (value > 0) adsPayload.value = value;
           gtag('event', 'conversion', adsPayload);
         }
       } catch (_) {}
@@ -131,6 +171,17 @@ const copy = isCod
     .ret__title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px,4vw,40px); margin-bottom: 8px; }
     .ret__order { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); margin-bottom: 18px; }
     .ret__body { font-family: var(--serif); font-size: 16px; line-height: 1.6; color: var(--mid); margin-bottom: 32px; }
+
+    .ret__summary { text-align: left; border: 1px solid var(--rule); border-radius: 14px; padding: 16px; margin-bottom: 32px; }
+    .ret__item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule); }
+    .ret__item:first-child { border-top: none; padding-top: 0; }
+    .ret__item-img { width: 44px; height: 56px; object-fit: cover; background: var(--rule); border-radius: 6px; flex-shrink: 0; }
+    .ret__item-info { flex: 1; }
+    .ret__item-title { font-size: 14px; }
+    .ret__item-sub { font-size: 12px; color: var(--mid); margin-top: 2px; }
+    .ret__item-price { font-size: 14px; font-weight: 500; }
+    .ret__row { display: flex; justify-content: space-between; font-size: 13px; color: var(--mid); padding: 5px 0; }
+    .ret__row--total { border-top: 1px solid var(--rule); margin-top: 6px; padding-top: 10px; font-weight: 600; color: var(--depth); font-size: 14px; }
     .ret__btn { display: inline-flex; align-items: center; height: 50px; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; transition: background .3s; }
     .ret__btn:hover { background: var(--cherry); }
   </style>

@@ -3,6 +3,7 @@
 // verify status, and reconcile webhooks. The Global store is unaffected.
 import crypto from 'node:crypto';
 import type { AstroCookies } from 'astro';
+import type { Money } from '~/types/shopify';
 import { completeDraftOrder } from '~/lib/shopify/admin';
 import { clearCart, clearBuyNowCart, clearClickId } from '~/lib/cart-session';
 
@@ -173,6 +174,7 @@ export interface FinalizeResult {
   orderName?: string;
   amount?: number;   // paid orders only — feeds the GA4/Ads purchase conversion
   currency?: string;
+  items?: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
 }
 
 export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Promise<FinalizeResult> {
@@ -194,7 +196,7 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
       // affiliate again for the buyer's next, unrelated purchase.
       clearClickId(cookies);
     }
-    return { status: 'paid', orderName: order.orderName ?? order.name, amount: cf.amount, currency: cf.currency };
+    return { status: 'paid', orderName: order.orderName ?? order.name, amount: cf.amount, currency: cf.currency, items: order.items };
   }
 
   if (cf.orderStatus === 'ACTIVE') return { status: 'pending' };

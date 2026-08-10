@@ -79,7 +79,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
           </div>
           <div class="tot-row"><span class="tot-k">Shipping</span><span class="tot-v" style="font-size:12px;color:var(--mid);">Calculated at checkout</span></div>
           <div class="tot-row grand"><span class="tot-k">Total</span><span class="tot-v" id="cartGrand">{money(cart!.total)}</span></div>
-          <a class="btn-cta" href={checkoutHref}><span>Carry Home</span><span class="arrow"></span></a>
+          <a class="btn-cta" id="checkoutBtn" href={checkoutHref}><span>Carry Home</span><span class="arrow"></span></a>
           <div class="c-trust">
             <span>Secure checkout</span><span class="c-dot">·</span><span>Easy returns</span>
           </div>
@@ -92,8 +92,23 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
 
 <SiteFooter />
 
-<script define:vars={{ store: market, currency }}>
+<script define:vars={{ store: market, currency, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })) }}>
   const main = document.querySelector('.cart-page');
+
+  // Global market never lands on this site's own /checkout — clicking "Carry Home"
+  // navigates straight to Shopify's hosted checkout, so this is the only place on
+  // this site to fire begin_checkout before the handoff. India already fires its
+  // own begin_checkout once the buyer arrives on /checkout (CheckoutPage.astro).
+  if (store !== 'india') {
+    document.getElementById('checkoutBtn')?.addEventListener('click', () => {
+      try {
+        if (typeof gtag === 'function') {
+          gtag('event', 'begin_checkout', { currency, value: cartTotal, items: cartItems });
+          gtag('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value: cartTotal, currency });
+        }
+      } catch (_) {}
+    });
+  }
 
   async function mutate(path, payload) {
     const res = await fetch(path, {

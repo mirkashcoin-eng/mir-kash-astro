@@ -113,6 +113,7 @@ export interface DraftOrderResult {
   status: 'OPEN' | 'INVOICE_SENT' | 'COMPLETED';
   totalPrice: Money;
   orderName: string | null; // set once completed
+  items: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
 }
 
 interface RawDraftOrder {
@@ -121,6 +122,11 @@ interface RawDraftOrder {
   status: DraftOrderResult['status'];
   totalPriceSet: { shopMoney: Money };
   order: { id: string; name: string } | null;
+  lineItems: { edges: Array<{ node: {
+    title: string; quantity: number;
+    image: { url: string } | null;
+    originalUnitPriceSet: { shopMoney: Money } | null;
+  } }> };
 }
 
 function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
@@ -131,6 +137,12 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
     status: d.status,
     totalPrice: d.totalPriceSet.shopMoney,
     orderName: d.order?.name ?? null,
+    items: (d.lineItems?.edges ?? []).map((e) => ({
+      title: e.node.title,
+      quantity: e.node.quantity,
+      image: e.node.image?.url ?? null,
+      price: e.node.originalUnitPriceSet?.shopMoney ?? null,
+    })),
   };
 }
 
@@ -140,6 +152,11 @@ const DRAFT_FIELDS = /* GraphQL */ `
   status
   totalPriceSet { shopMoney { amount currencyCode } }
   order { id name }
+  lineItems(first: 20) { edges { node {
+    title quantity
+    image { url }
+    originalUnitPriceSet { shopMoney { amount currencyCode } }
+  } } }
 `;
 
 // ── Mutations / queries ────────────────────────────────────────────────────────

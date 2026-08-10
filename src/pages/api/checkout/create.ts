@@ -131,7 +131,12 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     else clearCart(cookies, 'india');
     clearClickId(cookies); // referral is on the order now — don't credit it twice
     return new Response(
-      JSON.stringify({ cod: true, orderName: completed.orderName ?? completed.name }),
+      JSON.stringify({
+        cod: true,
+        orderName: completed.orderName ?? completed.name,
+        amount: Number(completed.totalPrice.amount) || 0,
+        items: completed.items.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price?.amount ?? null })),
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
     );
   }

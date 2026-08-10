@@ -29,7 +29,7 @@ const thumbGradients = [
 ];
 ---
 
-<div class="sheet" data-buynow={isBuyNow ? '1' : '0'} data-total={cart.total}>
+<div class="sheet" data-buynow={isBuyNow ? '1' : '0'} data-total={cart.total} data-items={JSON.stringify(cart.lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })))}>
 
   <header class="head">
     <a href="/" class="head-logo" aria-label="Mir Kash">
@@ -293,6 +293,16 @@ const thumbGradients = [
 
   const $ = (id: string) => document.getElementById(id) as HTMLElement;
   const sheet = document.querySelector('.sheet') as HTMLElement;
+
+  try {
+    const gtagFn = (window as any).gtag;
+    if (typeof gtagFn === 'function') {
+      const value = Number(sheet.dataset.total) || 0;
+      const items = JSON.parse(sheet.dataset.items || '[]');
+      gtagFn('event', 'begin_checkout', { currency: 'INR', value, items });
+      gtagFn('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value, currency: 'INR' });
+    }
+  } catch (_) {}
   const buyNow = sheet?.dataset.buynow === '1';
 
   const ORDER = ['contact', 'delivery', 'payment'];
@@ -512,7 +522,10 @@ const thumbGradients = [
       const data = await res.json();
       if (isCod) {
         if (!res.ok || !data.cod) throw new Error(data.error || 'Could not place your order');
-        window.location.href = '/checkout/return?cod=1&order=' + encodeURIComponent(data.orderName || '');
+        const codParams = new URLSearchParams({ cod: '1', order: data.orderName || '' });
+        if (data.amount) codParams.set('amount', String(data.amount));
+        if (data.items) codParams.set('items', JSON.stringify(data.items));
+        window.location.href = '/checkout/return?' + codParams.toString();
         return;
       }
       if (!res.ok || !data.paymentSessionId) throw new Error(data.error || 'Could not start payment');
