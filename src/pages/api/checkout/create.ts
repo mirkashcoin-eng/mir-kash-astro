@@ -134,8 +134,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       JSON.stringify({
         cod: true,
         orderName: completed.orderName ?? completed.name,
-        amount: Number(completed.totalPrice.amount) || 0,
-        items: completed.items.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price?.amount ?? null })),
+        // The return page re-reads the draft server-side (for line items + images)
+        // rather than trusting amounts/titles passed through the URL.
+        draft: draft.id,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
     );

@@ -1,22 +1,18 @@
 ---
-import { getCart } from '~/lib/shopify/cart';
-import { resolveCheckoutCartId } from '~/lib/cart-session';
+import type { CartView } from '~/types/shopify';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { STATES } from '~/lib/india-locations';
 import SiteFooter from './SiteFooter.astro';
 
 // Custom checkout = INDIA store only. Design ported from Rahul's
 // "Mir Kash Checkout (standalone).html" (accordion: Contact → Delivery → Payment).
-const store = 'india' as const;
-const isBuyNow = Astro.url.searchParams.get('buynow') === '1';
-
-Astro.response.headers.set('Cache-Control', 'private, no-store');
-
-const cartId = resolveCheckoutCartId(Astro.cookies, store, isBuyNow);
-const cart = cartId ? await getCart(store, cartId) : null;
-if (!cart || cart.lines.length === 0) {
-  return Astro.redirect('/cart');
+// The cart is resolved (and the empty-cart redirect handled) by the page that
+// renders this — src/pages/checkout.astro — so it arrives here already non-empty.
+interface Props {
+  cart: CartView;
+  isBuyNow: boolean;
 }
+const { cart, isBuyNow } = Astro.props;
 
 // Indian digit grouping (₹1,09,700) to match the design.
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -523,8 +519,7 @@ const thumbGradients = [
       if (isCod) {
         if (!res.ok || !data.cod) throw new Error(data.error || 'Could not place your order');
         const codParams = new URLSearchParams({ cod: '1', order: data.orderName || '' });
-        if (data.amount) codParams.set('amount', String(data.amount));
-        if (data.items) codParams.set('items', JSON.stringify(data.items));
+        if (data.draft) codParams.set('draft', data.draft);
         window.location.href = '/checkout/return?' + codParams.toString();
         return;
       }

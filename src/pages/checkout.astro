@@ -1,7 +1,22 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import CheckoutPage from '~/components/CheckoutPage.astro';
+import { resolveCheckoutCartId } from '~/lib/cart-session';
+import { getCart } from '~/lib/shopify/cart';
+
+// Custom checkout = INDIA store only.
+// Resolve the cart here, at the page level, so an empty/missing cart can redirect
+// before BaseLayout starts streaming — a redirect from inside the child component
+// lands after the 200 is already flushed and surfaces as "Internal server error".
+const store = 'india' as const;
+const isBuyNow = Astro.url.searchParams.get('buynow') === '1';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const cartId = resolveCheckoutCartId(Astro.cookies, store, isBuyNow);
+const cart = cartId ? await getCart(store, cartId) : null;
+if (!cart || cart.lines.length === 0) return Astro.redirect('/cart');
 ---
 <BaseLayout title="Checkout — Mir Kash" path="/checkout">
-  <CheckoutPage />
+  <CheckoutPage cart={cart} isBuyNow={isBuyNow} />
 </BaseLayout>

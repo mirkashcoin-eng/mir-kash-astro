@@ -2,6 +2,7 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import SiteFooter from '~/components/SiteFooter.astro';
 import { finalizeOrder, type FinalizeStatus } from '~/lib/cashfree';
+import { getDraftOrder } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
@@ -11,15 +12,12 @@ interface OrderItem { title: string; quantity: number; image: string | null; pri
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 // Cash on Delivery returns here directly (no gateway to verify) with
-// ?cod=1&order=…&amount=…&items=… (items/amount threaded from /api/checkout/create,
-// since COD orders never round-trip through Cashfree to get finalized here).
+// ?cod=1&order=…&draft=… — COD orders never round-trip through Cashfree, so the
+// draft id is re-read from Shopify here to get the amount and line items (with
+// images) rather than trusting values passed through the URL.
 const isCod = Astro.url.searchParams.get('cod') === '1';
 const codOrder = Astro.url.searchParams.get('order') || undefined;
-const codAmount = Number(Astro.url.searchParams.get('amount')) || 0;
-let codItems: Array<{ title: string; quantity: number; price: string | null }> = [];
-try {
-  codItems = JSON.parse(Astro.url.searchParams.get('items') || '[]');
-} catch { /* malformed/absent — leave empty */ }
+const codDraft = Astro.url.searchParams.get('draft') || '';
 
 const orderId = Astro.url.searchParams.get('order_id') ?? '';
 let status: FinalizeStatus = 'error';
@@ -35,8 +33,11 @@ if (!isCod && orderId) {
   amount = result.amount ?? 0;
   currency = result.currency ?? 'INR';
   items = result.items ?? [];
-} else if (isCod) {
-  amount = codAmount;
+} else if (isCod && codDraft) {
+  const draft = await getDraftOrder(codDraft);
+  amount = draft ? Number(draft.totalPrice.amount) || 0 : 0;
+  currency = draft?.totalPrice.currencyCode ?? 'INR';
+  items = draft?.items ?? [];
 }
 
 const COPY: Record<FinalizeStatus, { title: string; body: string }> = {
@@ -68,12 +69,14 @@ const copy = isCod
     }
   : COPY[status];
 
-// Normalize India (Money objects) and COD (raw amount strings) line items into one
-// display shape for the summary card.
+// Both paths (Cashfree-finalized and COD) now come from the same Shopify shape.
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
-const summaryItems = isCod
-  ? codItems.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price ? Number(i.price) : null, image: null as string | null }))
-  : items.map((i) => ({ title: i.title, quantity: i.quantity, price: i.price ? Number(i.price.amount) : null, image: i.image }));
+const summaryItems = items.map((i) => ({
+  title: i.title,
+  quantity: i.quantity,
+  price: i.price ? Number(i.price.amount) : null,
+  image: i.image,
+}));
 ---
 <BaseLayout title="Order — Mir Kash" path="/checkout/return">
   <header class="hdr">
