@@ -553,7 +553,7 @@ const SHOW_REELS = false;
           gtag('event', 'add_to_cart', { currency, value: state.amount, items });
           gtag('event', 'conversion', { send_to: 'AW-18098313640/HX8JCKX26J0cEKiz-bVD', value: state.amount, currency });
         }
-      } catch (_) {}
+      } catch (e) { console.error('gtag add_to_cart failed:', e); }
       document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
       btn.textContent = 'Added ✓';
       btn.classList.add('is-added');

@@ -71,7 +71,10 @@ const orgJsonLd = {
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>
     <script is:inline define:vars={{ ga4Id, market, currency: marketConfig.currency, country: marketConfig.countryCode }}>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
+      // Explicit window.gtag assignment (not `function gtag(){...}`) — a bare function
+      // declaration inside a define:vars script doesn't reliably land on window, which
+      // silently broke every gtag() call elsewhere on the page (e.g. begin_checkout).
+      window.gtag = function(){dataLayer.push(arguments);};
       gtag('js', new Date());
       gtag('config', 'AW-18098313640');
       // One GA4 property for every market (they share a domain now), split two ways:

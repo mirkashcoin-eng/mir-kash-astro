@@ -106,7 +106,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
           gtag('event', 'begin_checkout', { currency, value: cartTotal, items: cartItems });
           gtag('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value: cartTotal, currency });
         }
-      } catch (_) {}
+      } catch (e) { console.error('gtag begin_checkout failed:', e); }
     });
   }
 

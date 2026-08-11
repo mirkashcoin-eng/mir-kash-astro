@@ -298,7 +298,7 @@ const thumbGradients = [
       gtagFn('event', 'begin_checkout', { currency: 'INR', value, items });
       gtagFn('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value, currency: 'INR' });
     }
-  } catch (_) {}
+  } catch (e) { console.error('gtag begin_checkout failed:', e); }
   const buyNow = sheet?.dataset.buynow === '1';
 
   const ORDER = ['contact', 'delivery', 'payment'];

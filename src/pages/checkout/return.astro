@@ -150,7 +150,7 @@ const summaryItems = items.map((i) => ({
           if (value > 0) adsPayload.value = value;
           gtag('event', 'conversion', adsPayload);
         }
-      } catch (_) {}
+      } catch (e) { console.error('gtag purchase failed:', e); }
     </script>
   )}
 
