@@ -6,9 +6,18 @@ interface Props {
   description?: string;
   path: string;
   fontsHref?: string;
+  image?: string;
+  type?: string;
 }
 
-const { title, description = 'Mir Kash — luxury vegan handbags. Made slowly. Worn forever. Hurts nothing.', path, fontsHref } = Astro.props;
+const {
+  title,
+  description = 'Mir Kash — luxury vegan handbags. Made slowly. Worn forever. Hurts nothing.',
+  path,
+  fontsHref,
+  image,
+  type = 'website',
+} = Astro.props;
 const { market, marketConfig } = Astro.locals;
 // Captured server-side from the request headers, so it survives blocked or failed
 // client JS. The browser can still add UTM params, which headers don't carry.
@@ -20,6 +29,9 @@ Astro.response.headers.set(
 );
 
 const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path) || '/');
+// Product photos come back as full Shopify CDN URLs already; only local /public paths
+// need SITE_ORIGIN prepended.
+const ogImage = image ? (image.startsWith('http') ? image : absoluteUrl(image)) : absoluteUrl('/og-default.jpg');
 
 // Jost is self-hosted via /fonts/jost.css (imported in styles.css) — no Google Fonts request.
 const fontsUrl = fontsHref ?? '';
@@ -52,6 +64,14 @@ const orgJsonLd = {
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
 
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-48x48.png" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2C1A0E" />
+
     {listMarkets().map((m) => (
       <link
         rel="alternate"
@@ -62,10 +82,20 @@ const orgJsonLd = {
     <link rel="alternate" hreflang="x-default" href={absoluteUrl(path === '/' ? '/' : path)} />
 
     <meta property="og:locale" content={marketConfig.locale} />
+    <meta property="og:site_name" content="Mir Kash" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={type} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     <!-- Google tag (gtag.js) — one load, two products: Ads conversions + GA4 analytics -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-18098313640"></script>

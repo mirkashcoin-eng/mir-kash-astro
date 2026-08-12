@@ -12,6 +12,12 @@ const handle = Astro.params.handle as string;
 const product = await getProductByHandle(market, marketConfig.countryCode, handle);
 if (!product) return Astro.redirect(`${marketConfig.urlPrefix}/shop`);
 ---
-<BaseLayout title={`${product.title} — Mir Kash`} description={product.description} path={`/products/${handle}`}>
+<BaseLayout
+  title={`${product.title} — Mir Kash`}
+  description={product.description}
+  path={`/products/${handle}`}
+  image={product.images?.edges?.[0]?.node?.url}
+  type="product"
+>
   <ProductPage product={product} />
 </BaseLayout>
