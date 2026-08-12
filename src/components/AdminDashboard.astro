@@ -1148,12 +1148,12 @@
       var name = (r.customer || 'there').split(' ')[0];
       var d = fmtISO(r.confirmedDate), t = fmt12(r.confirmedTime);
       var whenTxt = (d || r.date || '') + (t ? ' at ' + t : (r.slot ? ' (' + r.slot + ')' : ''));
-      var subject = 'Your Mir Kash home demo is confirmed';
-      var body = 'Hi ' + name + ',\n\nYour Mir Kash home demo is confirmed for ' + whenTxt + '.\n\n' +
+      var subject = 'Your Mir Kash Try at Home is confirmed';
+      var body = 'Hi ' + name + ',\n\nYour Mir Kash Try at Home is confirmed for ' + whenTxt + '.\n\n' +
         (r.address ? 'Address: ' + r.address + '\n' : '') +
         (r.bags ? "Bags we'll bring: " + r.bags + '\n' : '') +
         '\nWe look forward to meeting you. Just reply to this email or call us if anything changes.\n\nWarmly,\nMir Kash';
-      var wa = 'Hi ' + name + ', your Mir Kash home demo is confirmed for ' + whenTxt + '.' +
+      var wa = 'Hi ' + name + ', your Mir Kash Try at Home is confirmed for ' + whenTxt + '.' +
         (r.address ? ' Address: ' + r.address + '.' : '') + ' See you then! — Mir Kash';
       return { subject: subject, body: body, wa: wa };
     }

@@ -753,7 +753,7 @@ const SHOW_REELS = false;
   .thumb { flex-shrink: 0; width: 54px; aspect-ratio: 3/4; overflow: hidden; border: 1.5px solid transparent; background: var(--paper); transition: border-color .2s; padding: 0; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb.is-active { border-color: var(--depth); }
-  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; }
+  .pdp__images { background: #fff; display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 640px; margin: 0 auto; }
   .gimg { width: 100%; aspect-ratio: 4/5; overflow: hidden; background: #fff; }
   .gimg img { width: 100%; height: 100%; object-fit: cover; }
   .pdp__info { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; border-left: 1px solid var(--rule); padding: 44px 48px 48px; }
@@ -909,9 +909,6 @@ const SHOW_REELS = false;
   @media (max-width: 1200px) and (min-width: 901px) {
     .pdp { grid-template-columns: 70px 1fr 460px; }
     .pdp__info { padding: 28px 32px 40px; }
-  }
-  @media (min-width: 1600px) {
-    .pdp { max-width: 1600px; margin: 0 auto; }
   }
   @media (max-width: 600px) {
     .story__left { padding: 2.5rem 1.25rem 2rem; }

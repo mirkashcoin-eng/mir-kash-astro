@@ -39,12 +39,12 @@ export const POST: APIRoute = async ({ request }) => {
     ? body.bags.filter((b): b is { variantId: string; title: string } => Boolean(b && b.variantId)).map((b) => ({ variantId: b.variantId, title: (b.title || 'Bag').toString() }))
     : [];
 
-  if (!date || !slot) return json({ error: 'Please choose a date and time for your demo.' }, 400);
+  if (!date || !slot) return json({ error: 'Please choose a date and time for your Try at Home.' }, 400);
   if (bags.length < 1) return json({ error: 'Please select at least one bag.' }, 400);
-  if (bags.length > 6) return json({ error: 'You can select up to 6 bags for a home demo.' }, 400);
+  if (bags.length > 6) return json({ error: 'You can select up to 6 bags for a Try at Home.' }, 400);
   if (!name || !email || !phone || !address) return json({ error: 'Please fill in your name, phone, email and address.' }, 400);
   if (phone.length !== 10) return json({ error: 'Please enter a valid 10-digit phone number.' }, 400);
-  if (!/^40\d{4}$/.test(pin)) return json({ error: 'Home demos are Mumbai-only for now — please enter a Mumbai PIN code.' }, 400);
+  if (!/^40\d{4}$/.test(pin)) return json({ error: 'Try at Home is Mumbai-only for now — please enter a Mumbai PIN code.' }, 400);
 
   const result = await createDemoBooking({
     bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin,

@@ -38,7 +38,7 @@ const bagData = Object.fromEntries(
     <!-- ══ SPLIT HERO ══ -->
     <section class="bd-hero">
       <div class="bd-hero__text">
-        <p class="bd-hero__eyebrow">Mumbai &middot; Private Home Demo</p>
+        <p class="bd-hero__eyebrow">Mumbai &middot; Private Try at Home</p>
         <h1 class="bd-display bd-hero__h">Try at home. Fall in love. No pressure.</h1>
         <p class="bd-hero__sub">Book a personal visit &mdash; we bring up to six bags for you to try in your own space and your own light. Buy only if something is truly yours.</p>
         <a class="bd-cta" href="#book">Book your visit <span class="ar">&rarr;</span></a>
@@ -121,7 +121,7 @@ const bagData = Object.fromEntries(
             <div class="bd-sum__row"><span class="bd-sum__k">Bags</span><span class="bd-sum__v muted" id="sum-bags">Up to six pieces</span></div>
             <div class="bd-sum__row"><span class="bd-sum__k">Area</span><span class="bd-sum__v muted" id="sum-area">Add your details</span></div>
           </div>
-          <button class="bd-cta bd-side__cta" type="button" id="bookBtn">Confirm home demo</button>
+          <button class="bd-cta bd-side__cta" type="button" id="bookBtn">Confirm Try at Home</button>
           <p class="bd-err" id="bookErr" hidden></p>
           <p class="bd-side__note">No pressure to buy. Confirm now, decide at home.</p>
         </div>
@@ -132,7 +132,7 @@ const bagData = Object.fromEntries(
   <!-- ══ SUCCESS ══ -->
   <section class="bd-done" id="bdDone" hidden>
     <span class="bd-done__mark" aria-hidden="true">&check;</span>
-    <h2 class="bd-display bd-done__title">Your home demo is booked</h2>
+    <h2 class="bd-display bd-done__title">Your Try at Home is booked</h2>
     <p class="bd-done__body" id="bdDoneBody"></p>
     <a class="bd-done__btn" href="/shop">Browse the collection</a>
   </section>
@@ -475,7 +475,7 @@ const bagData = Object.fromEntries(
       if (!name || !phone || !email || !addr) { flashErr('Please fill in your name, phone, email and address.'); return; }
       if (phone.length !== 10) { flashErr('Please enter a valid 10-digit phone number.'); return; }
       if (!/^\S+@\S+\.\S+$/.test(email)) { flashErr('Please enter a valid email address.'); return; }
-      if (!/^40\d{4}$/.test(pin)) { flashErr('Home demos are Mumbai-only for now — please enter a Mumbai PIN.'); return; }
+      if (!/^40\d{4}$/.test(pin)) { flashErr('Try at Home is Mumbai-only for now — please enter a Mumbai PIN.'); return; }
 
       var btn = $('bookBtn'); btn.disabled = true; btn.textContent = 'Booking…';
       var bagList = []; selectedBags.forEach(function (title, vid) { bagList.push({ variantId: vid, title: title }); });
@@ -485,13 +485,13 @@ const bagData = Object.fromEntries(
       }).then(function (res) {
         return res.json().then(function (data) { return { ok: res.ok, data: data }; });
       }).then(function (r) {
-        if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your demo.');
+        if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
         $('bdMain').style.display = 'none';
         $('bdDoneBody').textContent = 'We’ll call you shortly to confirm your ' + selectedSlot + ' slot on ' + selectedLabel + '. Relax — there’s absolutely no pressure to buy.';
         $('bdDone').hidden = false;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }).catch(function (err) {
-        flashErr(err.message); btn.disabled = false; btn.textContent = 'Confirm home demo';
+        flashErr(err.message); btn.disabled = false; btn.textContent = 'Confirm Try at Home';
       });
     });
   })();
