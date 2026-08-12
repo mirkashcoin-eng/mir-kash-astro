@@ -310,12 +310,6 @@ const thumbGradients = [
     ORDER.forEach((id) => setState(id, id === active ? 'active' : (done.has(id) ? 'done' : 'todo')));
   }
   function openSection(id: string) { active = id; renderFlow(); }
-  function scrollToSection(id: string) {
-    // scrollIntoView tracks the element as the section above collapses (a .42s
-    // grid-template-rows transition). Measuring top/scrollTo by hand here reads
-    // the pre-collapse layout and overshoots by the closing section's height.
-    ($('acc-' + id) as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 
   function showErr(id: string, msg: string) { const e = $('err-' + id); e.textContent = msg; e.hidden = false; }
   function clearErr(id: string) { $('err-' + id).hidden = true; }
@@ -360,7 +354,7 @@ const thumbGradients = [
     if (phone10().length !== 10) { showErr('contact', 'Enter a valid 10-digit mobile number.'); return; }
     // Lead capture (best-effort) — links this session to the person in /admin.
     if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone10(), email: val('f-email') || undefined, name: val('f-name') || undefined });
-    done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow(); scrollToSection('delivery');
+    done.add('contact'); buildRecap('contact'); active = 'delivery'; renderFlow();
   });
 
   document.querySelector('[data-complete="delivery"]')!.addEventListener('click', () => {
@@ -372,7 +366,7 @@ const thumbGradients = [
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'))) { revealOnError(); showErr('delivery', 'Enter a valid email for your confirmation.'); return; }
     // Address reached — the last thing we learn about a customer before payment.
     if (window.mkLead) window.mkLead({ event: 'address', address1: val('f-addr'), city: val('f-city'), province: val('f-state'), pin: val('f-pin'), name: val('f-name') || undefined, email: val('f-email') || undefined });
-    done.add('delivery'); buildRecap('delivery'); active = 'payment'; renderFlow(); scrollToSection('payment');
+    done.add('delivery'); buildRecap('delivery'); active = 'payment'; renderFlow();
   });
 
   // ── Summary toggle ──
