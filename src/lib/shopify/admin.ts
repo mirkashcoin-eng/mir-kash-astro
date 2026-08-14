@@ -113,6 +113,7 @@ export interface DraftOrderResult {
   status: 'OPEN' | 'INVOICE_SENT' | 'COMPLETED';
   totalPrice: Money;
   orderName: string | null; // set once completed
+  orderId: string | null; // real Order GID, set once completed
   items: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
 }
 
@@ -137,6 +138,7 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
     status: d.status,
     totalPrice: d.totalPriceSet.shopMoney,
     orderName: d.order?.name ?? null,
+    orderId: d.order?.id ?? null,
     items: (d.lineItems?.edges ?? []).map((e) => ({
       title: e.node.title,
       quantity: e.node.quantity,
@@ -248,6 +250,15 @@ export async function getDraftOrder(id: string): Promise<DraftOrderResult | null
   return shape(data?.draftOrder);
 }
 
+// Shown in Shopify order search/list (tag) and prominently on the order page (note).
+// financial_status alone can't tell COD from Cashfree once a COD order is later marked
+// paid by hand — both just say "Paid" — so this stamps the *original* payment method as
+// a permanent record, independent of whatever the financial status becomes later.
+const PAYMENT_LABEL: Record<'cod' | 'cashfree', string> = {
+  cod: 'Cash on Delivery — mark this order Paid in Shopify once cash is collected.',
+  cashfree: 'Paid online via Cashfree.',
+};
+
 // Completes the draft → creates the real (paid) order, decrements inventory,
 // sends the Shopify confirmation email. Idempotent: a draft that is already
 // COMPLETED is returned as-is rather than re-completed.
@@ -266,7 +277,17 @@ export async function completeDraftOrder(id: string, paymentPending = false): Pr
     console.error('[admin] draftOrderComplete userErrors:', JSON.stringify(errs));
     return existing; // fall back to whatever state we last read
   }
-  return shape(data?.draftOrderComplete?.draftOrder);
+  const result = shape(data?.draftOrderComplete?.draftOrder);
+
+  // Draft-order tags aren't reliably carried over onto the real Order by
+  // draftOrderComplete, so re-apply the payment-method tag + note directly on the
+  // Order once it exists, rather than trusting the draft's tags to survive.
+  if (result?.orderId) {
+    const payTag: 'cod' | 'cashfree' = paymentPending ? 'cod' : 'cashfree';
+    await runAdminQuery(TAGS_ADD, { id: result.orderId, tags: [payTag] });
+    await runAdminQuery(ORDER_UPDATE, { input: { id: result.orderId, note: `Payment: ${PAYMENT_LABEL[payTag]}` } });
+  }
+  return result;
 }
 
 // ── Account: order history + returns ───────────────────────────────────────────
@@ -877,13 +898,14 @@ export interface RecentOrder {
   cancelled: boolean;
   adminUrl: string | null;
   clickId: string | null; // affiliate click this order came from, if any
+  paymentMethod: 'cod' | 'cashfree' | null; // from the 'cod'/'cashfree' tag stamped at completion
 }
 
 const RECENT_ORDERS = /* GraphQL */ `
   query RecentOrders {
     orders(first: 40, sortKey: CREATED_AT, reverse: true) {
       edges { node {
-        id name createdAt email cancelledAt
+        id name createdAt email cancelledAt tags
         displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } }
         shippingAddress { name phone }
@@ -898,7 +920,7 @@ const RECENT_ORDERS = /* GraphQL */ `
 export async function getRecentOrders(): Promise<RecentOrder[]> {
   const data = await runAdminQuery<{
     orders: { edges: Array<{ node: {
-      id: string; name: string; createdAt: string; email: string | null; cancelledAt: string | null;
+      id: string; name: string; createdAt: string; email: string | null; cancelledAt: string | null; tags: string[];
       displayFinancialStatus: string | null; displayFulfillmentStatus: string | null;
       totalPriceSet: { shopMoney: Money } | null;
       shippingAddress: { name: string | null; phone: string | null } | null;
@@ -910,6 +932,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
   const domain = adminDomain();
   return (data?.orders?.edges ?? []).map(({ node }) => {
     const f = node.fulfillments?.[0];
+    const tags = node.tags ?? [];
     return {
       id: node.id,
       name: node.name,
@@ -929,6 +952,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
       cancelled: !!node.cancelledAt,
       adminUrl: domain ? `https://${domain}/admin/orders/${node.id.split('/').pop() ?? ''}` : null,
       clickId: node.customAttributes?.find((a) => a.key === 'click_id')?.value ?? null,
+      paymentMethod: tags.includes('cod') ? 'cod' : tags.includes('cashfree') ? 'cashfree' : null,
     };
   });
 }

@@ -170,10 +170,15 @@
       var paid = fin === 'PAID' ? '' : ' · ' + (fin.charAt(0) + fin.slice(1).toLowerCase());
       return '<span class="ad-pill">Ordered' + esc(paid) + '</span>';
     }
+    function paymentPill(o) {
+      if (o.paymentMethod === 'cod') return '<span class="ad-pill ad-pill--wait">COD</span>';
+      if (o.paymentMethod === 'cashfree') return '<span class="ad-pill ad-pill--good">Online</span>';
+      return '<span class="ad-pill">—</span>';
+    }
     function ordersTable(orders) {
       if (!orders.length) return '<p class="ad-note ad-pad">No orders yet.</p>';
-      return '<table class="ad-table"><thead><tr><th>Customer</th><th>Order</th><th>Items</th><th>Date</th><th class="r">Total</th><th>Status</th></tr></thead><tbody>' + orders.map(function (o) {
-        return '<tr><td class="nm">' + esc(o.customer || 'Guest') + (o.email ? '<div class="sub">' + esc(o.email) + '</div>' : '') + '</td><td>' + esc(o.name) + '</td><td>' + esc(o.items || '—') + '</td><td>' + when(o.createdAt) + '</td><td class="r amt">' + esc(inr(o.total && o.total.amount, o.total && o.total.currencyCode)) + '</td><td>' + orderPill(o) + '</td></tr>';
+      return '<table class="ad-table"><thead><tr><th>Customer</th><th>Order</th><th>Payment</th><th>Items</th><th>Date</th><th class="r">Total</th><th>Status</th></tr></thead><tbody>' + orders.map(function (o) {
+        return '<tr><td class="nm">' + esc(o.customer || 'Guest') + (o.email ? '<div class="sub">' + esc(o.email) + '</div>' : '') + '</td><td>' + esc(o.name) + '</td><td>' + paymentPill(o) + '</td><td>' + esc(o.items || '—') + '</td><td>' + when(o.createdAt) + '</td><td class="r amt">' + esc(inr(o.total && o.total.amount, o.total && o.total.currencyCode)) + '</td><td>' + orderPill(o) + '</td></tr>';
       }).join('') + '</tbody></table>';
     }
     function demoPill(status) {
