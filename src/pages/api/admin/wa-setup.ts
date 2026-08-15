@@ -49,6 +49,29 @@ export const GET: APIRoute = async ({ request, url }) => {
   const waba = process.env.WHATSAPP_WABA_ID || '1608333530921964';
   if (!token) return json({ ok: false, reason: 'WHATSAPP_TOKEN not set' });
 
+  // Diagnostic: ?to=<phone> sends a test order_confirmed to that number and returns
+  // Meta's FULL response (message id + wa_id, or the exact delivery error).
+  const to = url.searchParams.get('to');
+  if (to) {
+    const num = to.replace(/[^0-9]/g, '');
+    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+    const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: num, type: 'template',
+        template: {
+          name: 'order_confirmed', language: { code: 'en' },
+          components: [{ type: 'body', parameters: [
+            { type: 'text', text: 'Rahul' }, { type: 'text', text: '#TEST' }, { type: 'text', text: '₹8,999' },
+          ] }],
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return json({ ok: res.ok, httpStatus: res.status, sentTo: num, meta: data });
+  }
+
   const results: Array<Record<string, unknown>> = [];
   for (const t of TEMPLATES) {
     try {
