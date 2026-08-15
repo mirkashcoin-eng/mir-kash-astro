@@ -55,7 +55,23 @@ export const GET: APIRoute = async ({ request, url }) => {
     const confirmable = orders.filter((o) => !o.cancelled && o.waOptin && o.phone && ageOf(o.createdAt) <= RECENT).length;
     const shippable = orders.filter((o) => !o.cancelled && o.waOptin && o.phone && String(o.fulfillment).toUpperCase() === 'FULFILLED' && ageOf(o.fulfilledAt) <= RECENT).length;
     const recoverable = abandoned.filter((d) => (d.detail?.tags ?? []).includes('wa-optin') && d.phone && ageOf(d.createdAt) >= RECOVER_MIN && ageOf(d.createdAt) <= RECOVER_MAX).length;
-    return json({ ok: true, dry: true, configured: true, would: { confirmed: confirmable, shipped: shippable, recovered: recoverable } });
+
+    // List the account's approved/pending templates (name + status + language) so we can
+    // see exactly what exists and whether the names match what this code sends.
+    let templates: unknown = null;
+    try {
+      const token = process.env.WHATSAPP_TOKEN || '';
+      const waba = process.env.WHATSAPP_WABA_ID || '1608333530921964';
+      if (token && waba) {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?fields=name,status,language,category&limit=100&access_token=${token}`);
+        const data = await res.json().catch(() => ({}));
+        templates = res.ok && Array.isArray(data.data)
+          ? data.data.map((t: Record<string, unknown>) => ({ name: t.name, status: t.status, language: t.language, category: t.category }))
+          : { error: data?.error?.message || `HTTP ${res.status}` };
+      }
+    } catch (e) { templates = { error: String(e) }; }
+
+    return json({ ok: true, dry: true, configured: true, would: { confirmed: confirmable, shipped: shippable, recovered: recoverable }, templates });
   }
   const sent = { confirmed: [] as string[], shipped: [] as string[], recovered: [] as string[] };
 
