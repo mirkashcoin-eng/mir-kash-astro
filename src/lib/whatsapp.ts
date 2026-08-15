@@ -68,6 +68,31 @@ export async function sendTemplate(
   }
 }
 
+// Fire the "order confirmed" WhatsApp for a just-completed order, immediately at
+// checkout. Best-effort and de-duplicated via the `confirm:{orderName}` lock. Safe to
+// call from the payment path: returns straight away if not opted in / not configured,
+// and never throws. NOTE: the coworker's Supabase service also has an orders/create
+// path; if that ever starts delivering confirmations too, remove this to avoid doubles.
+export async function notifyOrderConfirmed(o: {
+  orderName: string | null;
+  customerName: string | null;
+  phone: string | null;
+  total: { amount: string; currencyCode: string } | null;
+  waOptin: boolean;
+}): Promise<void> {
+  if (!o.waOptin || !o.orderName || !o.phone || !whatsappConfigured()) return;
+  const name = (o.customerName || 'there').trim().split(/\s+/)[0] || 'there';
+  let amt = '';
+  if (o.total) {
+    const n = Math.round(Number(o.total.amount) || 0);
+    try { amt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: o.total.currencyCode || 'INR', maximumFractionDigits: 0 }).format(n); }
+    catch { amt = `${o.total.currencyCode || 'INR'} ${n}`; }
+  }
+  try {
+    await once(`confirm:${o.orderName}`, () => sendTemplate(o.phone!, 'order_confirmed', [name, o.orderName!, amt]));
+  } catch { /* best-effort */ }
+}
+
 // Run `fn` at most once per `key`, ever, across cron re-runs. Claims an atomic lock
 // (`wa_sent/{key}` via create(), which fails if it exists), runs, and RELEASES the
 // lock if the send failed so a later run can retry. Returns whether a message went out.
