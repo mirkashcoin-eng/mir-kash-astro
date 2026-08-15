@@ -115,6 +115,9 @@ export interface DraftOrderResult {
   orderName: string | null; // set once completed
   orderId: string | null; // real Order GID, set once completed
   items: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
+  phone: string | null;        // for the instant WhatsApp order confirmation
+  waOptin: boolean;            // customer ticked "order updates on WhatsApp"
+  customerName: string | null; // shipping first name, for the greeting
 }
 
 interface RawDraftOrder {
@@ -123,6 +126,9 @@ interface RawDraftOrder {
   status: DraftOrderResult['status'];
   totalPriceSet: { shopMoney: Money };
   order: { id: string; name: string } | null;
+  phone: string | null;
+  customAttributes: Array<{ key: string; value: string }>;
+  shippingAddress: { firstName: string | null; name: string | null } | null;
   lineItems: { edges: Array<{ node: {
     title: string; quantity: number;
     image: { url: string } | null;
@@ -145,6 +151,9 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
       image: e.node.image?.url ?? null,
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
     })),
+    phone: d.phone ?? null,
+    waOptin: (d.customAttributes ?? []).some((a) => a.key === 'wa_optin' && a.value === 'true'),
+    customerName: d.shippingAddress?.firstName ?? d.shippingAddress?.name ?? null,
   };
 }
 
@@ -154,6 +163,9 @@ const DRAFT_FIELDS = /* GraphQL */ `
   status
   totalPriceSet { shopMoney { amount currencyCode } }
   order { id name }
+  phone
+  customAttributes { key value }
+  shippingAddress { firstName name }
   lineItems(first: 20) { edges { node {
     title quantity
     image { url }
