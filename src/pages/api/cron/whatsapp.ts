@@ -38,14 +38,25 @@ const json = (obj: unknown, status = 200) =>
     status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ request, url }) => {
+  // Read-only health check: reports config + how many would send, WITHOUT sending.
+  // Safe to expose (non-sensitive counts), so it skips the CRON_SECRET gate.
+  const dry = url.searchParams.get('dry') === '1';
+
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!dry && secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response('unauthorized', { status: 401 });
   }
-  if (!whatsappConfigured()) return json({ ok: false, reason: 'WhatsApp not configured' });
+  if (!whatsappConfigured()) return json({ ok: false, configured: false, reason: 'WhatsApp not configured' });
 
   const [orders, abandoned] = await Promise.all([getRecentOrders(), getAbandonedDrafts()]);
+
+  if (dry) {
+    const confirmable = orders.filter((o) => !o.cancelled && o.waOptin && o.phone && ageOf(o.createdAt) <= RECENT).length;
+    const shippable = orders.filter((o) => !o.cancelled && o.waOptin && o.phone && String(o.fulfillment).toUpperCase() === 'FULFILLED' && ageOf(o.fulfilledAt) <= RECENT).length;
+    const recoverable = abandoned.filter((d) => (d.detail?.tags ?? []).includes('wa-optin') && d.phone && ageOf(d.createdAt) >= RECOVER_MIN && ageOf(d.createdAt) <= RECOVER_MAX).length;
+    return json({ ok: true, dry: true, configured: true, would: { confirmed: confirmable, shipped: shippable, recovered: recoverable } });
+  }
   const sent = { confirmed: [] as string[], shipped: [] as string[], recovered: [] as string[] };
 
   // 1) Order confirmed — opted-in, created in the recent window.
