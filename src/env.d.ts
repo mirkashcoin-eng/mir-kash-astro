@@ -52,6 +52,11 @@ interface ImportMetaEnv {
   readonly ADMIN_PASSCODE: string;
   // Firebase Admin SDK service-account JSON — powers the /admin funnel + Leads.
   readonly FIREBASE_SERVICE_ACCOUNT: string;
+  // WhatsApp order updates + cart recovery via Meta Cloud API.
+  readonly WHATSAPP_TOKEN: string;           // Meta permanent System-User token (secret)
+  readonly WHATSAPP_PHONE_NUMBER_ID: string; // = 1285100258018493
+  readonly WHATSAPP_WABA_ID: string;         // optional; = 1608333530921964
+  readonly CRON_SECRET: string;              // protects the cron endpoints
 }
 
 interface ImportMeta {

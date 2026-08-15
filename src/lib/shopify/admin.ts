@@ -899,6 +899,7 @@ export interface RecentOrder {
   adminUrl: string | null;
   clickId: string | null; // affiliate click this order came from, if any
   paymentMethod: 'cod' | 'cashfree' | null; // from the 'cod'/'cashfree' tag stamped at completion
+  waOptin: boolean;       // customer ticked "order updates on WhatsApp" at checkout
 }
 
 const RECENT_ORDERS = /* GraphQL */ `
@@ -953,6 +954,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
       adminUrl: domain ? `https://${domain}/admin/orders/${node.id.split('/').pop() ?? ''}` : null,
       clickId: node.customAttributes?.find((a) => a.key === 'click_id')?.value ?? null,
       paymentMethod: tags.includes('cod') ? 'cod' : tags.includes('cashfree') ? 'cashfree' : null,
+      waOptin: node.customAttributes?.find((a) => a.key === 'wa_optin')?.value === 'true',
     };
   });
 }
