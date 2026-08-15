@@ -3,23 +3,16 @@ import { runAdminQuery } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
-// One-time setup: registers the Shopify webhooks this app needs on the INDIA store.
-// Gated by CRON_SECRET (?key=<secret> or Authorization: Bearer <secret>). Idempotent —
-// it lists existing subscriptions first and only creates the ones that are missing, so
-// it's safe to hit repeatedly. Currently registers `orders/fulfilled` → instant
-// "order shipped" WhatsApp (see /api/webhooks/shopify).
+// Clean-up utility for the Shopify webhook subscription this app briefly registered.
+// WhatsApp order messages are owned by the separate Supabase `shopify-webhook` service,
+// so this app must NOT receive order webhooks (it would double-message). This endpoint
+// lists, and can DELETE, any subscription pointing at our own /api/webhooks/shopify.
+// Gated by CRON_SECRET (?key=<secret> or Authorization: Bearer <secret>).
 //
-//   GET /api/admin/shopify-hooks?key=<CRON_SECRET>          → register (idempotent)
-//   GET /api/admin/shopify-hooks?key=<CRON_SECRET>&list=1   → just list what's registered
+//   GET .../shopify-hooks?key=<CRON_SECRET>            → list our subscriptions
+//   GET .../shopify-hooks?key=<CRON_SECRET>&delete=1   → delete the ones to our endpoint
 
 const PROD_ORIGIN = 'https://www.mirkash.com';
-
-// topic (Shopify enum) → the endpoint that handles it. Add more here as we grow.
-const WANT: Array<{ topic: string }> = [{ topic: 'ORDERS_FULFILLED' }];
-
-function callbackUrl(origin: string): string {
-  return `${origin.replace(/\/$/, '')}/api/webhooks/shopify`;
-}
 
 interface HookNode {
   id: string;
@@ -27,29 +20,22 @@ interface HookNode {
   endpoint: { __typename: string; callbackUrl?: string };
 }
 
-async function listHooks(): Promise<HookNode[]> {
+async function listHooks(): Promise<HookNode[] | null> {
   const data = await runAdminQuery<{ webhookSubscriptions: { edges: Array<{ node: HookNode }> } }>(
     `{ webhookSubscriptions(first: 100) {
         edges { node { id topic endpoint { __typename ... on WebhookHttpEndpoint { callbackUrl } } } }
     } }`,
   );
-  return (data?.webhookSubscriptions?.edges ?? []).map((e) => e.node);
+  if (!data) return null;
+  return (data.webhookSubscriptions?.edges ?? []).map((e) => e.node);
 }
 
-async function createHook(topic: string, url: string) {
+async function deleteHook(id: string) {
   return runAdminQuery<{
-    webhookSubscriptionCreate: {
-      webhookSubscription: { id: string; topic: string } | null;
-      userErrors: Array<{ field: string[]; message: string }>;
-    };
+    webhookSubscriptionDelete: { deletedWebhookSubscriptionId: string | null; userErrors: Array<{ message: string }> };
   }>(
-    `mutation($topic: WebhookSubscriptionTopic!, $sub: WebhookSubscriptionInput!) {
-      webhookSubscriptionCreate(topic: $topic, webhookSubscription: $sub) {
-        webhookSubscription { id topic }
-        userErrors { field message }
-      }
-    }`,
-    { topic, sub: { callbackUrl: url, format: 'JSON' } },
+    `mutation($id: ID!) { webhookSubscriptionDelete(id: $id) { deletedWebhookSubscriptionId userErrors { message } } }`,
+    { id },
   );
 }
 
@@ -66,32 +52,22 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   const origin =
     (process.env.PUBLIC_APP_ORIGIN || import.meta.env.PUBLIC_APP_ORIGIN || PROD_ORIGIN).replace(/\/$/, '');
-  const target = callbackUrl(origin);
+  const target = `${origin}/api/webhooks/shopify`;
 
   const existing = await listHooks();
   if (existing === null) return json({ ok: false, reason: 'admin API unavailable (check Shopify env)' }, 502);
 
-  if (url.searchParams.get('list') === '1') {
-    return json({ ok: true, target, subscriptions: existing });
+  const ours = existing.filter((h) => h.endpoint?.callbackUrl === target);
+
+  if (url.searchParams.get('delete') !== '1') {
+    return json({ ok: true, target, ours, all: existing });
   }
 
-  const results: Array<{ topic: string; status: string; detail?: unknown }> = [];
-  for (const want of WANT) {
-    const already = existing.find(
-      (h) => h.topic === want.topic && h.endpoint?.callbackUrl === target,
-    );
-    if (already) {
-      results.push({ topic: want.topic, status: 'exists', detail: already.id });
-      continue;
-    }
-    const res = await createHook(want.topic, target);
-    const errs = res?.webhookSubscriptionCreate?.userErrors ?? [];
-    if (res?.webhookSubscriptionCreate?.webhookSubscription) {
-      results.push({ topic: want.topic, status: 'created', detail: res.webhookSubscriptionCreate.webhookSubscription.id });
-    } else {
-      results.push({ topic: want.topic, status: 'failed', detail: errs.length ? errs : 'unknown error' });
-    }
+  const deleted: Array<{ id: string; topic: string; status: string }> = [];
+  for (const h of ours) {
+    const res = await deleteHook(h.id);
+    const okId = res?.webhookSubscriptionDelete?.deletedWebhookSubscriptionId;
+    deleted.push({ id: h.id, topic: h.topic, status: okId ? 'deleted' : 'failed' });
   }
-
-  return json({ ok: true, target, results });
+  return json({ ok: true, target, deleted });
 };

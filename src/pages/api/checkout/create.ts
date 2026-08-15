@@ -2,7 +2,6 @@ import type { APIRoute } from 'astro';
 import { resolveCheckoutCartId, clearCart, clearBuyNowCart, getClickId, clearClickId } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
 import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
-import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { createCashfreeOrder } from '~/lib/cashfree';
 
 export const prerender = false;
@@ -131,14 +130,8 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     if (isBuyNow) clearBuyNowCart(cookies, 'india');
     else clearCart(cookies, 'india');
     clearClickId(cookies); // referral is on the order now — don't credit it twice
-    // Instant WhatsApp order confirmation (opted-in only). Best-effort; never blocks COD.
-    await notifyOrderConfirmed({
-      orderName: completed.orderName ?? completed.name,
-      customerName: completed.customerName,
-      phone: completed.phone,
-      total: completed.totalPrice,
-      waOptin: completed.waOptin,
-    });
+    // Order-confirmation WhatsApp is sent by the Supabase shopify-webhook service
+    // (off Shopify's orders/create), not from here — avoids double-messaging.
     return new Response(
       JSON.stringify({
         cod: true,
