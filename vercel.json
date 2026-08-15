@@ -1,7 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/reconcile-orders", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/whatsapp", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/whatsapp", "schedule": "0 4 * * *" }
   ],
   "rewrites": [
     { "source": "/__/auth/:path*", "destination": "https://mir-kash-web.firebaseapp.com/__/auth/:path*" },
