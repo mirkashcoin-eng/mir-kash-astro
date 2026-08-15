@@ -92,6 +92,23 @@ export async function notifyOrderConfirmed(o: {
   } catch { /* best-effort */ }
 }
 
+// Fire the "order shipped" WhatsApp the moment Shopify marks the order fulfilled
+// (driven by the orders/fulfilled webhook). Best-effort and de-duplicated — shares the
+// `ship:{orderName}` lock with the daily cron, so the webhook and the cron can never
+// both send it. Returns straight away if not opted in / not configured; never throws.
+export async function notifyOrderShipped(o: {
+  orderName: string | null;
+  customerName: string | null;
+  phone: string | null;
+  waOptin: boolean;
+}): Promise<void> {
+  if (!o.waOptin || !o.orderName || !o.phone || !whatsappConfigured()) return;
+  const name = (o.customerName || 'there').trim().split(/\s+/)[0] || 'there';
+  try {
+    await once(`ship:${o.orderName}`, () => sendTemplate(o.phone!, 'order_shipped', [name, o.orderName!]));
+  } catch { /* best-effort */ }
+}
+
 // Run `fn` at most once per `key`, ever, across cron re-runs. Claims an atomic lock
 // (`wa_sent/{key}` via create(), which fails if it exists), runs, and RELEASES the
 // lock if the send failed so a later run can retry. Returns whether a message went out.
