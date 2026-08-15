@@ -22,7 +22,6 @@ const HOUR = 3600e3;
 const RECENT = 26 * HOUR;             // confirm/ship: only events from ~the last day
 const RECOVER_MIN = 2 * HOUR;         // give an abandoner time to come back on their own
 const RECOVER_MAX = 7 * 24 * HOUR;    // …but don't nag weeks later
-const SHOP_URL = 'https://mirkash.com/shop';
 
 const money = (m: Money | null): string => {
   if (!m) return '';
@@ -104,7 +103,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const age = ageOf(d.createdAt);
     if (age < RECOVER_MIN || age > RECOVER_MAX) continue;
     const ok = await once(`recover:${d.id}`, () =>
-      sendTemplate(phone, 'cart_reminder', [firstName(d.customer), SHOP_URL]));
+      sendTemplate(phone, 'cart_reminder', [firstName(d.customer)]));
     if (ok) sent.recovered.push(d.name);
   }
 

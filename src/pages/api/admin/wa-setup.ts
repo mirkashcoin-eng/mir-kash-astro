@@ -34,8 +34,8 @@ const TEMPLATES = [
     name: 'cart_reminder', language: 'en', category: 'MARKETING',
     components: [{
       type: 'BODY',
-      text: 'Hi {{1}}, you left something beautiful in your bag at Mir Kash. Complete your order here: {{2}}',
-      example: { body_text: [['Priya', 'https://mirkash.com/shop']] },
+      text: 'Hi {{1}}, you left something beautiful in your bag at Mir Kash. Complete your order here: https://mirkash.com/shop',
+      example: { body_text: [['Priya']] },
     }],
   },
 ];
