@@ -4,3 +4,8 @@ project_id = "btupzwyyqdkzfoygfwcz"
 # so JWT verification must be off (we verify the Shopify signature ourselves).
 [functions.shopify-webhook]
 verify_jwt = false
+
+# The retry worker is called by a scheduler (not a user), gated by RETRY_SECRET —
+# so JWT verification is off here too.
+[functions.wa-retry]
+verify_jwt = false

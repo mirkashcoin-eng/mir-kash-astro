@@ -114,14 +114,39 @@ usually approve fast). The names already match the seed.
 
 ---
 
-## Replay a failed send
-Failed sends are kept in the logs (we never rely on Shopify retries). To resend, find the event:
+## Retry queue — automatic replay of failed sends (`wa-retry`)
+Every event is stored durably in `webhook_events`, so a failed Meta send is never lost — it just sits at
+`status = 'error'`. The **`wa-retry`** worker drains that queue: on a schedule it re-attempts each failed event
+(up to **5** tries, within a **3-day** window) and marks it `processed` once it goes through. This is what makes
+`webhook_events` a real queue rather than just a log — no separate queue service needed.
+
+It's **add-only**: it reuses the same `_shared` helpers + `template_map` as `shopify-webhook` and never touches the
+live webhook path. Deploy it once:
+
+**1. Add the retry-count column** (SQL Editor, or `supabase db push`):
 ```sql
-select id, topic, order_id, status, error_message, received_at
+-- supabase/migrations/0002_retry_queue.sql
+alter table webhook_events add column if not exists retry_count int not null default 0;
+```
+**2. Set the worker's secret**
+```bash
+supabase secrets set RETRY_SECRET=<a-random-string>
+```
+**3. Deploy** (JWT off — a scheduler calls it, gated by the secret)
+```bash
+supabase functions deploy wa-retry --no-verify-jwt
+```
+**4. Schedule it** every ~10 min. Either Supabase's built-in cron (Dashboard → Edge Functions → Schedules) or an
+external one (cron-job.org), hitting:
+```
+https://btupzwyyqdkzfoygfwcz.supabase.co/functions/v1/wa-retry?key=<RETRY_SECRET>
+```
+Each run returns `{ scanned, processed, skipped, stillFailing }`. After 5 failed tries a row is left `error` for you
+to inspect. To find stuck events manually:
+```sql
+select id, topic, order_id, status, retry_count, error_message, received_at
 from webhook_events where status = 'error' order by received_at desc;
 ```
-Re-trigger from Shopify (the webhook page can resend a test), or re-post the stored `payload` to the function URL
-with a fresh `X-Shopify-Webhook-Id`. (A one-click replay endpoint is a Phase 1.1 nicety.)
 
 ---
 
