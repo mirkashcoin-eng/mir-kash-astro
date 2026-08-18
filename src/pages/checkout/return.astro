@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import SiteFooter from '~/components/SiteFooter.astro';
+import ReceiptPrinter from '~/components/ReceiptPrinter.astro';
 import { finalizeOrder, type FinalizeStatus } from '~/lib/cashfree';
 import { getDraftOrder } from '~/lib/shopify/admin';
 
@@ -85,41 +86,30 @@ const summaryItems = items.map((i) => ({
     </div>
   </header>
 
-  <main class="ret">
-    <div class={`ret__card ret__card--${displayStatus}`}>
-      <span class="ret__mark" aria-hidden="true">{displayStatus === 'paid' ? '✓' : displayStatus === 'pending' ? '…' : '!'}</span>
-      <h1 class="ret__title">{copy.title}</h1>
-      {displayStatus === 'paid' && displayOrder && <p class="ret__order">Order {displayOrder}</p>}
-      <p class="ret__body">{copy.body}</p>
+  <main class={`ret ${displayStatus === 'paid' ? 'ret--printed' : ''}`}>
+    {displayStatus === 'paid' ? (
+      <div class="ret__printed">
+        <h1 class="ret__sr">{copy.title}</h1>
+        <ReceiptPrinter orderName={displayOrder} items={summaryItems} amount={amount} isCod={isCod} />
+        <div class="ret__actions">
+          <a class="ret__btn" href="/shop">Continue shopping</a>
+        </div>
+      </div>
+    ) : (
+      <div class={`ret__card ret__card--${displayStatus}`}>
+        <span class="ret__mark" aria-hidden="true">{displayStatus === 'pending' ? '\u2026' : '!'}</span>
+        <h1 class="ret__title">{copy.title}</h1>
+        <p class="ret__body">{copy.body}</p>
 
-      {displayStatus === 'paid' && summaryItems.length > 0 && (
-        <div class="ret__summary">
-          {summaryItems.map((item) => (
-            <div class="ret__item">
-              {item.image ? <img class="ret__item-img" src={item.image} alt={item.title} loading="lazy" /> : <span class="ret__item-img" />}
-              <div class="ret__item-info">
-                <div class="ret__item-title">{item.title}</div>
-                <div class="ret__item-sub">Qty {item.quantity}</div>
-              </div>
-              {item.price !== null && <div class="ret__item-price">{inr(item.price * item.quantity)}</div>}
-            </div>
-          ))}
-          {amount > 0 && (
-            <div class="ret__row ret__row--total"><span>Total</span><span>{inr(amount)}</span></div>
+        <div class="ret__actions">
+          {displayStatus === 'failed' ? (
+            <a class="ret__btn" href="/checkout">Try again</a>
+          ) : (
+            <a class="ret__btn" href="/">Back to home</a>
           )}
         </div>
-      )}
-
-      <div class="ret__actions">
-        {displayStatus === 'paid' ? (
-          <a class="ret__btn" href="/shop">Continue shopping</a>
-        ) : displayStatus === 'failed' ? (
-          <a class="ret__btn" href="/checkout">Try again</a>
-        ) : (
-          <a class="ret__btn" href="/">Back to home</a>
-        )}
       </div>
-    </div>
+    )}
   </main>
 
   <SiteFooter />
@@ -185,6 +175,10 @@ const summaryItems = items.map((i) => ({
     .ret__item-price { font-size: 14px; font-weight: 500; }
     .ret__row { display: flex; justify-content: space-between; font-size: 13px; color: var(--mid); padding: 5px 0; }
     .ret__row--total { border-top: 1px solid var(--rule); margin-top: 6px; padding-top: 10px; font-weight: 600; color: var(--depth); font-size: 14px; }
+    .ret__sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .ret--printed { align-items: flex-start; max-width: 640px; }
+    .ret__printed { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .ret__printed .ret__actions { margin-top: 40px; }
     .ret__btn { display: inline-flex; align-items: center; height: 50px; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; transition: background .3s; }
     .ret__btn:hover { background: var(--cherry); }
   </style>

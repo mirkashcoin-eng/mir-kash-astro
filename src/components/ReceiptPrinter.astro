@@ -1,0 +1,536 @@
+---
+// A thermal receipt printer that prints the order confirmation.
+//
+// Ported from a React + motion/react component to plain Astro/CSS: this project
+// has no React, Tailwind or animation library, and pulling three of them in for
+// one page is not worth it. The stepped feed timing and the torn-edge geometry
+// are carried over verbatim so the motion reads identically — the paper advances
+// in ten discrete jerks (as a real dot-matrix feed does) rather than gliding.
+//
+// Stages run processing -> printing -> complete on a timer, purely cosmetic: the
+// order is already confirmed server-side by the time this renders.
+
+interface ReceiptItem {
+  title: string;
+  quantity: number;
+  price: number | null;
+}
+
+interface Props {
+  orderName?: string;
+  items: ReceiptItem[];
+  amount: number;
+  isCod: boolean;
+}
+
+const { orderName, items, amount, isCod } = Astro.props;
+
+const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+
+// Torn bottom edge — 40 teeth, 4px deep, as a clip-path polygon walking right to
+// left along the bottom of the paper.
+const TOOTH_COUNT = 40;
+const TOOTH_DEPTH = 4;
+const toothPoints = Array.from({ length: TOOTH_COUNT * 2 }, (_, i) => {
+  const x = 100 - ((i + 1) * 100) / (TOOTH_COUNT * 2);
+  const y = i % 2 === 0 ? '100%' : `calc(100% - ${TOOTH_DEPTH}px)`;
+  return `${x}% ${y}`;
+}).join(', ');
+const clipPath = `polygon(0 0, 100% 0, 100% calc(100% - ${TOOTH_DEPTH}px), ${toothPoints})`;
+
+const printedOn = new Intl.DateTimeFormat('en-IN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Kolkata',
+}).format(new Date());
+---
+
+<section class="rp" data-stage="processing" aria-label="Receipt printer" style={`--tooth: ${TOOTH_DEPTH}px`}>
+  <div class="rp__machine">
+    <div class="rp__header">
+      <img class="rp__logo" src="/mir-kash-monogram.png" alt="" width="24" height="24" />
+      <a class="rp__home" href="/">Home</a>
+    </div>
+
+    <div class="rp__screen">
+      <div class="rp__screen-inner">
+        <div class="rp__screen-row">
+          <div>
+            <p class="rp__screen-title">Mir Kash</p>
+            <p class="rp__screen-sub">{isCod ? 'Cash on delivery' : 'Payment received'}</p>
+          </div>
+          {amount > 0 && <strong class="rp__screen-amount">{inr(amount)}</strong>}
+        </div>
+
+        <div class="rp__status">
+          <span class="rp__indicator" aria-hidden="true">
+            <svg class="rp__spinner" viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+            <svg class="rp__check" viewBox="0 0 24 24" width="18" height="18">
+              <path
+                fill="currentColor"
+                d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.7 7.7-5.4 6a1 1 0 0 1-1.5 0L7.3 13a1 1 0 1 1 1.5-1.3l1.8 2 4.6-5.2a1 1 0 0 1 1.5 1.3Z"
+              />
+            </svg>
+          </span>
+          <div class="rp__status-text" role="status" aria-live="polite">
+            <span data-stage-label="processing">Processing your order</span>
+            <span data-stage-label="printing">Printing your receipt</span>
+            <span data-stage-label="complete">Order complete</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp__slot" aria-hidden="true"></div>
+  </div>
+
+  <div class="rp__out-wrap">
+    <div class="rp__slot-shadow" aria-hidden="true"></div>
+
+    <div class="rp__output">
+      <div class="rp__feed">
+      <article class="rp__paper" style={`clip-path: ${clipPath}`}>
+        <div class="rp__brand">Mir Kash</div>
+        <p class="rp__tagline">Made slowly. Worn forever.</p>
+
+        <div class="rp__rule"></div>
+
+        <div class="rp__meta">
+          {orderName && <div class="rp__meta-row"><span>Order</span><span>{orderName}</span></div>}
+          <div class="rp__meta-row"><span>Date</span><span>{printedOn}</span></div>
+          <div class="rp__meta-row"><span>Payment</span><span>{isCod ? 'Cash on delivery' : 'Paid online'}</span></div>
+        </div>
+
+        <div class="rp__rule"></div>
+
+        {items.length > 0 && (
+          <ul class="rp__items">
+            {items.map((item) => (
+              <li class="rp__item">
+                <span class="rp__item-qty">{item.quantity}&#215;</span>
+                <span class="rp__item-title">{item.title}</span>
+                {item.price !== null && <span class="rp__item-price">{inr(item.price * item.quantity)}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {amount > 0 && (
+          <>
+            <div class="rp__rule"></div>
+            <div class="rp__total"><span>Total</span><span>{inr(amount)}</span></div>
+          </>
+        )}
+
+        {(items.length > 0 || amount > 0) && <div class="rp__rule"></div>}
+
+        <p class="rp__thanks">
+          {isCod
+            ? 'Thank you. Please keep the amount ready for your delivery partner.'
+            : 'Thank you for your order. A confirmation is on its way to you.'}
+        </p>
+
+        <div class="rp__barcode" aria-hidden="true"></div>
+        <p class="rp__barcode-label">{orderName ?? 'MIR KASH'}</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<noscript>
+  <style>
+    /* Without JS the stages never advance, so show the finished receipt. */
+    .rp { --rp-static: 1; }
+    .rp .rp__output { height: auto !important; animation: none !important; }
+    .rp .rp__spinner { display: none; }
+    .rp .rp__check { opacity: 1 !important; }
+    .rp [data-stage-label='processing'], .rp [data-stage-label='printing'] { display: none; }
+    .rp [data-stage-label='complete'] { opacity: 1 !important; }
+  </style>
+</noscript>
+
+<style>
+  .rp {
+    --machine: #2f2a24;
+    --machine-lip: #17130f;
+    --screen: #14100c;
+    --screen-ink: #f4efe6;
+    --paper: #fffdf7;
+    --paper-ink: #2c1a0e;
+    --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 25rem;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  /* ---------- machine ---------- */
+
+  .rp__machine {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    overflow: hidden;
+    padding: 0.75rem 0.75rem 2rem;
+    border: 1px solid #14100c;
+    border-radius: 1.5rem;
+    background: linear-gradient(180deg, #3a342c 0%, var(--machine) 45%, #241f1a 100%);
+    box-shadow:
+      0 20px 36px -20px rgba(20, 16, 12, 0.55),
+      0 6px 14px -8px rgba(20, 16, 12, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+  }
+
+  .rp__machine::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background-image: var(--noise);
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+
+  .rp__header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 2.25rem;
+    padding: 0 0.25rem;
+  }
+
+  .rp__logo {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    /* The monogram is dark artwork; force it white for the dark chassis. */
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+  }
+
+  .rp__home {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    background: linear-gradient(180deg, #4a433a, #332d26);
+    color: #efe9df;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.4);
+    transition: transform 0.12s ease, background 0.2s ease;
+  }
+
+  .rp__home:hover { background: linear-gradient(180deg, #554d43, #3b342c); }
+  .rp__home:active { transform: translateY(1px); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+
+  .rp__screen {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 14px;
+    border: 1px solid #0c0906;
+    border-radius: 0.75rem;
+    background: var(--screen);
+    color: var(--screen-ink);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
+  }
+
+  .rp__screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    box-shadow: inset 0 0 24px 4px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+  }
+
+  .rp__screen-inner { position: relative; z-index: 1; display: grid; gap: 14px; }
+  .rp__screen-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .rp__screen-title { font-size: 13px; letter-spacing: 0.02em; }
+  .rp__screen-sub { margin-top: 2px; font-size: 11px; color: #9a938a; }
+  .rp__screen-amount { font-size: 14px; font-weight: 600; }
+
+  .rp__status { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+  .rp__indicator {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .rp__spinner,
+  .rp__check {
+    grid-area: 1 / 1;
+    transition: opacity 0.16s cubic-bezier(0.23, 1, 0.32, 1), transform 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .rp__spinner { color: #9a938a; animation: rp-spin 1s linear infinite; }
+  .rp__check { color: #4ea16a; opacity: 0; transform: scale(0.94); }
+
+  .rp[data-stage='complete'] .rp__spinner { opacity: 0; transform: scale(0.96); animation: none; }
+  .rp[data-stage='complete'] .rp__check { opacity: 1; transform: scale(1); }
+
+  .rp__status-text {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    color: #9a938a;
+  }
+
+  .rp__status-text span {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.18s cubic-bezier(0.23, 1, 0.32, 1), transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rp[data-stage='processing'] [data-stage-label='processing'],
+  .rp[data-stage='printing'] [data-stage-label='printing'],
+  .rp[data-stage='complete'] [data-stage-label='complete'] {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* The paper exit slot, sitting on the machine's bottom lip. */
+  .rp__slot {
+    position: absolute;
+    left: 1.5rem;
+    right: 1.5rem;
+    bottom: 0.75rem;
+    z-index: 3;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--machine-lip);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ---------- paper ---------- */
+
+  .rp__out-wrap {
+    position: relative;
+    z-index: 4;
+    width: calc(80% + 3rem);
+    max-width: 100%;
+    margin-top: -1rem;
+    padding: 0 1.5rem;
+  }
+
+  /* The window the paper is revealed through. Growing this downwards (rather
+     than sliding the paper down inside a fixed window) is what makes the
+     receipt emerge top-edge first, the way a real printer feeds it. */
+  .rp__output {
+    height: 0;
+    overflow: hidden;
+  }
+
+  .rp__slot-shadow {
+    position: absolute;
+    left: 1.5rem;
+    right: 1.5rem;
+    top: 0;
+    z-index: 2;
+    height: 8px;
+    background: rgba(20, 16, 12, 0.75);
+    filter: blur(6px);
+    pointer-events: none;
+  }
+
+  .rp__feed {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* Drop shadow on the paper itself, kept off the torn edge by insetting it. */
+  .rp__feed::before {
+    content: '';
+    position: absolute;
+    inset: 0.75rem 0.75rem 1rem;
+    z-index: -1;
+    border-radius: 2px;
+    box-shadow: 0 8px 24px rgba(44, 26, 14, 0.24);
+    pointer-events: none;
+  }
+
+  .rp[data-stage='printing'] .rp__output {
+    animation: rp-feed 1.75s linear forwards;
+  }
+
+  .rp[data-stage='complete'] .rp__output { height: auto; }
+
+  .rp__paper {
+    position: relative;
+    min-height: 18rem;
+    padding: 26px 22px 30px;
+    background-color: var(--paper);
+    background-image: var(--noise);
+    background-blend-mode: soft-light;
+    color: var(--paper-ink);
+    font-family: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+  }
+
+  .rp__brand {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+
+  .rp__tagline {
+    margin-top: 4px;
+    text-align: center;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: #7a6a5c;
+  }
+
+  .rp__rule {
+    margin: 14px 0;
+    border-top: 1px dashed #c9bcae;
+  }
+
+  .rp__meta { display: grid; gap: 3px; }
+  .rp__meta-row { display: flex; justify-content: space-between; gap: 12px; }
+  .rp__meta-row span:first-child { color: #7a6a5c; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.08em; }
+  .rp__meta-row span:last-child { text-align: right; }
+
+  .rp__items { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  .rp__item { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; }
+  .rp__item-qty { color: #7a6a5c; }
+  .rp__item-title { overflow-wrap: anywhere; }
+  .rp__item-price { white-space: nowrap; }
+
+  .rp__total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .rp__thanks { text-align: center; color: #5b4b3d; font-size: 10.5px; line-height: 1.7; }
+
+  .rp__barcode {
+    height: 34px;
+    margin: 16px auto 6px;
+    width: 78%;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--paper-ink) 0 2px,
+      transparent 2px 4px,
+      var(--paper-ink) 4px 5px,
+      transparent 5px 9px,
+      var(--paper-ink) 9px 12px,
+      transparent 12px 14px
+    );
+    opacity: 0.85;
+  }
+
+  .rp__barcode-label {
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 0.32em;
+    color: #7a6a5c;
+  }
+
+  /* ---------- motion ---------- */
+
+  @keyframes rp-spin { to { transform: rotate(360deg); } }
+
+  /* Ten discrete advances rather than one glide — each pair of stops holds the
+     paper still while the (imaginary) print head crosses the line. */
+  @keyframes rp-feed {
+    0%     { height: 2px; }
+    7.5%   { height: calc(var(--rp-h) * 0.09); }
+    10.5%  { height: calc(var(--rp-h) * 0.09); }
+    18%    { height: calc(var(--rp-h) * 0.19); }
+    21%    { height: calc(var(--rp-h) * 0.19); }
+    28.5%  { height: calc(var(--rp-h) * 0.3); }
+    31.5%  { height: calc(var(--rp-h) * 0.3); }
+    39%    { height: calc(var(--rp-h) * 0.42); }
+    42%    { height: calc(var(--rp-h) * 0.42); }
+    49.5%  { height: calc(var(--rp-h) * 0.55); }
+    52.5%  { height: calc(var(--rp-h) * 0.55); }
+    60%    { height: calc(var(--rp-h) * 0.68); }
+    63%    { height: calc(var(--rp-h) * 0.68); }
+    70.5%  { height: calc(var(--rp-h) * 0.8); }
+    73.5%  { height: calc(var(--rp-h) * 0.8); }
+    81%    { height: calc(var(--rp-h) * 0.9); }
+    84%    { height: calc(var(--rp-h) * 0.9); }
+    91.5%  { height: calc(var(--rp-h) * 0.97); }
+    94.5%  { height: calc(var(--rp-h) * 0.97); }
+    100%   { height: var(--rp-h); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rp__spinner { animation: none; }
+    .rp[data-stage='printing'] .rp__output { animation: none; height: auto; }
+    .rp__spinner, .rp__check, .rp__status-text span { transition: none; }
+  }
+</style>
+
+<script>
+  // The order is already confirmed server-side; these stages are theatre, so the
+  // whole sequence is skipped for reduced-motion users and lands on "complete".
+  const printer = document.querySelector<HTMLElement>('.rp');
+  const output = document.querySelector<HTMLElement>('.rp__output');
+  const feed = document.querySelector<HTMLElement>('.rp__feed');
+
+  if (printer && output && feed) {
+    // The keyframes step the window open in fractions of the paper's height, so
+    // that height has to be published to CSS before printing starts.
+    const fitOutput = () => {
+      printer.style.setProperty('--rp-h', feed.offsetHeight + 'px');
+    };
+    fitOutput();
+    if ('ResizeObserver' in window) new ResizeObserver(fitOutput).observe(feed);
+    window.addEventListener('load', fitOutput);
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduced) {
+      printer.dataset.stage = 'complete';
+    } else {
+      setTimeout(() => {
+        printer.dataset.stage = 'printing';
+        setTimeout(() => {
+          printer.dataset.stage = 'complete';
+        }, 1750);
+      }, 1400);
+    }
+  }
+</script>
