@@ -149,6 +149,54 @@ export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder |
   }
 }
 
+// ── Payment attempts ───────────────────────────────────────────────────────────
+// A CANCELLED Cashfree order and a payment that is still processing both leave the
+// order in `ACTIVE` — the status alone cannot tell them apart. The distinguishing
+// signal is whether any payment was ever attempted:
+//
+//   cancelled before paying   → no attempts
+//   UPI request awaiting OK   → one attempt, PENDING
+//
+// The exact response shape on API version 2023-08-01 is being confirmed from a real
+// cancellation (see the [cashfree][probe] log below) — until then callers treat
+// "no attempts we can see" as cancelled, which errs toward letting the buyer retry.
+export interface PaymentAttempt {
+  status: string; // SUCCESS | PENDING | FAILED | USER_DROPPED | CANCELLED …
+  method: string;
+}
+
+export async function getPaymentAttempts(orderId: string): Promise<PaymentAttempt[] | null> {
+  if (!cashfreeConfigured()) return null;
+  try {
+    const res = await fetch(`${baseUrl()}/orders/${encodeURIComponent(orderId)}/payments`, {
+      method: 'GET',
+      headers: headers(),
+    });
+    const json = (await res.json()) as unknown;
+    // TEMPORARY — remove once the cancelled-payment shape is confirmed from a real
+    // cancellation. Logs the raw response so we can see exactly what Cashfree returns.
+    console.error('[cashfree][probe] payments', orderId, res.status, JSON.stringify(json).slice(0, 800));
+    if (!res.ok || !Array.isArray(json)) return null;
+    return (json as Array<Record<string, unknown>>).map((p) => ({
+      status: String(p.payment_status ?? ''),
+      method: typeof p.payment_group === 'string' ? p.payment_group : '',
+    }));
+  } catch (err) {
+    console.error('[cashfree] getPaymentAttempts error:', err);
+    return null;
+  }
+}
+
+// Is this unpaid order one the buyer abandoned, rather than one still processing?
+// Errs toward "cancelled" (offer a retry) when we cannot tell: the nightly
+// /api/cron/reconcile-orders job recovers any payment that lands late, whereas
+// telling a buyer "no need to pay again" for an order they cancelled loses the sale.
+export async function isAbandoned(orderId: string): Promise<boolean> {
+  const attempts = await getPaymentAttempts(orderId);
+  if (attempts === null) return true; // couldn't ask — assume they can retry
+  return !attempts.some((a) => a.status === 'PENDING' || a.status === 'SUCCESS');
+}
+
 // ── Webhook signature ──────────────────────────────────────────────────────────
 // HMAC-SHA256 over (timestamp + raw body), base64, keyed with the secret key.
 export function verifyWebhookSignature(timestamp: string, rawBody: string, signature: string): boolean {
@@ -170,7 +218,10 @@ export function verifyWebhookSignature(timestamp: string, rawBody: string, signa
 // ── Finalize ───────────────────────────────────────────────────────────────────
 // Shared by the return page (with cookies → clears the cart) and the webhook
 // (no cookies). Idempotent: completing an already-completed draft is a no-op.
-export type FinalizeStatus = 'paid' | 'pending' | 'failed' | 'error';
+// 'cancelled' = the buyer abandoned the gateway without paying. Distinct from
+// 'pending' (a real payment still being confirmed), because the two need opposite
+// treatment: cancelled should be invited to retry, pending must NOT pay again.
+export type FinalizeStatus = 'paid' | 'pending' | 'cancelled' | 'failed' | 'error';
 export interface FinalizeResult {
   status: FinalizeStatus;
   orderName?: string;
@@ -224,6 +275,10 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
     return { status: 'paid', orderName: order.orderName ?? order.name, amount: cf.amount, currency: cf.currency, items: order.items };
   }
 
-  if (cf.orderStatus === 'ACTIVE') return { status: 'pending' };
+  // ACTIVE covers both "cancelled at the gateway" and "payment still confirming".
+  // Telling them apart decides whether we invite a retry or warn them off one.
+  if (cf.orderStatus === 'ACTIVE') {
+    return { status: (await isAbandoned(orderId)) ? 'cancelled' : 'pending' };
+  }
   return { status: 'failed' };
 }

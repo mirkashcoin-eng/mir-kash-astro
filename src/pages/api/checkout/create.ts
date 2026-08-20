@@ -222,6 +222,10 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   return new Response(
     JSON.stringify({
       paymentSessionId: cf.paymentSessionId,
+      // The page stores this before handing off to the gateway, then asks
+      // /api/checkout/status about it on the way back — that check is what stops a
+      // buyer who already paid from being able to pay again.
+      orderId,
       mode: import.meta.env.PUBLIC_CASHFREE_MODE === 'production' ? 'production' : 'sandbox',
     }),
     { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },

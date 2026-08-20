@@ -277,8 +277,9 @@ const thumbGradients = [
 
 <script>
   import { load } from '@cashfreepayments/cashfree-js';
-  import { getSessionUser, loadProfile, signInWithGoogle, ensureAccountFromCheckout, firebaseConfigured } from '~/lib/firebaseClient';
+  import { getSessionUser, loadProfile, signInWithGoogle, ensureAccountFromCheckout, firebaseConfigured, completeRedirect } from '~/lib/firebaseClient';
   import { citiesFor } from '~/lib/india-locations';
+  import { DRAFT_FIELDS, saveDraft, loadDraft, type CheckoutDraft } from '~/lib/checkout-draft';
 
   if (window.mkTrack) window.mkTrack('checkout_start');
 
@@ -326,6 +327,65 @@ const thumbGradients = [
       el.textContent = pay === 'card' ? 'Card' : pay === 'cod' ? 'Cash on Delivery' : 'UPI';
     }
   }
+
+  // Skip steps whose data is already there and valid — whether it came from the saved
+  // draft on this device or from a signed-in customer's profile. Same rules as the
+  // Continue buttons, so we never advance past a step the buyer would fail.
+  function advanceFromFilledFields() {
+    const phoneOk = phone10().length === 10;
+    const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'));
+    const deliveryOk = !!(val('f-name') && val('f-addr') && val('f-state') && /^\d{6}$/.test(val('f-pin')) && emailOk);
+    if (phoneOk) { done.add('contact'); buildRecap('contact'); active = 'delivery'; }
+    if (phoneOk && deliveryOk) { done.add('delivery'); buildRecap('delivery'); active = 'payment'; }
+    renderFlow();
+  }
+
+  // ── Remember what the buyer typed (lib/checkout-draft.ts) ──
+  // Restored synchronously here, BEFORE the Firebase profile pre-fill runs — that one
+  // lands a second or two later and must only fill the gaps this leaves.
+  function currentDraft(): CheckoutDraft {
+    const fields: Record<string, string> = {};
+    DRAFT_FIELDS.forEach((id) => { const v = val(id); if (v) fields[id] = v; });
+    return {
+      fields,
+      waOptin: ($('waOptin') as HTMLInputElement)?.checked ?? true,
+      pay: (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay || '',
+    };
+  }
+
+  function restoreDraft(): boolean {
+    const draft = loadDraft();
+    if (!draft) return false;
+    // State first: the city datalist is keyed off it, so filling city before state
+    // would offer an empty list.
+    if (draft.fields['f-state']) {
+      const el = document.getElementById('f-state') as HTMLSelectElement;
+      if (el) { el.value = draft.fields['f-state']!; fillCities(draft.fields['f-state']!); }
+    }
+    DRAFT_FIELDS.forEach((id) => {
+      if (id === 'f-state') return;
+      const el = document.getElementById(id) as HTMLInputElement;
+      if (el && draft.fields[id]) el.value = draft.fields[id]!;
+    });
+    const optin = $('waOptin') as HTMLInputElement;
+    if (optin) optin.checked = draft.waOptin;
+    // Apt was typed before, so show it rather than hiding it behind "+ Add".
+    if (draft.fields['f-apt']) { $('rev-apt').classList.add('show'); $('lnk-apt').classList.add('hidden'); }
+    if (draft.pay) {
+      const opt = document.querySelector(`.pay-opt[data-pay="${draft.pay}"]`);
+      if (opt) { document.querySelectorAll('.pay-opt').forEach((x) => x.classList.remove('sel')); opt.classList.add('sel'); }
+    }
+    return Object.keys(draft.fields).length > 0;
+  }
+
+  // Debounced: this would otherwise write to localStorage on every keystroke.
+  let saveTimer = 0;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => saveDraft(currentDraft()), 400);
+  }
+  document.querySelector('.flow')?.addEventListener('input', scheduleSave);
+  document.querySelector('.flow')?.addEventListener('change', scheduleSave);
 
   // ── Delivery: saved-address card ↔ form ──
   // Signed-in customers with a saved address see the card + a single "Edit"; the
@@ -486,9 +546,77 @@ const thumbGradients = [
   document.querySelectorAll('.pay-opt').forEach((o) => o.addEventListener('click', () => {
     document.querySelectorAll('.pay-opt').forEach((x) => x.classList.remove('sel'));
     o.classList.add('sel');
+    scheduleSave(); // a div click fires neither 'input' nor 'change'
     syncPayUi();
     if (done.has('payment')) buildRecap('payment');
   }));
+
+  // ── Coming back from the payment gateway ──────────────────────────────────────
+  // #placeBtn disables itself on the way out and only the catch below re-enables it —
+  // which never runs, because redirectTarget:'_self' unloads the tab. The browser then
+  // hands the page back exactly as we left it (bfcache), button still disabled, and
+  // `.btn-cta:disabled { pointer-events: none }` makes it permanently dead. Clicking a
+  // different payment method appears to work (syncPayUi rewrites the label) while the
+  // button stays inert — which is exactly what buyers report.
+  //
+  // We cannot simply re-enable it. Someone who PAID and then pressed Back would be
+  // able to pay a second time; the dead button is, by accident, the only thing
+  // preventing that today. So: ask the server what happened first, and fail closed.
+  const PENDING_KEY = 'mk_pending_order';
+
+  async function recoverAfterGatewayReturn() {
+    const btn = $('placeBtn') as HTMLButtonElement;
+    let pending = '';
+    try { pending = sessionStorage.getItem(PENDING_KEY) || ''; } catch {}
+    if (!pending) { btn.disabled = false; syncPayUi(); return; }
+
+    try {
+      const res = await fetch('/api/checkout/status?order_id=' + encodeURIComponent(pending), { cache: 'no-store' });
+      const { state } = await res.json();
+
+      if (state === 'paid') {
+        // Already paid — never re-enable. Send them to their receipt instead.
+        // Clear first: leaving it set would bounce a LATER visit (new cart, new order)
+        // straight back to this old receipt.
+        try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+        window.location.href = '/checkout/return?order_id=' + encodeURIComponent(pending);
+        return;
+      }
+      if (state === 'pending') {
+        // A real payment is still in flight (a UPI request awaiting approval). Paying
+        // again would double-charge, so leave the button alone and say why.
+        $('placeTxt').textContent = 'Payment in progress…';
+        showErr('payment', 'Your payment is still being confirmed. Please wait a moment before trying again.');
+        return;
+      }
+      if (state === 'unknown') {
+        // Could not reach Cashfree. Refuse to guess — guessing wrong charges someone twice.
+        showErr('payment', 'We could not check your last payment. Please refresh before trying again.');
+        return;
+      }
+      // Cancelled or expired: safe to let them choose another method.
+      try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+      btn.disabled = false;
+      syncPayUi();
+      showErr('payment', 'Payment cancelled — choose another method and try again.');
+    } catch {
+      showErr('payment', 'We could not check your last payment. Please refresh before trying again.');
+    }
+  }
+
+  // Fires on a normal load and on a bfcache restore (the Back-button case).
+  window.addEventListener('pageshow', recoverAfterGatewayReturn);
+
+  // Arriving from the return page after cancelling at the gateway. Say so, then strip
+  // the param so a refresh doesn't repeat a message about a payment already dealt with.
+  if (new URLSearchParams(location.search).get('cancelled') === '1') {
+    try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+    ($('placeBtn') as HTMLButtonElement).disabled = false;
+    showErr('payment', 'Payment cancelled — choose another method and try again.');
+    const url = new URL(location.href);
+    url.searchParams.delete('cancelled');
+    history.replaceState({}, '', url.pathname + url.search);
+  }
 
   // ── Place order → Cashfree ──
   $('placeBtn').addEventListener('click', async () => {
@@ -533,8 +661,16 @@ const thumbGradients = [
         return;
       }
       if (!res.ok || !data.paymentSessionId) throw new Error(data.error || 'Could not start payment');
+      // Remember which payment is in flight. On the way back, pageshow asks the server
+      // what became of it — without this we cannot tell "cancelled, let them retry"
+      // from "already paid, do NOT let them pay again".
+      if (data.orderId) { try { sessionStorage.setItem(PENDING_KEY, data.orderId); } catch {} }
       const cashfree = await load({ mode: data.mode });
-      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' });
+      const result: any = await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' });
+      // The v3 SDK RESOLVES with {error} rather than throwing, so without this a
+      // failure that never leaves the page would leave the buyer on a dead button
+      // with no message at all.
+      if (result?.error) throw new Error(result.error.message || 'Payment could not be started');
     } catch (err) {
       console.error(err);
       showErr('payment', isCod ? 'We couldn’t place your order. Please try again.' : 'Payment could not be started. Please try again.');
@@ -557,13 +693,24 @@ const thumbGradients = [
     }
   } catch {}
 
-  renderFlow();
+  // Put back whatever they typed last time (or before the last refresh), then open
+  // the step they actually need — not step 1.
+  const restoredFromDraft = restoreDraft();
+  advanceFromFilledFields();
 
   // ── Account: sign-in + saved-address pre-fill ──
   if (firebaseConfigured()) {
     const doSignIn = async () => {
-      try { await signInWithGoogle(); location.reload(); }
-      catch (e: any) {
+      try {
+        // null = the flow continued as a full-page redirect (popup unavailable, e.g.
+        // the Instagram/WhatsApp in-app browser). The tab is already navigating away;
+        // completeRedirect() below picks the session up when it comes back.
+        const user = await signInWithGoogle();
+        if (!user) return;
+        // No reload: it would throw away everything the buyer has typed. Re-run the
+        // pre-fill in place instead — it only fills gaps now, so their input survives.
+        await applySession();
+      } catch (e: any) {
         const code = e?.code || '';
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
         alert('Sign-in failed: ' + (code || e?.message || 'unknown'));
@@ -573,8 +720,19 @@ const thumbGradients = [
     if (sBtn) sBtn.addEventListener('click', doSignIn);
     const banner = $('signinBanner');
     $('signinBannerBtn')?.addEventListener('click', doSignIn);
-    const setVal = (id: string, value?: string | null) => { const el = document.getElementById(id) as HTMLInputElement; if (el && value) el.value = value; };
-    (async () => {
+    // Fills GAPS only. This runs one to two seconds after the fields go live (auth
+    // state, then a Firestore read), so writing unconditionally would overwrite both
+    // the restored draft and anything the buyer is typing right now.
+    // Precedence: what they typed > saved draft > profile.
+    const setVal = (id: string, value?: string | null) => {
+      const el = document.getElementById(id) as HTMLInputElement;
+      if (el && value && !el.value) el.value = value;
+    };
+    async function applySession() {
+      // Collect a session arriving back from a redirect sign-in before asking who's
+      // signed in — otherwise the first read races the redirect result and the page
+      // decides the buyer is a guest.
+      await completeRedirect();
       const user = await getSessionUser();
       // Only prompt sign-in once we KNOW the visitor isn't signed in (no flash).
       if (!user) {
@@ -582,6 +740,10 @@ const thumbGradients = [
         if (banner) banner.hidden = false;
         return;
       }
+      // Signed in — retract the prompt. This function re-runs after a successful
+      // sign-in (there's no page reload any more), so hiding has to be explicit.
+      if (sBtn) sBtn.hidden = true;
+      if (banner) banner.hidden = true;
       const p = await loadProfile(user.uid);
       if (!p) { setVal('f-email', user.email); return; }
       setVal('f-phone', (p.phone || '').replace(/\D/g, '').slice(-10));
@@ -590,11 +752,16 @@ const thumbGradients = [
       setVal('f-apt', p.address2);
       setVal('f-pin', p.zip);
       setVal('f-email', p.email || user.email);
-      if (p.province) { setVal('f-state', p.province); fillCities(p.province); }
+      // setVal may have declined (the buyer's own state is already in the field), so
+      // key the city list off what f-state ACTUALLY holds — otherwise a profile from a
+      // different state would replace their city suggestions with the wrong ones.
+      if (p.province) { setVal('f-state', p.province); fillCities(val('f-state')); }
       setVal('f-city', p.city);
       if (p.address2) { $('rev-apt').classList.add('show'); $('lnk-apt').classList.add('hidden'); }
       const card = $('savedCard');
-      if (card && (p.address1 || p.full_name)) {
+      // Skip the collapsed card when a draft was restored — it hides #deliveryFields,
+      // which would bury the address the buyer typed behind a different saved one.
+      if (card && !restoredFromDraft && (p.address1 || p.full_name)) {
         $('savedName').textContent = p.full_name || user.email || '';
         $('savedAddr').innerHTML = [p.address1, [p.city, p.province, p.zip].filter(Boolean).join(', ')].filter(Boolean).join('<br>');
         // Show the saved address as a card with a single "Edit" — hide the form
@@ -602,17 +769,9 @@ const thumbGradients = [
         showSavedAddr();
       }
 
-      // Returning customer: auto-complete the steps we already have, so they don't
-      // re-enter Contact/Delivery — collapse them to a recap (with the Edit button)
-      // and jump toward Payment. Only advance past a step whose data actually
-      // validates (same rules as the Continue buttons); leave the rest for them.
-      const phoneOk = phone10().length === 10;
-      const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f-email'));
-      const deliveryOk = !!(val('f-name') && val('f-addr') && val('f-state') && /^\d{6}$/.test(val('f-pin')) && emailOk);
-      if (phoneOk) { done.add('contact'); buildRecap('contact'); active = 'delivery'; }
-      if (phoneOk && deliveryOk) { done.add('delivery'); buildRecap('delivery'); active = 'payment'; }
-      renderFlow();
-    })();
+      advanceFromFilledFields();
+    }
+    applySession();
   }
 </script>
 

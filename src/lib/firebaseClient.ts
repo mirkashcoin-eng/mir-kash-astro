@@ -21,6 +21,9 @@ const cfg = {
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+// Resolves once persistence is configured. Awaited before any sign-in so a session
+// can never be created under the default before browserLocalPersistence lands.
+let persistenceReady: Promise<void> = Promise.resolve();
 
 export function firebaseConfigured(): boolean {
   return Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId);
@@ -30,9 +33,14 @@ function init() {
   if (!app) app = getApps()[0] ?? initializeApp(cfg);
   if (!auth) {
     auth = getAuth(app);
-    // Keep the customer signed in across tabs and revisits (explicit, though it's
-    // the SDK default) so they never have to log in again on a return visit.
-    setPersistence(auth, browserLocalPersistence).catch(() => {});
+    // Keep the customer signed in across tabs and revisits. If IndexedDB/localStorage
+    // is unavailable (Safari Private, storage-partitioned in-app webviews) the SDK
+    // falls back to IN-MEMORY persistence — which reads to the customer as "signed in
+    // until I refresh". Log it rather than swallow it; it's the first thing to check
+    // when someone reports being logged out.
+    persistenceReady = setPersistence(auth, browserLocalPersistence).catch((e) => {
+      console.warn('[firebase] persistent session unavailable — sign-in will not survive a refresh', e);
+    });
   }
   if (!db) db = getFirestore(app);
   return true;
@@ -53,6 +61,14 @@ export function getSessionUser(): Promise<User | null> {
   });
 }
 
+// getSessionUser() resolves once and stops listening, so a session that arrives late
+// — a completed redirect, a token refresh, a sign-in in another tab — is never seen.
+// Subscribe when you need to react to that. Returns an unsubscribe function.
+export function subscribeUser(cb: (user: User | null) => void): () => void {
+  if (!init()) { cb(null); return () => {}; }
+  return onAuthStateChanged(auth!, cb);
+}
+
 export async function getIdToken(forceRefresh = false): Promise<string | null> {
   if (!init()) return null;
   return auth!.currentUser ? auth!.currentUser.getIdToken(forceRefresh) : null;
@@ -66,20 +82,50 @@ function googleProvider(): GoogleAuthProvider {
   return provider;
 }
 
+// Popup first, redirect if the environment won't allow one.
+//
+// NB: this used to call fbSignOut() first, to force the Google account chooser. That
+// signed the customer OUT before the popup opened — so a blocked or closed popup left
+// them logged out with no session to fall back to, which is precisely the "I don't
+// stay signed in" complaint. The chooser is already guaranteed by
+// prompt:'select_account' in googleProvider(), so the sign-out was redundant.
+//
+// Returns null when the flow continued as a full-page redirect: the tab is navigating
+// away and completeRedirect() picks the session up on the way back.
 export async function signInWithGoogle(): Promise<User | null> {
   if (!init()) return null;
-  // Clear any lingering Firebase session first so the Google account chooser always
-  // appears and can never silently reuse a previously-signed-in (personal) account.
-  try { await fbSignOut(auth!); } catch { /* ignore */ }
-  const { user } = await signInWithPopup(auth!, googleProvider());
-  return user;
+  await persistenceReady;
+  try {
+    const { user } = await signInWithPopup(auth!, googleProvider());
+    return user;
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code ?? '';
+    // In-app browsers (Instagram, WhatsApp) block popups outright, and some
+    // privacy configurations refuse the popup's storage access. Redirect works
+    // in all of them.
+    if (POPUP_UNAVAILABLE.has(code)) {
+      await signInWithGoogleRedirect();
+      return null;
+    }
+    throw e;
+  }
 }
+
+// Popup failures that mean "this browser won't do popups" — as opposed to
+// "the customer changed their mind", which must stay an error the caller can ignore.
+const POPUP_UNAVAILABLE = new Set([
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+  'auth/internal-error',
+]);
 
 // Full-page redirect sign-in — the reliable fallback when a popup is blocked/closed
 // (strict third-party-storage browsers). Navigates away; the session is picked up by
 // completeRedirect() on return.
 export async function signInWithGoogleRedirect(): Promise<void> {
   if (!init()) return;
+  await persistenceReady;
   await signInWithRedirect(auth!, googleProvider());
 }
 
