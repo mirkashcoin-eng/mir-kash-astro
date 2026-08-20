@@ -311,10 +311,13 @@ export async function createDraftOrder(args: {
   };
 
   // Coupon → a fixed-amount order discount so the charged total matches the cart.
+  // `value` is Float! in the Admin schema — a string ("500.00") is rejected outright
+  // with "Could not coerce value to Float", which fails the whole draftOrderCreate
+  // and surfaces to the buyer as "Payment could not be started". Send a number.
   if (args.discount && args.discount.amount > 0) {
     input.appliedDiscount = {
       valueType: 'FIXED_AMOUNT',
-      value: args.discount.amount.toFixed(2),
+      value: Math.round(args.discount.amount * 100) / 100,
       title: args.discount.title || 'Discount',
     };
   }
