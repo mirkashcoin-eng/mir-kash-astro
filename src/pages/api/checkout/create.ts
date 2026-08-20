@@ -4,6 +4,7 @@ import { getCart, applyDiscount } from '~/lib/shopify/cart';
 import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { createCashfreeOrder } from '~/lib/cashfree';
+import { INDIA_MARKET } from '~/lib/markets';
 import { couponLimitBlock, couponBlockMessage, recordRedemption } from '~/lib/coupons';
 
 export const prerender = false;
@@ -83,12 +84,18 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     return bad('Missing required fields');
   }
 
-  // India cart only — custom checkout never touches the global store.
+  // India cart only — and India-only by construction, not by routing choice: this
+  // endpoint creates a Shopify draft order and a Cashfree payment, neither of which
+  // serves the global store. Global markets never reach here; they check out on
+  // Shopify's hosted checkout via cart.checkoutUrl. The country comes from the market
+  // registry so the cart is read in the same @inContext /checkout rendered it in.
   // Buy-now uses the separate single-item cart; otherwise the main cart.
   const isBuyNow = body.buynow === true;
   const cartId = resolveCheckoutCartId(cookies, 'india', isBuyNow);
   if (!cartId) return bad('Cart is empty', 409);
-  const cart = await getCart('india', cartId);
+  // Must match the country context /checkout rendered with, or the total we charge
+  // can differ from the total the buyer just saw.
+  const cart = await getCart('india', cartId, INDIA_MARKET.countryCode);
   if (!cart || cart.lines.length === 0) return bad('Cart is empty', 409);
 
   const lines = cart.lines.map((l) => ({ variantId: l.merchandiseId, quantity: l.quantity }));
@@ -122,7 +129,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     const block = await couponLimitBlock(cart.discountCode, { email, phone: phone10 });
     if (block) {
       // Clear it so the buyer's refresh shows the true total instead of this error again.
-      await applyDiscount('india', cartId, []);
+      await applyDiscount('india', cartId, [], INDIA_MARKET.countryCode);
       return bad(couponBlockMessage(block), 409);
     }
   }

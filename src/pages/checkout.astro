@@ -1,20 +1,34 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import CheckoutPage from '~/components/CheckoutPage.astro';
-import { resolveCheckoutCartId } from '~/lib/cart-session';
+import { resolveCheckoutCartId, getCartId } from '~/lib/cart-session';
 import { getCart } from '~/lib/shopify/cart';
 
-// Custom checkout = INDIA store only.
-// Resolve the cart here, at the page level, so an empty/missing cart can redirect
-// before BaseLayout starts streaming — a redirect from inside the child component
-// lands after the 200 is already flushed and surfaces as "Internal server error".
-const store = 'india' as const;
+// This custom checkout exists for the INDIA store only — it is built on the Shopify
+// Admin API (draft orders) and Cashfree, neither of which serves the global store.
+// Every other market checks out on Shopify's own hosted checkout, which carries the
+// cart's discount codes across by itself.
+//
+// The store and country come from the market the visitor is actually in
+// (middleware → Astro.locals), never a hardcoded 'india', so the cart we read here
+// is the same one, in the same @inContext, that /cart rendered.
+const { market, marketConfig } = Astro.locals;
 const isBuyNow = Astro.url.searchParams.get('buynow') === '1';
 
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
-const cartId = resolveCheckoutCartId(Astro.cookies, store, isBuyNow);
-const cart = cartId ? await getCart(store, cartId) : null;
+// A global-market visitor who lands here belongs on their own hosted checkout.
+if (market !== 'india') {
+  const mainCartId = getCartId(Astro.cookies, market);
+  const globalCart = mainCartId ? await getCart(market, mainCartId, marketConfig.countryCode) : null;
+  return Astro.redirect(globalCart?.checkoutUrl || `${marketConfig.urlPrefix}/cart`);
+}
+
+// Resolve the cart at the page level so an empty/missing cart can redirect before
+// BaseLayout starts streaming — a redirect from inside the child component lands
+// after the 200 is already flushed and surfaces as "Internal server error".
+const cartId = resolveCheckoutCartId(Astro.cookies, market, isBuyNow);
+const cart = cartId ? await getCart(market, cartId, marketConfig.countryCode) : null;
 if (!cart || cart.lines.length === 0) return Astro.redirect('/cart');
 ---
 <BaseLayout title="Checkout — Mir Kash" path="/checkout">

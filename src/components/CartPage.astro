@@ -92,7 +92,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
 
 <SiteFooter />
 
-<script define:vars={{ store: market, currency, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })) }}>
+<script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })) }}>
   const main = document.querySelector('.cart-page');
 
   // Global market never lands on this site's own /checkout — clicking "Carry Home"
@@ -165,7 +165,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
     try {
       const res = await fetch('/api/cart/apply-discount', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store, code }),
+        body: JSON.stringify({ store, code, countryCode }),
       });
       const data = await res.json();
       if (data.ok === false) { err.textContent = data.error || 'Invalid code.'; err.hidden = false; couponBtn.disabled = false; couponBtn.textContent = 'Apply'; return; }

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { createCart } from '~/lib/shopify/cart';
-import { resolveStore, persistBuyNowCart } from '~/lib/cart-session';
+import { createCart, getCart, applyDiscount } from '~/lib/shopify/cart';
+import { resolveStore, persistBuyNowCart, getCartId } from '~/lib/cart-session';
 
 export const prerender = false;
 
@@ -23,9 +23,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const store = resolveStore(body.store);
-  const cart = await createCart(store, [{ merchandiseId, quantity }], body.countryCode);
+  let cart = await createCart(store, [{ merchandiseId, quantity }], body.countryCode);
   if (!cart) {
     return new Response(JSON.stringify({ error: 'Could not start buy-now' }), { status: 502 });
+  }
+
+  // Buy-now gets its own cart so the bag isn't disturbed — but a coupon the shopper
+  // already entered is theirs, not the bag's, so carry it across. Without this the
+  // code silently vanishes on the way to checkout. Best-effort: if it no longer
+  // applies to this single item, the buy-now cart just goes ahead without it.
+  const mainCartId = getCartId(cookies, store);
+  if (mainCartId) {
+    const main = await getCart(store, mainCartId, body.countryCode);
+    if (main?.discountCode) {
+      const carried = await applyDiscount(store, cart.id, [main.discountCode], body.countryCode);
+      if (carried.cart) cart = carried.cart;
+    }
   }
 
   persistBuyNowCart(cookies, store, cart);

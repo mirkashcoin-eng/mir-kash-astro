@@ -10,7 +10,7 @@ export const prerender = false;
 // The global store's code carries through the Storefront cart into Shopify's
 // hosted checkout automatically; India's custom checkout reapplies it to the draft.
 export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { store?: string; code?: string };
+  let body: { store?: string; code?: string; countryCode?: string };
   try {
     body = await request.json();
   } catch {
@@ -19,10 +19,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const store = resolveStore(body.store);
   const code = (body.code ?? '').trim();
+  // The page sends its market's country so the cart is read under the same
+  // @inContext it was rendered with — otherwise totals and currency can differ.
+  const countryCode = (body.countryCode ?? '').trim().toUpperCase() || undefined;
   const cartId = getCartId(cookies, store);
   if (!cartId) return new Response(JSON.stringify({ error: 'No cart' }), { status: 409 });
 
-  const { cart, applied } = await applyDiscount(store, cartId, code ? [code] : []);
+  const { cart, applied } = await applyDiscount(store, cartId, code ? [code] : [], countryCode);
   if (!cart) return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
 
   if (code && !applied) {
@@ -38,7 +41,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (store === 'india' && code && applied) {
     const block = await couponLimitBlock(code);
     if (block) {
-      await applyDiscount(store, cartId, []); // else create.ts would still discount it
+      await applyDiscount(store, cartId, [], countryCode); // else create.ts would still discount it
       return new Response(
         JSON.stringify({ ok: false, error: couponBlockMessage(block) }),
         { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },

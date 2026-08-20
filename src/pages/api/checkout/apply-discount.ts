@@ -2,11 +2,19 @@ import type { APIRoute } from 'astro';
 import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { applyDiscount } from '~/lib/shopify/cart';
 import { couponLimitBlock, couponBlockMessage } from '~/lib/coupons';
+import { INDIA_MARKET } from '~/lib/markets';
 
 export const prerender = false;
 
 // Apply (or clear, with empty code) a discount code on the India checkout cart.
 // Returns the updated totals so the summary can re-render.
+//
+// INDIA-ONLY by construction, not by routing choice: the custom checkout this serves
+// runs on the Shopify Admin API + Cashfree, neither of which serves the global store.
+// Global markets check out on Shopify's hosted checkout and use /api/cart/apply-discount,
+// which takes its store + country from the caller's market. The country here comes from
+// the market registry (INDIA_MARKET) so this endpoint reads the cart in exactly the
+// @inContext that /cart and /checkout rendered it in.
 export const POST: APIRoute = async ({ request, cookies }) => {
   let body: { code?: string; buynow?: boolean };
   try {
@@ -19,7 +27,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const cartId = resolveCheckoutCartId(cookies, 'india', body.buynow === true);
   if (!cartId) return new Response(JSON.stringify({ error: 'No cart' }), { status: 409 });
 
-  const { cart, applied } = await applyDiscount('india', cartId, code ? [code] : []);
+  const { cart, applied } = await applyDiscount('india', cartId, code ? [code] : [], INDIA_MARKET.countryCode);
   if (!cart) return new Response(JSON.stringify({ error: 'Could not update cart' }), { status: 502 });
 
   if (code && !applied) {
@@ -37,7 +45,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (code && applied) {
     const block = await couponLimitBlock(code);
     if (block) {
-      await applyDiscount('india', cartId, []);
+      await applyDiscount('india', cartId, [], INDIA_MARKET.countryCode);
       return new Response(
         JSON.stringify({ ok: false, error: couponBlockMessage(block) }),
         { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
