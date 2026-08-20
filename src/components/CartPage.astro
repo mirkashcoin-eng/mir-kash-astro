@@ -170,11 +170,13 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
       const data = await res.json();
       if (data.ok === false) { err.textContent = data.error || 'Invalid code.'; err.hidden = false; couponBtn.disabled = false; couponBtn.textContent = 'Apply'; return; }
       if (!res.ok) throw new Error();
+      // Applied/Remove state keys off the CODE, row visibility off the AMOUNT — a
+      // valid code worth ₹0 must not silently reset the input.
       const row = document.getElementById('discountRow');
-      if (data.discount > 0 && data.code) {
-        row.style.display = '';
+      if (data.code) {
         document.getElementById('discountLbl').textContent = data.code;
         document.getElementById('discountVal').textContent = '−' + fmtMoney(data.discount);
+        row.style.display = data.discount > 0 ? '' : 'none';
         couponBtn.dataset.applied = '1'; couponBtn.textContent = 'Remove'; input.value = data.code;
       } else {
         row.style.display = 'none';

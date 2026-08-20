@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { resolveCheckoutCartId } from '~/lib/cart-session';
 import { applyDiscount } from '~/lib/shopify/cart';
+import { couponLimitBlock, couponBlockMessage } from '~/lib/coupons';
 
 export const prerender = false;
 
@@ -26,6 +27,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       JSON.stringify({ ok: false, error: 'That code isn’t valid for this order.' }),
       { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
     );
+  }
+
+  // Shopify still thinks the code is applicable — its usage counter never moves for
+  // India orders (see lib/coupons.ts) — so enforce the limits against our own ledger.
+  // Only the TOTAL cap is checkable here; "one per customer" needs a buyer and is
+  // checked in checkout/create. Clearing the code off the cart is not optional:
+  // leaving it applicable means create.ts would discount the order anyway.
+  if (code && applied) {
+    const block = await couponLimitBlock(code);
+    if (block) {
+      await applyDiscount('india', cartId, []);
+      return new Response(
+        JSON.stringify({ ok: false, error: couponBlockMessage(block) }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
+      );
+    }
   }
 
   return new Response(

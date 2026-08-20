@@ -409,12 +409,14 @@ const thumbGradients = [
       const data = await res.json();
       if (data.ok === false) { showErr('coupon', data.error || 'Invalid code.'); btn.disabled = false; btn.textContent = 'Apply'; return; }
       if (!res.ok) throw new Error();
-      // Update totals
+      // Update totals. The applied/Remove state keys off the CODE, the row's
+      // visibility off the AMOUNT — a valid code worth ₹0 (free shipping, when
+      // shipping is already free) must not silently reset the input.
       const row = $('discountRow');
-      if (data.discount > 0 && data.code) {
-        row.style.display = '';
+      if (data.code) {
         $('discountLbl').textContent = data.code;
         $('discountVal').textContent = '−' + inrFmt(data.discount);
+        row.style.display = data.discount > 0 ? '' : 'none';
         btn.dataset.applied = '1'; btn.textContent = 'Remove'; input.value = data.code;
       } else {
         row.style.display = 'none';
@@ -428,7 +430,9 @@ const thumbGradients = [
       showErr('coupon', 'Could not apply the code. Please try again.');
     } finally {
       btn.disabled = false;
-      if (btn.textContent === 'Applying…' || btn.textContent === 'Removing…') btn.textContent = removing ? 'Apply' : 'Apply';
+      // Only reset a still-pending label; the success path has already set the
+      // correct 'Apply'/'Remove' text and must not be clobbered here.
+      if (btn.textContent === 'Applying…' || btn.textContent === 'Removing…') btn.textContent = 'Apply';
     }
   });
 
@@ -512,6 +516,15 @@ const thumbGradients = [
         }),
       });
       const data = await res.json();
+      // 409 = the coupon hit its usage limit (or the cart emptied) and the server has
+      // already stripped the code. The summary on screen still shows the discounted
+      // total, so a reload is required — otherwise the next click would pay the old
+      // figure while being charged the new one. Carry the message across the reload.
+      if (res.status === 409 && data.error) {
+        try { sessionStorage.setItem('mk_checkout_err', data.error); } catch {}
+        window.location.reload();
+        return;
+      }
       if (isCod) {
         if (!res.ok || !data.cod) throw new Error(data.error || 'Could not place your order');
         const codParams = new URLSearchParams({ cod: '1', order: data.orderName || '' });
@@ -529,6 +542,20 @@ const thumbGradients = [
       syncPayUi();
     }
   });
+
+  // A coupon rejected at order time (the 409 branch in placeBtn above) reloads the page
+  // to clear the stale total; surface its reason against the coupon field.
+  try {
+    const carried = sessionStorage.getItem('mk_checkout_err');
+    if (carried) {
+      sessionStorage.removeItem('mk_checkout_err');
+      showErr('coupon', carried);
+      // Open the summary so the message (and the corrected total) are visible.
+      sumOpen = true;
+      $('sumBody').classList.add('open');
+      $('sumChev').classList.add('open');
+    }
+  } catch {}
 
   renderFlow();
 

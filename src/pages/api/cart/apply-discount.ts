@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getCartId, resolveStore } from '~/lib/cart-session';
 import { applyDiscount } from '~/lib/shopify/cart';
+import { couponLimitBlock, couponBlockMessage } from '~/lib/coupons';
 
 export const prerender = false;
 
@@ -29,6 +30,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       JSON.stringify({ ok: false, error: 'That code isn’t valid for this order.' }),
       { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
     );
+  }
+
+  // India only: its custom checkout never redeems the code in Shopify, so the usage
+  // cap is ours to enforce (see lib/coupons.ts). The global store's hosted checkout
+  // redeems and counts codes itself — gating it here would exhaust codes twice over.
+  if (store === 'india' && code && applied) {
+    const block = await couponLimitBlock(code);
+    if (block) {
+      await applyDiscount(store, cartId, []); // else create.ts would still discount it
+      return new Response(
+        JSON.stringify({ ok: false, error: couponBlockMessage(block) }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
+      );
+    }
   }
 
   return new Response(

@@ -110,7 +110,7 @@ export interface CartLineView {
   variantTitle: string;
   handle: string;
   price: number;
-  lineTotal: number;
+  lineTotal: number;              // GROSS: price × quantity, before any discount
   image: string | null;
 }
 
@@ -118,10 +118,12 @@ export interface CartView {
   id: string;
   checkoutUrl: string;
   totalQuantity: number;
-  subtotal: number;
+  subtotal: number;              // Σ lineTotal — gross, NOT cost.subtotalAmount (see normalize)
   total: number;
   currency: string;
   discountCode: string | null;   // an applied, applicable code
-  discountAmount: number;        // subtotal − total (₹ off)
+  // Total off (subtotal − total): covers cart-level, line-allocated AND automatic
+  // discounts. This is what the draft order's FIXED_AMOUNT discount is set to.
+  discountAmount: number;
   lines: CartLineView[];
 }

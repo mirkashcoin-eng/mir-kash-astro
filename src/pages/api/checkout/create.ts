@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { resolveCheckoutCartId, clearCart, clearBuyNowCart, getClickId, clearClickId } from '~/lib/cart-session';
-import { getCart } from '~/lib/shopify/cart';
+import { getCart, applyDiscount } from '~/lib/shopify/cart';
 import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
 import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { createCashfreeOrder } from '~/lib/cashfree';
+import { couponLimitBlock, couponBlockMessage, recordRedemption } from '~/lib/coupons';
 
 export const prerender = false;
 
@@ -112,16 +113,45 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   // the reconciler can recover the order if the webhook + return page both miss it.
   const orderId = isCod ? '' : `mk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+  // Authoritative coupon gate — re-checked here even though apply-discount already
+  // ran, because that was a separate request: the buyer may have sat on the page,
+  // raced a second tab, or filled in contact details since. This is also the first
+  // point where we know the buyer, so "one use per customer" can finally be checked.
+  // Runs BEFORE createDraftOrder so a blocked order leaves nothing behind.
+  if (cart.discountCode) {
+    const block = await couponLimitBlock(cart.discountCode, { email, phone: phone10 });
+    if (block) {
+      // Clear it so the buyer's refresh shows the true total instead of this error again.
+      await applyDiscount('india', cartId, []);
+      return bad(couponBlockMessage(block), 409);
+    }
+  }
+
   const discount = cart.discountAmount > 0
     ? { amount: cart.discountAmount, title: cart.discountCode || 'Discount' }
     : undefined;
   // Affiliate attribution, if this visitor arrived through a /go link.
   const clickId = getClickId(cookies) || undefined;
-  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, optin: body.waOptin === true, cod: isCod, cfOrderId: orderId || undefined, clickId });
+  const draft = await createDraftOrder({ lines, address, email, phone: phoneE164, discount, discountCode: cart.discountCode || undefined, optin: body.waOptin === true, cod: isCod, cfOrderId: orderId || undefined, clickId });
   if (!draft) return bad('Could not create order', 502);
 
   const amount = Number(draft.totalPrice.amount);
   if (!Number.isFinite(amount) || amount <= 0) return bad('Invalid order total', 502);
+
+  // The draft total should equal the total the buyer just saw. If it doesn't, the
+  // coupon didn't survive into the draft (or a variant price moved mid-session).
+  // We proceed either way — this is here so the mismatch is findable in the logs.
+  if (Math.abs(amount - cart.total) > 1) {
+    console.error('[checkout] draft total ≠ displayed cart total', {
+      draftId: draft.id,
+      draftTotal: amount,
+      cartTotal: cart.total,
+      subtotal: cart.subtotal,
+      discountAmount: cart.discountAmount,
+      discountCode: cart.discountCode,
+      cod: isCod,
+    });
+  }
 
   // ── Cash on Delivery: no online payment. Complete the draft as "payment pending"
   // (a real order with money collected on delivery), clear the cart, and we're done.
@@ -131,6 +161,19 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     if (isBuyNow) clearBuyNowCart(cookies, 'india');
     else clearCart(cookies, 'india');
     clearClickId(cookies); // referral is on the order now — don't credit it twice
+    // COD mints a real order right here, with no gateway in between — so this is
+    // where its coupon redemption is ledgered. (Online orders are ledgered in
+    // finalizeOrder, once payment actually succeeds.)
+    if (cart.discountCode) {
+      await recordRedemption({
+        code: cart.discountCode,
+        orderName: completed.orderName ?? completed.name,
+        orderId: completed.orderId,
+        email,
+        phone: phone10,
+        amount: cart.discountAmount,
+      });
+    }
     // Instant WhatsApp order confirmation (opted-in only). Best-effort; never blocks COD.
     await notifyOrderConfirmed({
       orderName: completed.orderName ?? completed.name,

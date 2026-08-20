@@ -116,8 +116,14 @@ export interface DraftOrderResult {
   orderId: string | null; // real Order GID, set once completed
   items: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
   phone: string | null;        // for the instant WhatsApp order confirmation
+  email: string | null;        // buyer identity for the coupon redemption ledger
   waOptin: boolean;            // customer ticked "order updates on WhatsApp"
   customerName: string | null; // shipping first name, for the greeting
+  // The coupon code used, stamped as a custom attribute so it survives even when the
+  // discount is worth ₹0 (free shipping on already-free shipping) and no
+  // appliedDiscount is attached. This is what finalizeOrder ledgers.
+  discountCode: string | null;
+  discount: { title: string; amount: Money } | null;
 }
 
 interface RawDraftOrder {
@@ -127,6 +133,8 @@ interface RawDraftOrder {
   totalPriceSet: { shopMoney: Money };
   order: { id: string; name: string } | null;
   phone: string | null;
+  email: string | null;
+  appliedDiscount: { title: string | null; amountSet: { shopMoney: Money } } | null;
   customAttributes: Array<{ key: string; value: string }>;
   shippingAddress: { firstName: string | null; name: string | null } | null;
   lineItems: { edges: Array<{ node: {
@@ -152,8 +160,13 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
     })),
     phone: d.phone ?? null,
+    email: d.email ?? null,
     waOptin: (d.customAttributes ?? []).some((a) => a.key === 'wa_optin' && a.value === 'true'),
     customerName: d.shippingAddress?.firstName ?? d.shippingAddress?.name ?? null,
+    discountCode: (d.customAttributes ?? []).find((a) => a.key === 'discount_code')?.value ?? null,
+    discount: d.appliedDiscount
+      ? { title: d.appliedDiscount.title ?? 'Discount', amount: d.appliedDiscount.amountSet.shopMoney }
+      : null,
   };
 }
 
@@ -164,6 +177,8 @@ const DRAFT_FIELDS = /* GraphQL */ `
   totalPriceSet { shopMoney { amount currencyCode } }
   order { id name }
   phone
+  email
+  appliedDiscount { title amountSet { shopMoney { amount currencyCode } } }
   customAttributes { key value }
   shippingAddress { firstName name }
   lineItems(first: 20) { edges { node {
@@ -198,12 +213,70 @@ const DRAFT_ORDER_GET = /* GraphQL */ `
   }
 `;
 
+// ── Discount code rules ────────────────────────────────────────────────────────
+// The India checkout never *redeems* a code — createDraftOrder re-expresses the
+// coupon as a manual FIXED_AMOUNT discount (Shopify's DraftOrderInput has no
+// discount-code field, and the Admin API has no "redeem" mutation). So Shopify's
+// own usage counter never moves, and "limit total uses" / "one per customer" go
+// unenforced on India orders. We read the rules here and count redemptions
+// ourselves in lib/coupons.ts. See [[india-coupon-redemption-ledger]].
+
+export interface DiscountCodeRules {
+  usageLimit: number | null;       // null = uncapped
+  appliesOncePerCustomer: boolean;
+  asyncUsageCount: number;         // Shopify's own count (hosted checkout / manual drafts)
+}
+
+// codeDiscount is a union; all three code-discount types carry the same usage fields.
+const DISCOUNT_BY_CODE = /* GraphQL */ `
+  query DiscountByCode($code: String!) {
+    codeDiscountNodeByCode(code: $code) {
+      id
+      codeDiscount {
+        ... on DiscountCodeBasic        { usageLimit appliesOncePerCustomer asyncUsageCount }
+        ... on DiscountCodeBxgy         { usageLimit appliesOncePerCustomer asyncUsageCount }
+        ... on DiscountCodeFreeShipping { usageLimit appliesOncePerCustomer asyncUsageCount }
+      }
+    }
+  }
+`;
+
+// Rules change rarely but this runs on every Apply click, so cache briefly.
+const rulesCache = new Map<string, { at: number; rules: DiscountCodeRules | null }>();
+const RULES_TTL_MS = 60_000;
+
+export async function getDiscountCodeRules(code: string): Promise<DiscountCodeRules | null> {
+  const key = code.trim().toUpperCase();
+  if (!key) return null;
+  const hit = rulesCache.get(key);
+  if (hit && Date.now() - hit.at < RULES_TTL_MS) return hit.rules;
+
+  const data = await runAdminQuery<{
+    codeDiscountNodeByCode: { id: string; codeDiscount: Partial<DiscountCodeRules> } | null;
+  }>(DISCOUNT_BY_CODE, { code: key });
+
+  const raw = data?.codeDiscountNodeByCode?.codeDiscount;
+  // An automatic discount has no code, and a union member we didn't fragment on
+  // comes back as {} — both mean "no code-level limits to enforce".
+  const rules: DiscountCodeRules | null = raw && typeof raw.asyncUsageCount === 'number'
+    ? {
+        usageLimit: typeof raw.usageLimit === 'number' ? raw.usageLimit : null,
+        appliesOncePerCustomer: raw.appliesOncePerCustomer === true,
+        asyncUsageCount: raw.asyncUsageCount,
+      }
+    : null;
+
+  rulesCache.set(key, { at: Date.now(), rules });
+  return rules;
+}
+
 export async function createDraftOrder(args: {
   lines: DraftLineInput[];
   address: ShippingAddressInput;
   email: string;
   phone: string;
   discount?: { amount: number; title: string }; // fixed ₹ off, from a cart coupon
+  discountCode?: string; // the coupon code itself — stamped even when it's worth ₹0
   optin?: boolean; // customer agreed to WhatsApp order updates
   cod?: boolean; // Cash on Delivery (else Cashfree online payment)
   cfOrderId?: string; // Cashfree order id — stored so the reconciler can recover paid-but-open drafts
@@ -219,6 +292,7 @@ export async function createDraftOrder(args: {
     customAttributes: [
       ...(args.optin ? [{ key: 'wa_optin', value: 'true' }] : []),
       ...(args.cfOrderId ? [{ key: 'cf_order_id', value: args.cfOrderId }] : []),
+      ...(args.discountCode ? [{ key: 'discount_code', value: args.discountCode }] : []),
       ...(args.clickId ? [{ key: 'click_id', value: args.clickId }] : []),
     ],
     shippingLine: { title: 'Free Shipping', price: '0' },

@@ -7,6 +7,7 @@ import type { Money } from '~/types/shopify';
 import { completeDraftOrder } from '~/lib/shopify/admin';
 import { clearCart, clearBuyNowCart, clearClickId } from '~/lib/cart-session';
 import { notifyOrderConfirmed } from '~/lib/whatsapp';
+import { recordRedemption } from '~/lib/coupons';
 
 const API_VERSION = '2023-08-01';
 
@@ -189,6 +190,20 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
     }
     const order = await completeDraftOrder(cf.draftOrderId);
     if (!order) return { status: 'error' };
+    // The coupon redemption is ledgered here rather than at checkout/create, because
+    // an online order isn't real until it's paid. All three finalize paths (return
+    // page, webhook, reconciler) land here; recordRedemption's {CODE}:{orderName} doc
+    // id absorbs the duplicates. The code rides on the draft as a custom attribute.
+    if (order.discountCode) {
+      await recordRedemption({
+        code: order.discountCode,
+        orderName: order.orderName ?? order.name,
+        orderId: order.orderId,
+        email: order.email,
+        phone: order.phone,
+        amount: order.discount ? Number(order.discount.amount.amount) || 0 : 0,
+      });
+    }
     // Instant WhatsApp order confirmation (opted-in only). Best-effort; never affects
     // the payment result. De-duped via the confirm:{orderName} lock.
     await notifyOrderConfirmed({
