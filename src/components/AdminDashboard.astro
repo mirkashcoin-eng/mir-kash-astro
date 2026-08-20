@@ -8,7 +8,7 @@
     <div class="ad-gate__card">
       <p class="ad-eyebrow">Founders only</p>
       <h1 class="ad-display ad-gate__h">Mir Kash</h1>
-      <p class="ad-gate__p">Orders, abandoned checkouts and home-demo bookings — all in one place.</p>
+      <p class="ad-gate__p">Orders, abandoned checkouts and Try at Home bookings — all in one place.</p>
       <button class="ad-google" id="googleBtn" type="button">
         <span class="ad-google__g" aria-hidden="true">G</span> Sign in with Google
       </button>
@@ -32,7 +32,7 @@
       <button class="ad-nav__item" data-view="daily">Daily funnel</button>
       <button class="ad-nav__item" data-view="orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
-      <button class="ad-nav__item" data-view="demos">Home demos <span class="ad-nav__n" id="nDemos"></span></button>
+      <button class="ad-nav__item" data-view="demos">Try at Home <span class="ad-nav__n" id="nDemos"></span></button>
       <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
       <div class="ad-nav__foot">
         <span class="ad-nav__upd" id="updated"></span>
@@ -89,7 +89,7 @@
         <div id="fulfilBody"></div>
       </section>
       <section class="ad-view" data-view="demos" hidden>
-        <h1 class="ad-display ad-h1">Home-demo bookings</h1>
+        <h1 class="ad-display ad-h1">Try at Home bookings</h1>
         <div class="ad-panel"><div class="ad-scroll" id="allDemos"></div></div>
       </section>
       <section class="ad-view" data-view="affiliates" hidden>
@@ -187,7 +187,7 @@
       return '<span class="ad-pill ad-pill--wait">Requested</span>';
     }
     function demosTable(demos) {
-      if (!demos.length) return '<p class="ad-note ad-pad">No home-demo bookings yet.</p>';
+      if (!demos.length) return '<p class="ad-note ad-pad">No Try at Home bookings yet.</p>';
       return '<table class="ad-table ad-table--click"><thead><tr><th>Customer</th><th>Status</th><th>Date &amp; slot</th><th>Bags</th><th>Contact</th><th></th></tr></thead><tbody>' + demos.map(function (d, i) {
         return '<tr data-idx="' + i + '"><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + demoPill(d.status) + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
@@ -1174,7 +1174,7 @@
       var actionSect;
       if (status === 'requested') {
         actionSect =
-          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirm this demo</h3>' +
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirm this Try at Home</h3>' +
           '<p class="ad-reqnote">Requested: ' + esc(r.date || '—') + (r.slot ? ' · ' + esc(r.slot) : '') + '</p>' +
           '<div class="ad-form"><label class="ad-flabel">Date<input class="ad-finput" type="date" id="demoDate"></label>' +
           '<label class="ad-flabel">Time<input class="ad-finput" type="time" id="demoTime"></label></div>' +
@@ -1186,11 +1186,11 @@
           '<p class="ad-confirmed">' + esc(fmtISO(r.confirmedDate)) + ' · ' + esc(fmt12(r.confirmedTime)) + '</p>' +
           '<p class="ad-note ad-notifynote">Send the customer their confirmation:</p>' +
           '<div class="ad-dactions">' + notify + '</div>' +
-          '<button class="ad-dbtn ad-dbtn--wide" id="demoComplete" type="button">Mark demo complete</button>' +
+          '<button class="ad-dbtn ad-dbtn--wide" id="demoComplete" type="button">Mark Try at Home complete</button>' +
           '<p class="ad-actmsg" id="demoMsg"></p></div>';
       } else {
         actionSect =
-          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Demo completed</h3>' +
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Try at Home completed</h3>' +
           '<p class="ad-confirmed">' + (r.confirmedDate ? esc(fmtISO(r.confirmedDate)) + (r.confirmedTime ? ' · ' + esc(fmt12(r.confirmedTime)) : '') : 'Marked complete') + '</p>' +
           (notify ? '<div class="ad-dactions">' + notify + '</div>' : '') + '</div>';
       }
