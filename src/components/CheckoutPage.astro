@@ -581,15 +581,17 @@ const thumbGradients = [
   async function recoverAfterGatewayReturn() {
     const btn = $('placeBtn') as HTMLButtonElement;
     const pending = readPending();
-    // Visible in the buyer's own console — far easier to read back than server logs
-    // while we confirm how Cashfree reports a cancellation.
-    console.log('[mk] gateway return check:', pending ? 'pending order ' + pending : 'nothing pending');
-    if (!pending) { btn.disabled = false; syncPayUi(); return; }
 
     try {
-      const res = await fetch('/api/checkout/status?order_id=' + encodeURIComponent(pending), { cache: 'no-store' });
+      // Always ask, even with no local marker: the server reads its own
+      // mk_pending_order cookie and answers 'none' if there is genuinely nothing in
+      // flight. Re-enabling on a missing client-side marker is how a live payment
+      // gets paid twice.
+      const qs = pending ? '?order_id=' + encodeURIComponent(pending) : '';
+      const res = await fetch('/api/checkout/status' + qs, { cache: 'no-store' });
       const { state } = await res.json();
-      console.log('[mk] previous payment state:', state);
+
+      if (state === 'none') { btn.disabled = false; syncPayUi(); return; }
 
       if (state === 'paid') {
         // Already paid — never re-enable. Send them to their receipt instead.
@@ -617,6 +619,9 @@ const thumbGradients = [
       syncPayUi();
       showErr('payment', 'Payment cancelled — choose another method and try again.');
     } catch {
+      // Couldn't reach our own server. If we had no marker either, there is most
+      // likely nothing in flight — don't strand a buyer who never started a payment.
+      if (!pending) { btn.disabled = false; syncPayUi(); return; }
       showErr('payment', 'We could not check your last payment. Please refresh before trying again.');
     }
   }

@@ -13,23 +13,23 @@ export const prerender = false;
 //
 // So the page asks here first, and only re-enables when this says the order was not
 // paid. Read-only: it never creates or completes anything.
-export const GET: APIRoute = async ({ url }) => {
-  const orderId = (url.searchParams.get('order_id') ?? '').trim();
+export const GET: APIRoute = async ({ url, cookies }) => {
+  // The caller may name the order, but it doesn't have to. Finding the in-flight
+  // payment is the SERVER's job: a client-side marker can go missing (sessionStorage
+  // is per-tab, document.cookie can be blocked) and "I found nothing" would then be
+  // read as "nothing to check" — silently skipping the guard on a live payment.
+  const fromCookie = (cookies.get('mk_pending_order')?.value ?? '').trim();
+  const orderId = (url.searchParams.get('order_id') ?? '').trim() || fromCookie;
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
       status,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },
     });
 
-  if (!orderId) return json({ error: 'order_id required' }, 400);
+  // Genuinely nothing in flight — no order named and no cookie. Safe to proceed.
+  if (!orderId) return json({ state: 'none' });
 
   const cf = await getCashfreeOrder(orderId);
-  // TEMPORARY — fires on every check, unlike the [cashfree][probe] line in
-  // getPaymentAttempts which only runs for ACTIVE orders. Silence there told us
-  // nothing: it could mean a cancelled order isn't ACTIVE, or that this endpoint was
-  // never reached at all. This distinguishes the two. Remove once confirmed.
-  console.error('[cashfree][probe] status', orderId, cf ? cf.orderStatus : 'LOOKUP_FAILED');
-
   // Unknown order, or Cashfree unreachable. Fail CLOSED — reporting "not paid" on a
   // failed lookup is exactly how someone gets charged twice.
   if (!cf) return json({ state: 'unknown' });

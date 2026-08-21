@@ -156,10 +156,6 @@ export async function getCashfreeOrder(orderId: string): Promise<CashfreeOrder |
 //
 //   cancelled before paying   → no attempts
 //   UPI request awaiting OK   → one attempt, PENDING
-//
-// The exact response shape on API version 2023-08-01 is being confirmed from a real
-// cancellation (see the [cashfree][probe] log below) — until then callers treat
-// "no attempts we can see" as cancelled, which errs toward letting the buyer retry.
 export interface PaymentAttempt {
   status: string; // SUCCESS | PENDING | FAILED | USER_DROPPED | CANCELLED …
   method: string;
@@ -173,9 +169,6 @@ export async function getPaymentAttempts(orderId: string): Promise<PaymentAttemp
       headers: headers(),
     });
     const json = (await res.json()) as unknown;
-    // TEMPORARY — remove once the cancelled-payment shape is confirmed from a real
-    // cancellation. Logs the raw response so we can see exactly what Cashfree returns.
-    console.error('[cashfree][probe] payments', orderId, res.status, JSON.stringify(json).slice(0, 800));
     if (!res.ok || !Array.isArray(json)) return null;
     return (json as Array<Record<string, unknown>>).map((p) => ({
       status: String(p.payment_status ?? ''),

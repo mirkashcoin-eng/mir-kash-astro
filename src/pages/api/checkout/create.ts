@@ -224,7 +224,13 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   // returns the buyer in a new tab, sessionStorage is empty and the page would
   // re-enable the pay button without ever checking whether they already paid.
   // Deliberately NOT httpOnly: the page reads it to decide that, and an order id is
-  // not a secret. 30 minutes is well past any live payment session.
+  // not a secret.
+  //
+  // 30 minutes. Note the trade-off: past the expiry the marker is gone, so a buyer who
+  // leaves the tab open longer comes back to a re-enabled pay button without the
+  // already-paid check running. Judged acceptable — a payment still live after half an
+  // hour is rare, and the nightly /api/cron/reconcile-orders job catches one that
+  // lands late. Raise this if double-charge reports ever appear.
   cookies.set('mk_pending_order', orderId, {
     path: '/',
     httpOnly: false,

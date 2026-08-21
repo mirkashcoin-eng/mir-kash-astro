@@ -82,8 +82,8 @@ const bagData = Object.fromEntries(
         <!-- Bags -->
         <section class="bd-sec">
           <div class="bd-sec__head"><span class="bd-sec__n">2</span><h2 class="bd-sec__t">Choose your bags</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
-          <p class="bd-choose-hint">Tap a bag to see it up close, or hit <strong>Add to demo</strong> to add it straight to your visit.</p>
-          <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already added 6 bags — remove one to add another.</p>
+          <p class="bd-choose-hint">Tap a bag to see it up close, or hit <strong>Select</strong> to add it straight to your visit.</p>
+          <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
           <div class="bd-grid">
             {bags.map((b) => (
               <div class="bd-bag" data-vid={b.variantId}>
@@ -92,9 +92,9 @@ const bagData = Object.fromEntries(
                   <span class="bd-bag__name">{b.title}</span>
                   <span class="bd-bag__price">{b.price}</span>
                 </button>
-                <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Add ${b.title} to your demo`}>
-                  <span class="add">Add to demo</span>
-                  <span class="added"><span aria-hidden="true">&check;</span> Added</span>
+                <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
+                  <span class="add">Select</span>
+                  <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
                 </button>
               </div>
             ))}
@@ -156,7 +156,7 @@ const bagData = Object.fromEntries(
           <p class="bd-modal__price" id="mv-price"></p>
           <div class="bd-modal__desc" id="mv-desc"></div>
           <button class="bd-cta bd-modal__add" type="button" id="mv-add"></button>
-          <p class="bd-modal__msg" id="mv-msg" hidden>You’ve already added 6 bags — remove one to add another.</p>
+          <p class="bd-modal__msg" id="mv-msg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
           <a class="bd-modal__full" id="mv-full" href="#" target="_blank" rel="noopener">View the entire product &rarr;</a>
         </div>
       </div>
@@ -450,7 +450,7 @@ const bagData = Object.fromEntries(
     function syncModalBtn() {
       var added = selectedBags.has(modalVid);
       var btn = $('mv-add');
-      btn.textContent = added ? 'Remove from my demo' : 'Add to my demo';
+      btn.textContent = added ? 'Remove from selection' : 'Select this bag';
       btn.style.background = added ? '#8B1A1A' : '';
     }
     function closeModal() { modal.hidden = true; document.body.style.overflow = ''; modalVid = ''; }
