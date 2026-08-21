@@ -20,6 +20,7 @@ export const PRODUCT_FRAGMENT = /* GraphQL */ `
     handle
     title
     description
+    descriptionHtml
     availableForSale
     vendor
     productType

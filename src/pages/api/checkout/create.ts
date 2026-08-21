@@ -219,6 +219,20 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
 
   if (!cf) return bad('Payment init failed', 502);
 
+  // Also record the in-flight payment in a cookie, not just in the JSON response.
+  // The page keeps a copy in sessionStorage, but that is per-TAB — if the gateway
+  // returns the buyer in a new tab, sessionStorage is empty and the page would
+  // re-enable the pay button without ever checking whether they already paid.
+  // Deliberately NOT httpOnly: the page reads it to decide that, and an order id is
+  // not a secret. 30 minutes is well past any live payment session.
+  cookies.set('mk_pending_order', orderId, {
+    path: '/',
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: import.meta.env.PROD,
+    maxAge: 1800,
+  });
+
   return new Response(
     JSON.stringify({
       paymentSessionId: cf.paymentSessionId,

@@ -24,6 +24,12 @@ export const GET: APIRoute = async ({ url }) => {
   if (!orderId) return json({ error: 'order_id required' }, 400);
 
   const cf = await getCashfreeOrder(orderId);
+  // TEMPORARY — fires on every check, unlike the [cashfree][probe] line in
+  // getPaymentAttempts which only runs for ACTIVE orders. Silence there told us
+  // nothing: it could mean a cancelled order isn't ACTIVE, or that this endpoint was
+  // never reached at all. This distinguishes the two. Remove once confirmed.
+  console.error('[cashfree][probe] status', orderId, cf ? cf.orderStatus : 'LOOKUP_FAILED');
+
   // Unknown order, or Cashfree unreachable. Fail CLOSED — reporting "not paid" on a
   // failed lookup is exactly how someone gets charged twice.
   if (!cf) return json({ state: 'unknown' });

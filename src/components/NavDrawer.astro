@@ -11,7 +11,7 @@ const items: Array<{ word: string; href: string; geo?: string; hidden?: boolean 
   { word: 'Materials', href: `${prefix}/pages/materials`, geo: 'materials' },
   { word: 'About', href: `${prefix}/pages/about` },
 ];
-if (marketConfig.isDefault) items.push({ word: 'Try at Home', href: `${prefix}/book-demo`, geo: 'demo', hidden: true });
+if (marketConfig.isDefault) items.push({ word: 'Try at Home', href: `${prefix}/try-at-home`, geo: 'demo', hidden: true });
 ---
 <div class="nav-drawer" id="navDrawer" aria-hidden="true">
   <button class="nav-drawer__scrim" aria-label="Close menu" type="button"></button>
@@ -36,7 +36,7 @@ if (marketConfig.isDefault) items.push({ word: 'Try at Home', href: `${prefix}/b
 
     <div class="nav-drawer__foot">
       <a href={`${prefix}/account`}>Account</a>
-      {marketConfig.isDefault && <a href={`${prefix}/book-demo`} data-geo="demo" hidden>Try at Home</a>}
+      {marketConfig.isDefault && <a href={`${prefix}/try-at-home`} data-geo="demo" hidden>Try at Home</a>}
       <span class="nav-drawer__sig">{marketConfig.countryName} · {marketConfig.currency} {marketConfig.currencySymbol}</span>
     </div>
   </div>

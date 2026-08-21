@@ -564,21 +564,38 @@ const thumbGradients = [
   // preventing that today. So: ask the server what happened first, and fail closed.
   const PENDING_KEY = 'mk_pending_order';
 
+  // Two copies on purpose. sessionStorage is per-TAB, so it's empty if the gateway
+  // returns the buyer in a new tab — and an empty result here means "nothing to
+  // check", which would silently skip the guard. The cookie (set by
+  // /api/checkout/create) survives that.
+  function readPending(): string {
+    try { const v = sessionStorage.getItem(PENDING_KEY); if (v) return v; } catch {}
+    const m = document.cookie.match(/(?:^|;\s*)mk_pending_order=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function clearPending() {
+    try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+    document.cookie = 'mk_pending_order=; path=/; max-age=0';
+  }
+
   async function recoverAfterGatewayReturn() {
     const btn = $('placeBtn') as HTMLButtonElement;
-    let pending = '';
-    try { pending = sessionStorage.getItem(PENDING_KEY) || ''; } catch {}
+    const pending = readPending();
+    // Visible in the buyer's own console — far easier to read back than server logs
+    // while we confirm how Cashfree reports a cancellation.
+    console.log('[mk] gateway return check:', pending ? 'pending order ' + pending : 'nothing pending');
     if (!pending) { btn.disabled = false; syncPayUi(); return; }
 
     try {
       const res = await fetch('/api/checkout/status?order_id=' + encodeURIComponent(pending), { cache: 'no-store' });
       const { state } = await res.json();
+      console.log('[mk] previous payment state:', state);
 
       if (state === 'paid') {
         // Already paid — never re-enable. Send them to their receipt instead.
         // Clear first: leaving it set would bounce a LATER visit (new cart, new order)
         // straight back to this old receipt.
-        try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+        clearPending();
         window.location.href = '/checkout/return?order_id=' + encodeURIComponent(pending);
         return;
       }
@@ -595,7 +612,7 @@ const thumbGradients = [
         return;
       }
       // Cancelled or expired: safe to let them choose another method.
-      try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+      clearPending();
       btn.disabled = false;
       syncPayUi();
       showErr('payment', 'Payment cancelled — choose another method and try again.');
@@ -610,7 +627,7 @@ const thumbGradients = [
   // Arriving from the return page after cancelling at the gateway. Say so, then strip
   // the param so a refresh doesn't repeat a message about a payment already dealt with.
   if (new URLSearchParams(location.search).get('cancelled') === '1') {
-    try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+    clearPending();
     ($('placeBtn') as HTMLButtonElement).disabled = false;
     showErr('payment', 'Payment cancelled — choose another method and try again.');
     const url = new URL(location.href);

@@ -30,6 +30,7 @@ export interface Product {
   handle: string;
   title: string;
   description: string;
+  descriptionHtml: string;
   availableForSale: boolean;
   vendor: string;
   productType: string;
