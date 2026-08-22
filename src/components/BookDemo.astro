@@ -2,17 +2,14 @@
 import SiteHeader from './SiteHeader.astro';
 import SiteFooter from './SiteFooter.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
-import { formatMoney } from '~/lib/markets';
 import { shopifyImage } from '~/lib/shopifyImage';
 
-const { marketConfig } = Astro.locals;
 const products = await getAllProducts('india', 'IN', 48);
 const bags = products
   .map((p) => ({
     variantId: p.variants.edges[0]?.node.id ?? '',
     handle: p.handle,
     title: p.title,
-    price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
     image: shopifyImage(p.featuredImage?.url, 500),
     images: (p.images?.edges ?? []).map((e) => shopifyImage(e.node.url, 900)),
     // Shopify's plain `description` strips the tags without inserting any
@@ -26,7 +23,6 @@ const bags = products
 const bagData = Object.fromEntries(
   bags.map((b) => [b.variantId, {
     title: b.title,
-    price: b.price,
     description: b.description,
     images: (b.images.length ? b.images : (b.image ? [b.image] : [])),
     handle: b.handle,
@@ -90,7 +86,6 @@ const bagData = Object.fromEntries(
                 <button class="bd-bag__view" type="button" data-open={b.variantId} aria-label={`View ${b.title}`}>
                   <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
                   <span class="bd-bag__name">{b.title}</span>
-                  <span class="bd-bag__price">{b.price}</span>
                 </button>
                 <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
                   <span class="add">Select</span>
@@ -153,7 +148,6 @@ const bagData = Object.fromEntries(
         </div>
         <div class="bd-modal__info">
           <h3 class="bd-display" id="mv-title"></h3>
-          <p class="bd-modal__price" id="mv-price"></p>
           <div class="bd-modal__desc" id="mv-desc"></div>
           <button class="bd-cta bd-modal__add" type="button" id="mv-add"></button>
           <p class="bd-modal__msg" id="mv-msg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
@@ -255,8 +249,7 @@ const bagData = Object.fromEntries(
   .bd-bag__img { display: block; aspect-ratio: 4/5; background: #f6f3ee; overflow: hidden; }
   .bd-bag__img img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
   .bd-bag:hover .bd-bag__img img { transform: scale(1.045); }
-  .bd-bag__name { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--depth); margin: 10px 10px 3px; }
-  .bd-bag__price { display: block; font-size: 13px; color: var(--mid); margin: 0 10px; }
+  .bd-bag__name { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--depth); margin: 10px 10px 0; }
   .bd-bag__add { width: 100%; min-height: 42px; border: none; border-top: 1px solid var(--rule); background: #fff; color: var(--depth); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; line-height: 1; padding: 0 10px; transition: background .2s, color .2s; }
   .bd-bag__add:hover { background: #f6f3ee; }
   .bd-bag__add .added { display: none; }
@@ -299,8 +292,7 @@ const bagData = Object.fromEntries(
   .bd-modal__thumbs img { width: 50px; height: 62px; object-fit: cover; cursor: pointer; border: 1px solid transparent; }
   .bd-modal__thumbs img.on { border-color: var(--depth); }
   .bd-modal__info { padding: clamp(28px,4vw,48px); display: flex; flex-direction: column; }
-  .bd-modal__info h3 { font-size: clamp(26px,3vw,38px); color: var(--depth); margin: 0 0 8px; }
-  .bd-modal__price { font-size: 17px; color: var(--depth); margin: 0 0 22px; }
+  .bd-modal__info h3 { font-size: clamp(26px,3vw,38px); color: var(--depth); margin: 0 0 22px; }
   .bd-modal__desc { font-size: 14px; line-height: 1.75; color: var(--mid); margin: 0 0 28px; }
   .bd-modal__desc > :first-child { margin-top: 0; }
   .bd-modal__desc > :last-child { margin-bottom: 0; }
@@ -424,7 +416,6 @@ const bagData = Object.fromEntries(
       var b = BAGS[vid]; if (!b) return;
       modalVid = vid;
       $('mv-title').textContent = b.title;
-      $('mv-price').textContent = b.price;
       // Shop-authored HTML from Shopify, same trust level as the PDP's set:html.
       $('mv-desc').innerHTML = b.description || 'A Mir Kash piece — crafted slowly from plant-based vegan leather.';
       $('mv-full').href = '/products/' + b.handle;
