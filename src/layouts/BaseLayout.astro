@@ -229,5 +229,25 @@ const orgJsonLd = {
   </head>
   <body data-market={market}>
     <slot />
+
+    {marketConfig.isDefault && (
+      <script is:inline>
+        // Try at Home is Mumbai-only. Pages are CDN-cached, so detect location
+        // per-user client-side and, for Mumbai visitors, swap Materials → Try at
+        // Home across the header, drawer, footer, product pages and the homepage
+        // banner. Non-Mumbai visitors keep Materials and never see Try at Home.
+        //
+        // Lives here rather than in SiteHeader because ProductPage and
+        // checkout/return render their own <header> — the footer link on those
+        // pages was never revealed while this script sat in SiteHeader.
+        (function () {
+          fetch('/api/geo').then(function (r) { return r.json(); }).then(function (g) {
+            if (!g || !g.mumbai) return;
+            document.querySelectorAll('[data-geo="materials"]').forEach(function (el) { el.hidden = true; });
+            document.querySelectorAll('[data-geo="demo"]').forEach(function (el) { el.hidden = false; });
+          }).catch(function () {});
+        })();
+      </script>
+    )}
   </body>
 </html>

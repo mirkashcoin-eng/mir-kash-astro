@@ -44,7 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (bags.length > 6) return json({ error: 'You can select up to 6 bags for a Try at Home.' }, 400);
   if (!name || !email || !phone || !address) return json({ error: 'Please fill in your name, phone, email and address.' }, 400);
   if (phone.length !== 10) return json({ error: 'Please enter a valid 10-digit phone number.' }, 400);
-  if (!/^40\d{4}$/.test(pin)) return json({ error: 'Try at Home is Mumbai-only for now — please enter a Mumbai PIN code.' }, 400);
+  if (!/^\d{6}$/.test(pin)) return json({ error: 'Please enter a valid 6-digit PIN code.' }, 400);
 
   const result = await createDemoBooking({
     bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin,

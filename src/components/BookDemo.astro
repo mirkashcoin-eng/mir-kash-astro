@@ -487,7 +487,7 @@ const bagData = Object.fromEntries(
       if (!name || !phone || !email || !addr) { flashErr('Please fill in your name, phone, email and address.'); return; }
       if (phone.length !== 10) { flashErr('Please enter a valid 10-digit phone number.'); return; }
       if (!/^\S+@\S+\.\S+$/.test(email)) { flashErr('Please enter a valid email address.'); return; }
-      if (!/^40\d{4}$/.test(pin)) { flashErr('Try at Home is Mumbai-only for now — please enter a Mumbai PIN.'); return; }
+      if (!/^\d{6}$/.test(pin)) { flashErr('Please enter a valid 6-digit PIN code.'); return; }
 
       var btn = $('bookBtn'); btn.disabled = true; btn.textContent = 'Booking…';
       var bagList = []; selectedBags.forEach(function (title, vid) { bagList.push({ variantId: vid, title: title }); });
