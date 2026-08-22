@@ -112,9 +112,9 @@ if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix
 
 {marketConfig.isDefault && (
   <script is:inline>
-    // Home Demo is Mumbai-only. Pages are CDN-cached, so detect location per-user
-    // client-side and, for Mumbai visitors, swap Materials → Home Demo across the
-    // header, drawer and footer. Non-Mumbai visitors keep Materials, no Home Demo.
+    // Try at Home is Mumbai-only. Pages are CDN-cached, so detect location per-user
+    // client-side and, for Mumbai visitors, swap Materials → Try at Home across the
+    // header, drawer and footer. Non-Mumbai visitors keep Materials, no Try at Home.
     (function () {
       fetch('/api/geo').then(function (r) { return r.json(); }).then(function (g) {
         if (!g || !g.mumbai) return;
