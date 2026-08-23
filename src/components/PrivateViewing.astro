@@ -27,7 +27,7 @@ const bags = products
     <!-- ══ HERO ══ -->
     <section class="pv-hero">
       <div class="pv-hero__text">
-        <p class="pv-hero__eyebrow">Anywhere in India &middot; Private Viewing</p>
+        <p class="pv-hero__eyebrow">Anywhere in the world &middot; Private Viewing</p>
         <h1 class="pv-display pv-hero__h">See them up close, wherever you are.</h1>
         <p class="pv-hero__sub">
           Book a live video viewing with a client advisor. We&rsquo;ll show you the pieces you
@@ -64,7 +64,7 @@ const bags = products
           <div class="pv-sec__head"><span class="pv-sec__n">1</span><h2 class="pv-sec__t">Date &amp; time</h2></div>
           <p class="pv-sublabel">Choose a day</p>
           <div class="pv-rail" id="pvRail"></div>
-          <p class="pv-sublabel" style="margin-top:26px">Time of day</p>
+          <p class="pv-sublabel" style="margin-top:26px">Time of day <span class="pv-tz">(India Standard Time)</span></p>
           <p class="pv-hint" id="pvSlotHint">Pick a day above to choose a time.</p>
           <div class="pv-slot-btns" id="pvSlotBtns" hidden>
             <button type="button" class="pv-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
@@ -95,10 +95,10 @@ const bags = products
           <div class="pv-sec__head"><span class="pv-sec__n">3</span><h2 class="pv-sec__t">Your details</h2></div>
           <div class="pv-fields">
             <label class="pv-field"><span>Full name</span><input class="pv-input" id="pv-name" type="text" autocomplete="name" /></label>
-            <label class="pv-field"><span>Phone</span><input class="pv-input" id="pv-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" /></label>
+            <label class="pv-field"><span>Phone</span><input class="pv-input" id="pv-phone" type="tel" inputmode="tel" maxlength="20" placeholder="Include country code" /></label>
             <label class="pv-field pv-field--full"><span>Email</span><input class="pv-input" id="pv-email" type="email" autocomplete="email" /></label>
             <label class="pv-field"><span>City</span><input class="pv-input" id="pv-city" type="text" /></label>
-            <label class="pv-field"><span>PIN code</span><input class="pv-input" id="pv-pin" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" /></label>
+            <label class="pv-field"><span>Country</span><input class="pv-input" id="pv-country" type="text" autocomplete="country-name" /></label>
           </div>
         </section>
       </div>
@@ -124,8 +124,8 @@ const bags = products
     <span class="pv-done__mark" aria-hidden="true">&check;</span>
     <h2 class="pv-display pv-done__title">Your Private Viewing is booked</h2>
     <p class="pv-done__body" id="pvDoneBody"></p>
-    <a class="pv-cta pv-done__join" id="pvJoin" href="#">Join your viewing <span class="ar">&rarr;</span></a>
-    <p class="pv-done__note">Opens in your browser &mdash; nothing to install.</p>
+    <a class="pv-cta pv-done__join" id="pvJoin" href="#" target="_blank" rel="noopener">Join your viewing <span class="ar">&rarr;</span></a>
+    <p class="pv-done__note" id="pvDoneNote">Opens in your browser &mdash; nothing to install.</p>
   </section>
 </main>
 
@@ -183,6 +183,7 @@ const bags = products
   .pv-count { margin-left: auto; font-size: 13px; color: var(--mid); font-variant-numeric: tabular-nums; }
   .pv-sublabel { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; margin: 0 0 14px; }
   .pv-hint { font-size: 13px; color: var(--faint); margin: 0; }
+  .pv-tz { letter-spacing: .04em; text-transform: none; color: var(--faint); font-weight: 400; }
   .pv-choose-hint { font-size: 13px; color: var(--mid); margin: 0 0 18px; }
   .pv-choose-hint strong { color: var(--depth); font-weight: 500; }
   .pv-maxmsg { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 300; margin: 0; background: var(--depth); color: #fff; font-size: 13.5px; padding: 14px 24px; border-radius: 3px; box-shadow: 0 12px 34px rgba(0,0,0,.28); text-align: center; }
@@ -356,12 +357,14 @@ const bags = products
     const name = ($('pv-name') as HTMLInputElement)?.value.trim() || '';
     const phone = (($('pv-phone') as HTMLInputElement)?.value || '').replace(/\D/g, '');
     const email = ($('pv-email') as HTMLInputElement)?.value.trim() || '';
-    const pin = (($('pv-pin') as HTMLInputElement)?.value || '').replace(/\D/g, '');
 
     if (!pickedISO || !pickedSlot) return fail('Please choose a day and a time.');
     if (selected.size < 1) return fail('Please select at least one bag.');
-    if (!name || !email || phone.length !== 10) return fail('Please fill in your name, email and a 10-digit phone number.');
-    if (!/^\d{6}$/.test(pin)) return fail('Please enter a valid 6-digit PIN code.');
+    // E.164 allows up to 15 digits; 7 is about the shortest real national number.
+    if (!name || !email) return fail('Please fill in your name and email.');
+    if (phone.length < 7 || phone.length > 15) return fail('Please enter a valid phone number, including your country code.');
+
+    const tab = window.open('', '_blank');
 
     bookBtn.disabled = true;
     bookBtn.textContent = 'Opening your room…';
@@ -380,8 +383,17 @@ const bags = products
       if (body) body.textContent = `${pickedLabel}, ${pickedSlot}. We'll confirm by email and WhatsApp, and your room link is ready below.`;
       const join = $('pvJoin') as HTMLAnchorElement | null;
       if (join) join.href = data.viewingPath;
+
+      if (tab && !tab.closed) {
+        tab.location.href = data.viewingPath;
+      } else {
+        // Popup blocked, or the tab was closed — the button below is the way in.
+        const note = $('pvDoneNote');
+        if (note) note.textContent = 'Your browser blocked the new tab — use the button above to join.';
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
+      if (tab && !tab.closed) tab.close();
       fail(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
       bookBtn.disabled = false;
       bookBtn.textContent = 'Confirm Private Viewing';
