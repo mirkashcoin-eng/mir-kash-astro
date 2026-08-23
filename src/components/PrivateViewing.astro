@@ -1,0 +1,392 @@
+---
+import SiteHeader from './SiteHeader.astro';
+import SiteFooter from './SiteFooter.astro';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { shopifyImage } from '~/lib/shopifyImage';
+
+// Private Viewing — a live video appointment for customers we can't visit in person.
+//
+// Deliberately mirrors BookDemo.astro's structure, wording rhythm and interaction
+// patterns: the two services should read as one family, not as a main offer and a
+// consolation. Styles are self-contained rather than shared with BookDemo so this
+// prototype touches no existing file.
+const products = await getAllProducts('india', 'IN', 48);
+const bags = products
+  .map((p) => ({
+    variantId: p.variants.edges[0]?.node.id ?? '',
+    title: p.title,
+    image: shopifyImage(p.featuredImage?.url, 500),
+  }))
+  .filter((b) => b.variantId);
+---
+<SiteHeader />
+
+<main class="pv">
+  <div id="pvMain">
+
+    <!-- ══ HERO ══ -->
+    <section class="pv-hero">
+      <div class="pv-hero__text">
+        <p class="pv-hero__eyebrow">Anywhere in India &middot; Private Viewing</p>
+        <h1 class="pv-display pv-hero__h">See them up close, wherever you are.</h1>
+        <p class="pv-hero__sub">
+          Book a live video viewing with a client advisor. We&rsquo;ll show you the pieces you
+          choose in natural light &mdash; the grain, the hardware, the scale in the hand &mdash;
+          and answer anything you&rsquo;d ask us in a boutique.
+        </p>
+        <a class="pv-cta" href="#book">Book a Private Viewing <span class="ar">&rarr;</span></a>
+      </div>
+      <div class="pv-hero__img">
+        <img src="/ed-tophandle.jpeg" alt="A Mir Kash bag shown up close" loading="eager" />
+      </div>
+    </section>
+
+    <!-- ══ DETAILS STRIP ══ -->
+    <div class="pv-strip">
+      <div class="pv-strip__i"><p class="pv-strip__k">Where</p><p class="pv-strip__v">Anywhere &mdash; by video</p></div>
+      <div class="pv-strip__i"><p class="pv-strip__k">How many</p><p class="pv-strip__v">Up to 6 bags</p></div>
+      <div class="pv-strip__i"><p class="pv-strip__k">How long</p><p class="pv-strip__v">15&ndash;30 minutes</p></div>
+      <div class="pv-strip__i"><p class="pv-strip__k">Cost</p><p class="pv-strip__v">Complimentary</p></div>
+    </div>
+
+    <!-- ══ HOW IT WORKS ══ -->
+    <section class="pv-how">
+      <div class="pv-how__i"><span class="pv-how__n">1</span><p class="pv-how__t">Choose a time</p><p class="pv-how__d">Pick a day and a window that suits you.</p></div>
+      <div class="pv-how__i"><span class="pv-how__n">2</span><p class="pv-how__t">Choose your pieces</p><p class="pv-how__d">Tell us which bags you&rsquo;d like to see.</p></div>
+      <div class="pv-how__i"><span class="pv-how__n">3</span><p class="pv-how__t">Join from your browser</p><p class="pv-how__d">One tap, no app to install.</p></div>
+    </section>
+
+    <!-- ══ BOOKING ══ -->
+    <div class="pv-book" id="book">
+      <div class="pv-book__main">
+
+        <section class="pv-sec">
+          <div class="pv-sec__head"><span class="pv-sec__n">1</span><h2 class="pv-sec__t">Date &amp; time</h2></div>
+          <p class="pv-sublabel">Choose a day</p>
+          <div class="pv-rail" id="pvRail"></div>
+          <p class="pv-sublabel" style="margin-top:26px">Time of day</p>
+          <p class="pv-hint" id="pvSlotHint">Pick a day above to choose a time.</p>
+          <div class="pv-slot-btns" id="pvSlotBtns" hidden>
+            <button type="button" class="pv-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
+            <button type="button" class="pv-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
+            <button type="button" class="pv-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
+          </div>
+        </section>
+
+        <section class="pv-sec">
+          <div class="pv-sec__head"><span class="pv-sec__n">2</span><h2 class="pv-sec__t">Choose your bags</h2><span class="pv-count"><span id="pvBagCount">0</span> / 6</span></div>
+          <p class="pv-choose-hint">Hit <strong>Select</strong> on anything you&rsquo;d like us to bring to the call.</p>
+          <p class="pv-maxmsg" id="pvMaxMsg" hidden>You&rsquo;ve already selected 6 bags — remove one to add another.</p>
+          <div class="pv-grid">
+            {bags.map((b) => (
+              <div class="pv-bag" data-vid={b.variantId}>
+                <span class="pv-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
+                <span class="pv-bag__name">{b.title}</span>
+                <button class="pv-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
+                  <span class="add">Select</span>
+                  <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section class="pv-sec">
+          <div class="pv-sec__head"><span class="pv-sec__n">3</span><h2 class="pv-sec__t">Your details</h2></div>
+          <div class="pv-fields">
+            <label class="pv-field"><span>Full name</span><input class="pv-input" id="pv-name" type="text" autocomplete="name" /></label>
+            <label class="pv-field"><span>Phone</span><input class="pv-input" id="pv-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" /></label>
+            <label class="pv-field pv-field--full"><span>Email</span><input class="pv-input" id="pv-email" type="email" autocomplete="email" /></label>
+            <label class="pv-field"><span>City</span><input class="pv-input" id="pv-city" type="text" /></label>
+            <label class="pv-field"><span>PIN code</span><input class="pv-input" id="pv-pin" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" /></label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="pv-side">
+        <div class="pv-side__inner">
+          <p class="pv-side__t">Your appointment</p>
+          <div class="pv-sum">
+            <div class="pv-sum__row"><span class="pv-sum__k">Date</span><span class="pv-sum__v muted" id="pv-sum-date">Choose a day</span></div>
+            <div class="pv-sum__row"><span class="pv-sum__k">Time</span><span class="pv-sum__v muted" id="pv-sum-time">Choose a time</span></div>
+            <div class="pv-sum__row"><span class="pv-sum__k">Bags</span><span class="pv-sum__v muted" id="pv-sum-bags">Up to six pieces</span></div>
+          </div>
+          <button class="pv-cta pv-side__cta" type="button" id="pvBookBtn">Confirm Private Viewing</button>
+          <p class="pv-err" id="pvErr" hidden></p>
+          <p class="pv-side__note">Complimentary, and no obligation to buy.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ══ SUCCESS ══ -->
+  <section class="pv-done" id="pvDone" hidden>
+    <span class="pv-done__mark" aria-hidden="true">&check;</span>
+    <h2 class="pv-display pv-done__title">Your Private Viewing is booked</h2>
+    <p class="pv-done__body" id="pvDoneBody"></p>
+    <a class="pv-cta pv-done__join" id="pvJoin" href="#">Join your viewing <span class="ar">&rarr;</span></a>
+    <p class="pv-done__note">Opens in your browser &mdash; nothing to install.</p>
+  </section>
+</main>
+
+<SiteFooter />
+
+<style is:global>
+  /* SiteHeader is rendered without NavDrawer here (same as the Try at Home page),
+     so its menu button has nothing to open — hide it rather than ship a dead control. */
+  .hdr-menu-btn { display: none; }
+  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
+  .site-header--minimal .logo img { height: 22px; }
+  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
+
+  .pv {
+    --depth: #2C1A0E; --cherry: #8B1A1A;
+    --serif-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --mid: #6e6a64; --faint: #b3aca1; --rule: #e4dfd7; --cream: #F6F1E9;
+    background: #fff; color: var(--depth);
+  }
+  .pv-display { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; }
+
+  .pv-cta { display: inline-flex; align-items: center; gap: 10px; background: var(--depth); color: #fff; border: none; padding: 15px 32px; font-family: inherit; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; text-decoration: none; transition: background .2s; }
+  .pv-cta:hover { background: var(--cherry); }
+  .pv-cta .ar { transition: transform .2s; }
+  .pv-cta:hover .ar { transform: translateX(4px); }
+  .pv-err { color: var(--cherry); font-size: 13px; margin: 12px 0 0; }
+
+  .pv-hero { display: grid; grid-template-columns: 1.05fr .95fr; min-height: clamp(420px, 60vh, 560px); }
+  .pv-hero__text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px,6vw,80px) clamp(28px,5vw,64px); }
+  .pv-hero__eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); margin: 0 0 16px; }
+  .pv-hero__h { font-size: clamp(34px,4.6vw,58px); line-height: 1.04; color: var(--depth); margin: 0; max-width: 15ch; }
+  .pv-hero__sub { font-size: 15.5px; line-height: 1.65; color: var(--mid); max-width: 46ch; margin: 20px 0 30px; }
+  .pv-hero__text .pv-cta { align-self: flex-start; }
+  .pv-hero__img { background: #f0e9df; overflow: hidden; }
+  .pv-hero__img img { width: 100%; height: 100%; object-fit: cover; }
+
+  .pv-strip { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .pv-strip__i { padding: 22px clamp(18px,3vw,28px); border-right: 1px solid var(--rule); }
+  .pv-strip__i:last-child { border-right: none; }
+  .pv-strip__k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--cherry); margin: 0 0 6px; }
+  .pv-strip__v { font-size: 13.5px; color: var(--mid); margin: 0; line-height: 1.5; }
+
+  .pv-how { display: grid; grid-template-columns: repeat(3,1fr); gap: clamp(24px,4vw,56px); max-width: 1240px; margin: 0 auto; padding: clamp(44px,5vw,72px) clamp(28px,4vw,56px); }
+  .pv-how__n { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--depth); font-size: 12px; margin-bottom: 14px; }
+  .pv-how__t { font-size: 15px; margin: 0 0 6px; }
+  .pv-how__d { font-size: 13.5px; color: var(--mid); line-height: 1.6; margin: 0; }
+
+  .pv-book { display: grid; grid-template-columns: 1fr 330px; align-items: start; max-width: 1240px; margin: 0 auto; border-top: 1px solid var(--rule); }
+  .pv-book__main { min-width: 0; padding: clamp(40px,5vw,72px) clamp(28px,4vw,56px); }
+  .pv-sec { padding-bottom: clamp(40px,5vw,56px); margin-bottom: clamp(40px,5vw,56px); border-bottom: 1px solid var(--rule); }
+  .pv-sec:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .pv-sec__head { display: flex; align-items: center; gap: 13px; margin-bottom: 20px; }
+  .pv-sec__n { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .pv-sec__t { font-size: 16px; font-weight: 500; margin: 0; }
+  .pv-count { margin-left: auto; font-size: 13px; color: var(--mid); font-variant-numeric: tabular-nums; }
+  .pv-sublabel { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; margin: 0 0 14px; }
+  .pv-hint { font-size: 13px; color: var(--faint); margin: 0; }
+  .pv-choose-hint { font-size: 13px; color: var(--mid); margin: 0 0 18px; }
+  .pv-choose-hint strong { color: var(--depth); font-weight: 500; }
+  .pv-maxmsg { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 300; margin: 0; background: var(--depth); color: #fff; font-size: 13.5px; padding: 14px 24px; border-radius: 3px; box-shadow: 0 12px 34px rgba(0,0,0,.28); text-align: center; }
+
+  .pv-rail { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 14px; scroll-snap-type: x proximity; }
+  .pv-rail::-webkit-scrollbar { height: 6px; }
+  .pv-rail::-webkit-scrollbar-thumb { background: #e0d9cd; border-radius: 4px; }
+  .pv-rdate { flex: 0 0 auto; width: 76px; border: 1px solid var(--rule); background: #fff; border-radius: 3px; padding: 13px 0; text-align: center; cursor: pointer; font-family: inherit; scroll-snap-align: start; transition: border-color .2s, background .2s; }
+  .pv-rdate .dw { display: block; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .pv-rdate .nm { display: block; font-family: var(--serif-display); font-size: 28px; font-weight: 300; line-height: 1.1; margin: 3px 0 1px; font-variant-numeric: tabular-nums; }
+  .pv-rdate .mo { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--mid); }
+  .pv-rdate:hover { border-color: var(--depth); }
+  .pv-rdate.sel { background: var(--depth); border-color: var(--depth); }
+  .pv-rdate.sel .dw, .pv-rdate.sel .mo { color: rgba(255,255,255,.6); }
+  .pv-rdate.sel .nm { color: #fff; }
+
+  .pv-slot-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pv-slot { flex: 1; min-width: 130px; border: 1px solid var(--rule); background: #fff; padding: 15px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
+  .pv-slot span { font-size: 12px; color: var(--mid); }
+  .pv-slot:hover { border-color: var(--depth); }
+  .pv-slot.sel { border-color: var(--depth); background: var(--depth); color: #fff; }
+  .pv-slot.sel span { color: rgba(255,255,255,.72); }
+
+  .pv-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 14px; }
+  .pv-bag { display: flex; flex-direction: column; border: 1px solid var(--rule); background: #fff; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+  .pv-bag:hover { border-color: #c8c0b4; box-shadow: 0 4px 16px rgba(0,0,0,.05); }
+  .pv-bag.sel { border-color: var(--depth); }
+  .pv-bag__img { display: block; aspect-ratio: 4/5; background: #f6f3ee; overflow: hidden; }
+  .pv-bag__img img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
+  .pv-bag:hover .pv-bag__img img { transform: scale(1.045); }
+  .pv-bag__name { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--depth); margin: 10px 10px 12px; flex: 1; }
+  .pv-bag__add { width: 100%; min-height: 42px; border: none; border-top: 1px solid var(--rule); background: #fff; color: var(--depth); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; line-height: 1; padding: 0 10px; transition: background .2s, color .2s; }
+  .pv-bag__add:hover { background: #f6f3ee; }
+  .pv-bag__add .added { display: none; }
+  .pv-bag.sel .pv-bag__add { background: var(--depth); border-top-color: var(--depth); color: #fff; }
+  .pv-bag.sel .pv-bag__add:hover { background: var(--cherry); border-top-color: var(--cherry); }
+  .pv-bag.sel .pv-bag__add .add { display: none; }
+  .pv-bag.sel .pv-bag__add .added { display: inline-flex; align-items: center; gap: 6px; }
+
+  .pv-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pv-field { display: flex; flex-direction: column; gap: 7px; }
+  .pv-field--full { grid-column: 1 / -1; }
+  .pv-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+  .pv-input { border: 1px solid var(--rule); background: #fff; padding: 13px 14px; font-family: inherit; font-size: 14.5px; color: var(--depth); border-radius: 0; }
+  .pv-input:focus { outline: none; border-color: var(--depth); }
+
+  .pv-side { position: sticky; top: 24px; align-self: start; border-left: 1px solid var(--rule); }
+  .pv-side__inner { background: var(--cream); padding: clamp(28px,3vw,38px) clamp(24px,2.5vw,32px); }
+  .pv-side__t { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--cherry); margin: 0 0 20px; }
+  .pv-sum { display: flex; flex-direction: column; gap: 16px; }
+  .pv-sum__row { display: flex; flex-direction: column; gap: 4px; }
+  .pv-sum__k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .pv-sum__v { font-size: 14px; line-height: 1.4; color: var(--depth); }
+  .pv-sum__v.muted { color: var(--faint); }
+  .pv-side__cta { width: 100%; justify-content: center; margin-top: 26px; }
+  .pv-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 16px 0 0; }
+
+  .pv-done { max-width: 620px; margin: 0 auto; text-align: center; padding: clamp(60px,9vw,120px) 24px; }
+  .pv-done[hidden] { display: none; }
+  .pv-done__mark { width: 56px; height: 56px; border-radius: 50%; background: #2f6b3f; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 24px; }
+  .pv-done__title { font-size: clamp(28px,4vw,42px); margin: 0 0 12px; }
+  .pv-done__body { font-size: 15px; color: var(--mid); line-height: 1.7; margin: 0 0 30px; }
+  .pv-done__join { }
+  .pv-done__note { font-size: 12px; color: var(--faint); margin: 16px 0 0; }
+
+  @media (max-width: 900px) {
+    .pv-hero { grid-template-columns: 1fr; }
+    .pv-hero__img { min-height: 280px; order: -1; }
+    .pv-how { grid-template-columns: 1fr; gap: 28px; }
+    .pv-book { grid-template-columns: 1fr; }
+    .pv-side { position: static; border-left: none; border-top: 1px solid var(--rule); }
+    .pv-side__inner { padding: 28px clamp(28px,4vw,56px); }
+  }
+  @media (max-width: 620px) {
+    .pv-strip { grid-template-columns: 1fr 1fr; }
+    .pv-strip__i:nth-child(2) { border-right: none; }
+    .pv-strip__i:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+    .pv-fields { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pv * { animation: none !important; transition: none !important; } }
+</style>
+
+<script>
+  const $ = (id: string) => document.getElementById(id);
+  const selected = new Map<string, string>();
+  let pickedISO = '', pickedLabel = '', pickedSlot = '';
+
+  // ── Date rail: tomorrow → +45 days, matching Try at Home ──
+  const rail = $('pvRail');
+  if (rail) {
+    const today = new Date();
+    for (let i = 1; i <= 45; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pv-rdate';
+      btn.dataset.iso = d.toISOString().slice(0, 10);
+      btn.dataset.label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      btn.innerHTML =
+        `<span class="dw">${d.toLocaleDateString('en-IN', { weekday: 'short' })}</span>` +
+        `<span class="nm">${d.getDate()}</span>` +
+        `<span class="mo">${d.toLocaleDateString('en-IN', { month: 'short' })}</span>`;
+      btn.addEventListener('click', () => {
+        rail.querySelectorAll('.pv-rdate').forEach((x) => x.classList.remove('sel'));
+        btn.classList.add('sel');
+        pickedISO = btn.dataset.iso || '';
+        pickedLabel = btn.dataset.label || '';
+        const hint = $('pvSlotHint'); if (hint) hint.hidden = true;
+        const btns = $('pvSlotBtns'); if (btns) btns.hidden = false;
+        sync();
+      });
+      rail.appendChild(btn);
+    }
+  }
+
+  document.querySelectorAll('.pv-slot').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.pv-slot').forEach((x) => x.classList.remove('sel'));
+      b.classList.add('sel');
+      pickedSlot = (b as HTMLElement).dataset.slot || '';
+      sync();
+    });
+  });
+
+  // ── Bag selection ──
+  let maxTimer: number | undefined;
+  function showMax() {
+    const m = $('pvMaxMsg'); if (!m) return;
+    m.hidden = false;
+    clearTimeout(maxTimer);
+    maxTimer = window.setTimeout(() => { m.hidden = true; }, 3000);
+  }
+  document.querySelectorAll<HTMLButtonElement>('.pv-bag__add').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const vid = btn.dataset.add || '';
+      const tile = document.querySelector(`.pv-bag[data-vid="${vid}"]`);
+      const name = tile?.querySelector('.pv-bag__name')?.textContent?.trim() || 'Bag';
+      if (selected.has(vid)) {
+        selected.delete(vid);
+        tile?.classList.remove('sel');
+      } else {
+        if (selected.size >= 6) { showMax(); return; }
+        selected.set(vid, name);
+        tile?.classList.add('sel');
+      }
+      btn.setAttribute('aria-pressed', selected.has(vid) ? 'true' : 'false');
+      const c = $('pvBagCount'); if (c) c.textContent = String(selected.size);
+      sync();
+    });
+  });
+
+  function set(id: string, text: string, muted: boolean) {
+    const el = $(id); if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('muted', muted);
+  }
+  function sync() {
+    set('pv-sum-date', pickedLabel || 'Choose a day', !pickedLabel);
+    set('pv-sum-time', pickedSlot || 'Choose a time', !pickedSlot);
+    set('pv-sum-bags', selected.size ? [...selected.values()].join(', ') : 'Up to six pieces', selected.size === 0);
+  }
+
+  // ── Confirm ──
+  const bookBtn = $('pvBookBtn') as HTMLButtonElement | null;
+  bookBtn?.addEventListener('click', async () => {
+    const err = $('pvErr');
+    const fail = (m: string) => { if (err) { err.textContent = m; err.hidden = false; } };
+    if (err) err.hidden = true;
+
+    const name = ($('pv-name') as HTMLInputElement)?.value.trim() || '';
+    const phone = (($('pv-phone') as HTMLInputElement)?.value || '').replace(/\D/g, '');
+    const email = ($('pv-email') as HTMLInputElement)?.value.trim() || '';
+    const pin = (($('pv-pin') as HTMLInputElement)?.value || '').replace(/\D/g, '');
+
+    if (!pickedISO || !pickedSlot) return fail('Please choose a day and a time.');
+    if (selected.size < 1) return fail('Please select at least one bag.');
+    if (!name || !email || phone.length !== 10) return fail('Please fill in your name, email and a 10-digit phone number.');
+    if (!/^\d{6}$/.test(pin)) return fail('Please enter a valid 6-digit PIN code.');
+
+    bookBtn.disabled = true;
+    bookBtn.textContent = 'Opening your room…';
+    try {
+      const res = await fetch('/api/private-viewing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startsAt: pickedISO }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not open a viewing room.');
+
+      const main = $('pvMain'); if (main) main.hidden = true;
+      const done = $('pvDone'); if (done) done.hidden = false;
+      const body = $('pvDoneBody');
+      if (body) body.textContent = `${pickedLabel}, ${pickedSlot}. We'll confirm by email and WhatsApp, and your room link is ready below.`;
+      const join = $('pvJoin') as HTMLAnchorElement | null;
+      if (join) join.href = data.viewingPath;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      fail(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      bookBtn.disabled = false;
+      bookBtn.textContent = 'Confirm Private Viewing';
+    }
+  });
+
+  sync();
+</script>

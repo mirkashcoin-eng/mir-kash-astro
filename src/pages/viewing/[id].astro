@@ -1,0 +1,70 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+
+export const prerender = false;
+
+// The call itself, embedded so it runs on mirkash.com under our own branding.
+//
+// The room id is the Whereby room name, so the URL can be rebuilt from it alone —
+// no lookup table needed. Rooms Whereby has expired simply show its own "meeting
+// ended" state inside the frame, which is the right message anyway.
+const { id = '' } = Astro.params;
+const subdomain =
+  (typeof process !== 'undefined' ? process.env.WHEREBY_SUBDOMAIN : undefined) ||
+  (import.meta.env.WHEREBY_SUBDOMAIN as string | undefined) ||
+  'mirkash';
+
+// Only ever build a URL from a room id we recognise as one, so a crafted path can't
+// point the iframe somewhere else.
+const safeId = /^[A-Za-z0-9-]{6,80}$/.test(id) ? id : '';
+const roomUrl = safeId ? `https://${subdomain}.whereby.com/${safeId}` : '';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+<BaseLayout title="Your Private Viewing — Mir Kash" path={`/viewing/${safeId}`}>
+  <main class="pv-room">
+    {roomUrl ? (
+      <>
+        <div class="pv-room__bar">
+          <a class="pv-room__logo" href="/"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
+          <p class="pv-room__label">Private Viewing</p>
+        </div>
+
+        <div class="pv-room__frame">
+          <iframe
+            src={roomUrl}
+            title="Private Viewing"
+            allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
+          ></iframe>
+        </div>
+
+        <p class="pv-room__fallback">
+          Trouble joining? <a href={roomUrl} target="_blank" rel="noopener">Open the room in a new tab &rarr;</a>
+        </p>
+      </>
+    ) : (
+      <div class="pv-room__gone">
+        <h1 class="pv-room__gone-h">This viewing link isn&rsquo;t valid</h1>
+        <p class="pv-room__gone-p">The link may have expired. Book another Private Viewing and we&rsquo;ll send a fresh one.</p>
+        <a class="pv-room__gone-btn" href="/private-viewing">Book a Private Viewing</a>
+      </div>
+    )}
+  </main>
+
+  <style is:global>
+    :root { --depth: #2C1A0E; --cherry: #8B1A1A; --rule: #e4dfd7; --mid: #6e6a64; }
+    body { background: #17120e; }
+    .pv-room { min-height: 100vh; display: flex; flex-direction: column; padding: 0 0 20px; }
+    .pv-room__bar { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(16px,3vw,32px); }
+    .pv-room__logo img { height: 18px; }
+    .pv-room__label { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.55); margin: 0; }
+    .pv-room__frame { flex: 1; margin: 0 clamp(12px,2.5vw,28px); border-radius: 10px; overflow: hidden; background: #000; min-height: 70vh; }
+    .pv-room__frame iframe { width: 100%; height: 100%; min-height: 70vh; border: 0; display: block; }
+    .pv-room__fallback { text-align: center; font-size: 12.5px; color: rgba(255,255,255,.5); margin: 14px 0 0; }
+    .pv-room__fallback a { color: rgba(255,255,255,.85); text-decoration: underline; }
+    .pv-room__gone { margin: auto; text-align: center; padding: 60px 24px; color: #fff; }
+    .pv-room__gone-h { font-family: 'Jost', sans-serif; font-weight: 400; font-size: 26px; margin: 0 0 10px; }
+    .pv-room__gone-p { color: rgba(255,255,255,.6); font-size: 14px; margin: 0 0 26px; }
+    .pv-room__gone-btn { display: inline-flex; align-items: center; height: 46px; padding: 0 28px; background: #fff; color: var(--depth); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; }
+  </style>
+</BaseLayout>

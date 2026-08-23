@@ -1,0 +1,13 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PrivateViewing from '~/components/PrivateViewing.astro';
+
+export const prerender = false;
+---
+<BaseLayout
+  title="Private Viewing — Mir Kash"
+  path="/private-viewing"
+  description="Book a live video viewing with a Mir Kash client advisor. See the pieces you choose up close, from anywhere — complimentary, no obligation."
+>
+  <PrivateViewing />
+</BaseLayout>
