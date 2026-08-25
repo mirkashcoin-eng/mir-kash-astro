@@ -60,11 +60,12 @@
         <h1 class="ad-display ad-h1">Overview</h1>
         <div class="ad-kpis" id="kpis"></div>
         <div id="productsBody"></div>
+        <div id="countryBody"></div>
         <div class="ad-panel">
           <div class="ad-panel__h"><span class="ad-panel__t">Recent orders</span><button class="ad-panel__more" data-view="orders" type="button">View all →</button></div>
           <div class="ad-scroll" id="ovOrders"></div>
         </div>
-        <p class="ad-oppnote">Page views, time on page and traffic sources live in Google Analytics — this dashboard covers people and money.</p>
+        <p class="ad-oppnote">Page views and time on page live in Google Analytics — this dashboard covers people, where they're coming from, and money.</p>
       </section>
       <section class="ad-view" data-view="daily" hidden>
         <h1 class="ad-display ad-h1">Daily funnel</h1>
@@ -276,6 +277,7 @@
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
       renderProducts(data.products);
+      renderCountries(PEOPLE);
       renderAffiliates(data.affiliates);
       renderPeople();
       renderDaily();
@@ -650,6 +652,32 @@
       var max = products[0].views || 1;
       body.innerHTML = hbars('Most viewed products', 'views · adds to bag', products.map(function (p) {
         return hbarRow(p.title, p.views + ' views · ' + p.cartAdds + ' adds', (p.views / max) * 100, '');
+      }).join(''));
+    }
+
+    // ── Traffic by country ────────────────────────────────────────────────────
+    // Country comes from the CDN edge (see middleware.ts), captured per person on
+    // first touch — same field the People drawer already shows one row at a time.
+    var COUNTRY_NAMES = null;
+    try { COUNTRY_NAMES = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) { /* older browser */ }
+    function countryName(code) {
+      if (!code) return 'Unknown';
+      if (COUNTRY_NAMES) { try { return COUNTRY_NAMES.of(code.toUpperCase()) || code; } catch (e) { return code; } }
+      return code;
+    }
+    function renderCountries(people) {
+      var body = $('countryBody'); if (!body) return;
+      var counts = {};
+      people.forEach(function (p) {
+        if (p.bot) return; // crawlers aren't traffic
+        var c = p.country || 'Unknown';
+        counts[c] = (counts[c] || 0) + 1;
+      });
+      var codes = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+      if (!codes.length) { body.innerHTML = ''; return; }
+      var max = counts[codes[0]] || 1;
+      body.innerHTML = hbars('Traffic by country', 'people captured', codes.slice(0, 12).map(function (c) {
+        return hbarRow(countryName(c), counts[c] + (counts[c] === 1 ? ' person' : ' people'), (counts[c] / max) * 100, '');
       }).join(''));
     }
 
