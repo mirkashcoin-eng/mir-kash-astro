@@ -712,13 +712,14 @@ export interface DemoBooking {
 }
 
 const DEMO_BOOKINGS = /* GraphQL */ `
-  query DemoBookings {
-    draftOrders(first: 50, query: "tag:home-demo", sortKey: UPDATED_AT, reverse: true) {
+  query DemoBookings($after: String) {
+    draftOrders(first: 100, after: $after, query: "tag:home-demo", sortKey: UPDATED_AT, reverse: true) {
       edges { node {
         id name createdAt email phone tags
         customAttributes { key value }
         shippingAddress { name address1 address2 city province zip }
       } }
+      pageInfo { hasNextPage endCursor }
     }
   }
 `;
@@ -729,16 +730,27 @@ function demoStatus(tags: string[], attrStatus: string): DemoStatus {
   return 'requested';
 }
 
+type DemoBookingNode = {
+  id: string; name: string; createdAt: string; email: string | null; phone: string | null; tags: string[];
+  customAttributes: Array<{ key: string; value: string }>;
+  shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
+};
+
 export async function getDemoBookings(): Promise<DemoBooking[]> {
-  const data = await runAdminQuery<{
-    draftOrders: { edges: Array<{ node: {
-      id: string; name: string; createdAt: string; email: string | null; phone: string | null; tags: string[];
-      customAttributes: Array<{ key: string; value: string }>;
-      shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null } | null;
-    } }> };
-  }>(DEMO_BOOKINGS);
+  // Paginate to the end — a fixed `first: N` silently drops older bookings once the
+  // store has more than N home-demo drafts, which is exactly what was happening here.
+  const nodes: DemoBookingNode[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < 20; page++) { // 20 × 100 = 2000 drafts, generous ceiling
+    const data: { draftOrders: { edges: Array<{ node: DemoBookingNode }>; pageInfo: { hasNextPage: boolean; endCursor: string | null } } } | null =
+      await runAdminQuery(DEMO_BOOKINGS, { after });
+    const edges = data?.draftOrders?.edges ?? [];
+    nodes.push(...edges.map((e) => e.node));
+    if (!data?.draftOrders?.pageInfo?.hasNextPage) break;
+    after = data.draftOrders.pageInfo.endCursor;
+  }
   const domain = adminDomain();
-  return (data?.draftOrders?.edges ?? []).map(({ node }) => {
+  return nodes.map((node) => {
     const attr = (k: string) => node.customAttributes.find((a) => a.key === k)?.value ?? '';
     const a = node.shippingAddress;
     const address = a ? [a.address1, a.address2, a.city, a.province, a.zip].filter(Boolean).join(', ') : null;
