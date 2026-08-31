@@ -1,9 +1,11 @@
 ---
 import JournalListPane from './JournalListPane.astro';
-import { POSTS, relatedPosts, formatJournalDate, type JournalPost } from '~/data/journal';
+import { POSTS, relatedPosts, formatJournalDate, findMatchingProduct, withInlineImage, type JournalPost } from '~/data/journal';
 import { SITE_ORIGIN, absoluteUrl } from '~/lib/markets';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { shopifyImage } from '~/lib/shopifyImage';
 
-const { marketConfig } = Astro.locals;
+const { market, marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 const url = (slug: string) => `${prefix}/blog/${slug}`;
 
@@ -12,6 +14,21 @@ const url = (slug: string) => `${prefix}/blog/${slug}`;
 const byNewest = [...POSTS].sort((a, b) => b.date.localeCompare(a.date));
 const post: JournalPost | undefined = byNewest.find((p) => p.role === 'cover') ?? byNewest[0];
 const related = post ? relatedPosts(post.slug, 3) : [];
+
+// Same inline-photo treatment as the article page — prefers the real image
+// already used for this post on Shopify's own blog, falls back to a product
+// photo via `imageMatch`. See JournalArticle.astro for the full rationale.
+let inlineImageUrl = post?.image ?? '';
+let inlineImageAlt = post?.title ?? '';
+if (post && !inlineImageUrl && post.imageMatch) {
+  const matchedProducts = await getAllProducts(market, marketConfig.countryCode, 100).catch(() => []);
+  const matchedProduct = findMatchingProduct(matchedProducts, post.imageMatch);
+  if (matchedProduct) {
+    inlineImageUrl = shopifyImage(matchedProduct.images?.edges?.[0]?.node?.url, 900);
+    inlineImageAlt = matchedProduct.title;
+  }
+}
+const bodyHtml = post ? (inlineImageUrl ? withInlineImage(post.body, inlineImageUrl, inlineImageAlt) : post.body) : '';
 const shareUrl = post ? Astro.url.origin + url(post.slug) : '';
 const waHref = post ? `https://wa.me/?text=${encodeURIComponent(post.title + ' — ' + shareUrl)}` : '';
 const fbHref = post ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` : '';
@@ -56,7 +73,7 @@ const breadcrumbJsonLd = {
           <h1 class="nt-detail__title">{post.title}</h1>
           <p class="nt-detail__sub">{post.excerpt}</p>
 
-          <div class="nt-detail__body" set:html={post.body} />
+          <div class="nt-detail__body" set:html={bodyHtml} />
 
           <div class="nt-detail__share">
             <span class="nt-detail__share-lbl">Share</span>

@@ -77,6 +77,7 @@ const META: Omit<JournalPost, 'body'>[] = [
     "readMin": 1,
     "date": "2026-05-14",
     "imageMatch": "kelly",
+    "image": "https://cdn.shopify.com/s/files/1/0730/9774/0503/articles/3_4372608b-53e3-4f55-8c94-1cd6f194b359.jpg?v=1737014411",
     "role": ""
   },
   {
@@ -97,6 +98,7 @@ const META: Omit<JournalPost, 'body'>[] = [
     "readMin": 3,
     "date": "2026-04-16",
     "imageMatch": "",
+    "image": "https://cdn.shopify.com/s/files/1/0730/9774/0503/articles/001.jpg?v=1737014321",
     "role": ""
   },
   {
@@ -107,6 +109,7 @@ const META: Omit<JournalPost, 'body'>[] = [
     "readMin": 1,
     "date": "2026-04-02",
     "imageMatch": "foxy",
+    "image": "https://cdn.shopify.com/s/files/1/0730/9774/0503/articles/0004.webp?v=1737014373",
     "role": ""
   },
   {
@@ -117,6 +120,7 @@ const META: Omit<JournalPost, 'body'>[] = [
     "readMin": 2,
     "date": "2026-03-19",
     "imageMatch": "",
+    "image": "https://cdn.shopify.com/s/files/1/0730/9774/0503/articles/0002.webp?v=1737014338",
     "role": ""
   },
   {
@@ -137,6 +141,7 @@ const META: Omit<JournalPost, 'body'>[] = [
     "readMin": 1,
     "date": "2026-02-10",
     "imageMatch": "",
+    "image": "https://cdn.shopify.com/s/files/1/0730/9774/0503/articles/0003.webp?v=1737014353",
     "role": ""
   },
   {
@@ -219,4 +224,30 @@ export function groupByMonth(posts: JournalPost[]): JournalMonthGroup[] {
     label: new Date(key + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
     posts: groupPosts,
   }));
+}
+
+// Finds the product a post's `imageMatch` keyword refers to (case-insensitive,
+// against title or handle) — same matching a removed `imgFor()` helper used to
+// do for hero/thumbnail images, reused here to source real product photography
+// for inline note images instead of requiring separately uploaded blog assets.
+export function findMatchingProduct<T extends { title: string; handle: string }>(
+  products: T[],
+  keyword: string,
+): T | undefined {
+  if (!keyword) return undefined;
+  const k = keyword.toLowerCase();
+  return products.find((p) => p.title.toLowerCase().includes(k) || p.handle.toLowerCase().includes(k));
+}
+
+// Splices one photo into a note's body right after the first paragraph — like
+// a photo attached partway through writing a note, not a blog's featured/hero
+// image sitting above the title. No-ops if no image URL was resolved.
+export function withInlineImage(bodyHtml: string, imageUrl: string, alt: string): string {
+  if (!imageUrl) return bodyHtml;
+  const safeAlt = alt.replace(/"/g, '&quot;');
+  const img = `<img src="${imageUrl}" alt="${safeAlt}" loading="lazy" />`;
+  const idx = bodyHtml.indexOf('</p>');
+  if (idx === -1) return img + bodyHtml;
+  const cut = idx + 4;
+  return bodyHtml.slice(0, cut) + img + bodyHtml.slice(cut);
 }

@@ -1,13 +1,35 @@
 ---
 import JournalListPane from './JournalListPane.astro';
-import { relatedPosts, formatJournalDate, type JournalPost } from '~/data/journal';
+import { relatedPosts, formatJournalDate, findMatchingProduct, withInlineImage, type JournalPost } from '~/data/journal';
 import { SITE_ORIGIN, absoluteUrl } from '~/lib/markets';
+import { getAllProducts } from '~/lib/shopify/queries';
+import { shopifyImage } from '~/lib/shopifyImage';
 
 interface Props { post: JournalPost }
 const { post } = Astro.props;
-const { marketConfig } = Astro.locals;
+const { market, marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 const url = (slug: string) => `${prefix}/blog/${slug}`;
+
+// One real photo, dropped into the note body like a photo someone attached
+// mid-note — not a blog hero image. `post.image`, when set, is the actual
+// image already used for this exact post on Shopify's own "Foxy Styling
+// Tips" blog (matched by title, baked in once — see data/journal/index.ts —
+// rather than re-fetched live, since it's static content). Posts without a
+// Shopify article get a best-effort product photo instead, via each post's
+// `imageMatch` keyword; posts with neither just stay text-only, same as
+// plenty of real notes never having a photo attached.
+let inlineImageUrl = post.image ?? '';
+let inlineImageAlt = post.title;
+if (!inlineImageUrl && post.imageMatch) {
+  const matchedProducts = await getAllProducts(market, marketConfig.countryCode, 100).catch(() => []);
+  const matchedProduct = findMatchingProduct(matchedProducts, post.imageMatch);
+  if (matchedProduct) {
+    inlineImageUrl = shopifyImage(matchedProduct.images?.edges?.[0]?.node?.url, 900);
+    inlineImageAlt = matchedProduct.title;
+  }
+}
+const bodyHtml = inlineImageUrl ? withInlineImage(post.body, inlineImageUrl, inlineImageAlt) : post.body;
 
 const related = relatedPosts(post.slug, 3);
 const shareUrl = Astro.url.href;
@@ -56,7 +78,7 @@ const breadcrumbJsonLd = {
       <h1 class="nt-detail__title">{post.title}</h1>
       <p class="nt-detail__sub">{post.excerpt}</p>
 
-      <div class="nt-detail__body" set:html={post.body} />
+      <div class="nt-detail__body" set:html={bodyHtml} />
 
       <div class="nt-detail__share">
         <span class="nt-detail__share-lbl">Share</span>
