@@ -233,13 +233,15 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     background: rgba(255,255,255,.7); color: var(--nt-mid);
   }
   .nt-viewbar__search svg { flex: 0 0 auto; }
-  .nt-viewbar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 13px; color: var(--nt-ink); }
+  .nt-viewbar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 13px; color: var(--nt-ink); outline: none; }
   .nt-viewbar__search input::placeholder { color: var(--nt-soft); }
+  .nt-viewbar__search:focus-within { border-color: var(--nt-gold-deep); box-shadow: 0 0 0 3px rgba(236,174,18,.15); }
 
   /* ── Sidebar ─────────────────────────────────────────── */
   .nt-sidebar { grid-area: sidebar; min-width: 0; overflow-y: auto; background: rgba(251,251,252,.6); border-right: 1px solid var(--nt-line); padding-bottom: 16px; }
   .nt-sidebar__lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(107,107,107,.8); margin: 0; padding: 20px 22px 8px 24px; }
   .nt-sidebar__mtitle { display: none; }
+  .nt-sidebar__search { display: none; }
   .nt-folders { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
   .nt-folders button {
     width: 100%; display: flex; align-items: center; gap: 10px;
@@ -385,8 +387,9 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
       border-right: 1.8px solid #c7c7cc; border-bottom: 1.8px solid #c7c7cc; transform: rotate(-45deg);
     }
     .nt-sidebar__search { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 16px; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--nt-line); background: rgba(255,255,255,.85); color: var(--nt-soft); }
-    .nt-sidebar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 15px; color: inherit; }
+    .nt-sidebar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 15px; color: inherit; outline: none; }
     .nt-sidebar__search input::placeholder { color: var(--nt-soft); }
+    .nt-sidebar__search:focus-within { border-color: var(--nt-gold-deep); box-shadow: 0 0 0 3px rgba(236,174,18,.15); }
 
     .nt-list { border-right: none; padding: 0 var(--gutter) 60px; background: #f2f2f4; }
     .nt-list__mhead { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 0 4px; }
