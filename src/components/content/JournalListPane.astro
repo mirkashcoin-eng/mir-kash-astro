@@ -1,6 +1,6 @@
 ---
-// Shared app shell for the Journal: wallpaper + floating "glass" window + traffic
-// lights + folders sidebar + note-list column — used by both the index page
+// Shared app shell for the Journal: wallpaper + floating "glass" window +
+// folders sidebar + note-list column — used by both the index page
 // (/blog) and the article page (/blog/[slug]). The detail pane is passed in as
 // the default slot so both pages render this exact same shell instead of drifting.
 //
@@ -39,7 +39,6 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
 
     <div class="nt-app" data-mode={mode}>
       <aside class="nt-sidebar" aria-label="Folders">
-        <div class="nt-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
         <p class="nt-sidebar__lbl">Journal</p>
         <p class="nt-sidebar__mtitle">Journal</p>
         <ul class="nt-folders" id="ntFolders" role="listbox" aria-label="Filter by folder">
@@ -60,11 +59,39 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
             </li>
           ))}
         </ul>
-        <div class="nt-sidebar__search" aria-hidden="true">
+        <label class="nt-sidebar__search">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input type="search" placeholder="Search" disabled tabindex="-1" />
-        </div>
+          <input type="search" placeholder="Search" id="ntSearchMobile" autocomplete="off" />
+        </label>
       </aside>
+
+      <div class="nt-viewbar">
+        <div class="nt-viewbar__title">
+          <div class="nt-viewbar__name-wrap">
+            <p class="nt-viewbar__name" id="ntFolderLabelDesktop">All Notes</p>
+            <p class="nt-viewbar__count" id="ntFolderCountDesktop">{storyWord(POSTS.length)}</p>
+          </div>
+          <span class="nt-viewbar__more" aria-hidden="true" title="More">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="12" r="0.5" fill="currentColor"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/><circle cx="16.5" cy="12" r="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="nt-viewbar__right">
+          <div class="nt-pillgroup" aria-hidden="true">
+            <span title="Text style">Aa</span>
+            <span title="Checklist"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M3 6l1.5 1.5L7 5"/><path d="M3 12l1.5 1.5L7 11"/></svg></span>
+            <span title="Table"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M12 3v18"/></svg></span>
+            <span title="Attach"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>
+          </div>
+          <div class="nt-pillgroup" aria-hidden="true">
+            <span title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5l12 7.5-12 7.5z"/></svg></span>
+            <span title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></span>
+          </div>
+          <label class="nt-viewbar__search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="search" placeholder="Search" id="ntSearchDesktop" autocomplete="off" />
+          </label>
+        </div>
+      </div>
 
       <div class="nt-list" id="ntList">
         <div class="nt-list__mhead">
@@ -81,7 +108,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
               <h2 class="nt-month">Pinned</h2>
               <ul class="nt-rows">
                 <li>
-                  <a class:list={['nt-row', { 'is-active': activeSlug === pinned.slug }]} data-cat={pinned.category} href={url(pinned.slug)}>
+                  <a class:list={['nt-row', { 'is-active': activeSlug === pinned.slug }]} data-cat={pinned.category} data-search={`${pinned.title} ${pinned.excerpt} ${pinned.category}`.toLowerCase()} href={url(pinned.slug)}>
                     <p class="nt-row__t">{pinned.title}</p>
                     <p class="nt-row__l2"><time datetime={pinned.date} class="nt-row__date">{formatShortDate(pinned.date)}</time>{pinned.excerpt}</p>
                     <p class="nt-row__folder">
@@ -99,7 +126,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
               <ul class="nt-rows">
                 {g.posts.map((p) => (
                   <li>
-                    <a class:list={['nt-row', { 'is-active': activeSlug === p.slug }]} data-cat={p.category} href={url(p.slug)}>
+                    <a class:list={['nt-row', { 'is-active': activeSlug === p.slug }]} data-cat={p.category} data-search={`${p.title} ${p.excerpt} ${p.category}`.toLowerCase()} href={url(p.slug)}>
                       <p class="nt-row__t">{p.title}</p>
                       <p class="nt-row__l2"><time datetime={p.date} class="nt-row__date">{formatShortDate(p.date)}</time>{p.excerpt}</p>
                       <p class="nt-row__folder">
@@ -179,17 +206,39 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     flex: 1; min-height: 0;
     display: grid;
     grid-template-columns: 224px 288px minmax(0, 1fr);
+    grid-template-rows: 52px 1fr;
+    grid-template-areas: "sidebar viewbar viewbar" "sidebar list detail";
   }
   @media (min-width: 1024px) { .nt-app { grid-template-columns: 224px 320px minmax(0, 1fr); } }
 
+  /* ── View-options toolbar — mostly decorative (matches the reference's own
+     disabled/aria-disabled state for everything but search, which is real). ── */
+  .nt-viewbar { grid-area: viewbar; display: flex; align-items: stretch; min-width: 0; border-bottom: 1px solid var(--nt-line); background: rgba(255,255,255,.5); }
+  .nt-viewbar__title { flex: 0 0 288px; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px 0 16px; border-right: 1px solid var(--nt-line); }
+  @media (min-width: 1024px) { .nt-viewbar__title { flex-basis: 320px; } }
+  .nt-viewbar__name-wrap { min-width: 0; }
+  .nt-viewbar__name { font-size: 15px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nt-viewbar__count { font-size: 12px; color: var(--nt-mid); margin: 0; }
+  .nt-viewbar__more {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--nt-line);
+    background: rgba(255,255,255,.6); color: var(--nt-soft); cursor: not-allowed; opacity: .6;
+  }
+  .nt-viewbar__right { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 0 16px; }
+  .nt-pillgroup { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; border: 1px solid var(--nt-line); background: rgba(255,255,255,.6); flex: 0 0 auto; }
+  .nt-pillgroup span { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; color: var(--nt-soft); font-size: 13px; font-weight: 500; cursor: not-allowed; opacity: .6; }
+  .nt-viewbar__search {
+    display: flex; align-items: center; gap: 6px; height: 30px; width: 150px; flex: 0 1 auto;
+    padding: 0 10px; border-radius: 999px; border: 1px solid var(--nt-line);
+    background: rgba(255,255,255,.7); color: var(--nt-mid);
+  }
+  .nt-viewbar__search svg { flex: 0 0 auto; }
+  .nt-viewbar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 13px; color: var(--nt-ink); }
+  .nt-viewbar__search input::placeholder { color: var(--nt-soft); }
+
   /* ── Sidebar ─────────────────────────────────────────── */
-  .nt-sidebar { min-width: 0; overflow-y: auto; background: rgba(251,251,252,.6); border-right: 1px solid var(--nt-line); padding-bottom: 16px; }
-  .nt-traffic { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; }
-  .nt-traffic span { width: 11px; height: 11px; border-radius: 50%; }
-  .nt-traffic span:nth-child(1) { background: #ff5f57; }
-  .nt-traffic span:nth-child(2) { background: #febc2e; }
-  .nt-traffic span:nth-child(3) { background: #28c840; }
-  .nt-sidebar__lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(107,107,107,.8); margin: 6px 0 8px; padding: 0 22px 0 24px; }
+  .nt-sidebar { grid-area: sidebar; min-width: 0; overflow-y: auto; background: rgba(251,251,252,.6); border-right: 1px solid var(--nt-line); padding-bottom: 16px; }
+  .nt-sidebar__lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(107,107,107,.8); margin: 0; padding: 20px 22px 8px 24px; }
   .nt-sidebar__mtitle { display: none; }
   .nt-folders { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
   .nt-folders button {
@@ -207,7 +256,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
   .nt-folders button.is-on .nt-folder-count { color: rgba(255,255,255,.8); }
 
   /* ── List column ────────────────────────────────────── */
-  .nt-list { min-width: 0; border-right: 1px solid var(--nt-line); overflow-y: auto; padding: 0 12px 24px; }
+  .nt-list { grid-area: list; min-width: 0; border-right: 1px solid var(--nt-line); overflow-y: auto; padding: 0 12px 24px; }
   .nt-list__mback { display: none; }
   .nt-list__mtitle { display: none; }
   .nt-list__mcount { display: none; }
@@ -236,7 +285,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
   .nt-empty { text-align: center; font-size: 14px; color: var(--nt-soft); padding: 60px 0; }
 
   /* ── Detail pane (styled here; markup lives in each page) ───────────────── */
-  .nt-detail { min-width: 0; overflow-y: auto; background: rgba(255,255,255,.97); }
+  .nt-detail { grid-area: detail; min-width: 0; overflow-y: auto; background: rgba(255,255,255,.97); }
   .nt-detail__date { width: 100%; text-align: center; font-size: 12px; color: var(--nt-soft); padding: 20px 0 16px; margin: 0; }
   .nt-detail__toolbar { display: none; }
   .nt-detail__back, .nt-detail__mshare { display: none; }
@@ -306,7 +355,8 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
      panes. Matches the reference's actual mobile navigation (confirmed from
      its own screenshots), not a compressed version of the desktop layout. ── */
   @media (max-width: 639px) {
-    .nt-app { grid-template-columns: 1fr; }
+    .nt-app { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: none; }
+    .nt-viewbar { display: none; }
     .nt-app[data-mode="list"] .nt-detail { display: none; }
     .nt-app[data-mode="detail"] .nt-sidebar,
     .nt-app[data-mode="detail"] .nt-list { display: none; }
@@ -320,7 +370,6 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     .nt-app[data-mode="list"][data-mstage="list"] .nt-list { display: block; }
 
     .nt-sidebar { position: relative; height: 100%; background: #eeeef1; border-right: none; padding-bottom: 76px; }
-    .nt-traffic { display: none; }
     .nt-sidebar__lbl { display: none; }
     .nt-sidebar__mtitle { display: block; font-size: 34px; font-weight: 700; margin: 0; padding: 20px var(--gutter) 4px; }
     .nt-folders { flex-direction: column; gap: 0; margin: 14px var(--gutter) 0; padding: 0; background: #fff; border-radius: 16px; overflow: hidden; }
@@ -335,7 +384,6 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
       content: ''; flex: 0 0 auto; width: 7px; height: 7px; margin-left: 2px;
       border-right: 1.8px solid #c7c7cc; border-bottom: 1.8px solid #c7c7cc; transform: rotate(-45deg);
     }
-    /* Decorative only — visual fidelity to the reference, no search wired up. */
     .nt-sidebar__search { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 16px; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--nt-line); background: rgba(255,255,255,.85); color: var(--nt-soft); }
     .nt-sidebar__search input { flex: 1; min-width: 0; border: none; background: none; font-size: 15px; color: inherit; }
     .nt-sidebar__search input::placeholder { color: var(--nt-soft); }
@@ -376,6 +424,8 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     var groupsEl = document.getElementById('ntGroups');
     var label = document.getElementById('ntFolderLabel');
     var countEl = document.getElementById('ntFolderCount');
+    var label2 = document.getElementById('ntFolderLabelDesktop');
+    var count2 = document.getElementById('ntFolderCountDesktop');
     var empty = document.getElementById('ntEmpty');
     if (!bar || !groupsEl) return;
 
@@ -383,34 +433,60 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     var groups = Array.prototype.slice.call(groupsEl.querySelectorAll('.nt-group'));
     var appEl = document.querySelector('.nt-app');
     var backBtn = document.getElementById('ntBackToFolders');
+    var searchInputs = Array.prototype.slice.call(document.querySelectorAll('#ntSearchMobile, #ntSearchDesktop'));
+
+    var currentCat = 'all';
+    var currentQuery = '';
 
     function setMstage(stage) {
       if (appEl) appEl.setAttribute('data-mstage', stage);
     }
 
-    function apply(cat, push) {
+    // Search takes over row matching entirely (across every folder) while a
+    // query is active — clearing it goes back to plain folder filtering.
+    function rowMatches(r) {
+      if (currentQuery) return (r.dataset.search || '').indexOf(currentQuery) !== -1;
+      return currentCat === 'all' || r.dataset.cat === currentCat;
+    }
+
+    function refresh() {
       var total = 0;
       groups.forEach(function (g) {
         var rows = Array.prototype.slice.call(g.querySelectorAll('.nt-row'));
         var shown = 0;
         rows.forEach(function (r) {
           var li = r.closest('li');
-          var show = cat === 'all' || r.dataset.cat === cat;
+          var show = rowMatches(r);
           if (li) li.hidden = !show;
           if (show) shown++;
         });
         g.classList.toggle('is-empty', shown === 0);
         total += shown;
       });
-      groupsEl.setAttribute('data-folder', cat);
+      groupsEl.setAttribute('data-folder', currentQuery ? 'all' : currentCat);
+      var countText = total + (total === 1 ? ' story' : ' stories');
+      if (countEl) countEl.textContent = countText;
+      if (count2) count2.textContent = countText;
+      if (empty) {
+        empty.hidden = total > 0;
+        empty.textContent = currentQuery ? 'No stories match “' + currentQuery + '”.' : 'No stories in this folder yet.';
+      }
+    }
+
+    function setLabel(text) {
+      if (label) label.textContent = text;
+      if (label2) label2.textContent = text;
+    }
+
+    function apply(cat, push) {
+      currentCat = cat;
       buttons.forEach(function (b) {
         var on = b.dataset.cat === cat;
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
-        if (on && label) label.textContent = cat === 'all' ? 'All Notes' : b.querySelector('.nt-folder-name').textContent;
+        if (on) setLabel(cat === 'all' ? 'All Notes' : b.querySelector('.nt-folder-name').textContent);
       });
-      if (countEl) countEl.textContent = total + (total === 1 ? ' story' : ' stories');
-      if (empty) empty.hidden = total > 0;
+      refresh();
       // Mobile: any folder pick (including "All Notes") moves from the Folders
       // screen to the note list — matches the reference's real navigation.
       setMstage('list');
@@ -443,7 +519,26 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
       if (t) apply(t, false); else setMstage('folders');
     });
 
+    // Both search boxes (the mobile Folders-screen one and the desktop
+    // toolbar one) drive the same query — typing in either updates both, so
+    // resizing mid-search never leaves the hidden one out of sync.
+    searchInputs.forEach(function (input) {
+      input.addEventListener('input', function () {
+        currentQuery = input.value.trim().toLowerCase();
+        searchInputs.forEach(function (other) { if (other !== input) other.value = input.value; });
+        if (currentQuery) {
+          setLabel('Search');
+          setMstage('list');
+        } else {
+          var activeBtn = buttons.filter(function (b) { return b.dataset.cat === currentCat; })[0];
+          var nameEl = activeBtn && activeBtn.querySelector('.nt-folder-name');
+          setLabel(currentCat === 'all' || !nameEl ? 'All Notes' : nameEl.textContent);
+        }
+        refresh();
+      });
+    });
+
     var initial = fromUrl();
-    if (initial) apply(initial, false);
+    if (initial) apply(initial, false); else refresh();
   })();
 </script>
