@@ -674,7 +674,10 @@ const CUSTOMER_SUBSCRIBE = `
 
 // Saves a newsletter signup as a Shopify customer with email-marketing consent, so
 // subscribers land in Shopify → Customers (filter: Email subscription) ready for
-// campaigns. Needs the `write_customers` scope on the India Admin app.
+// campaigns. Needs the `write_customers` scope on the India Admin app. This is
+// best-effort: the /api/newsletter route also writes every signup to Firestore
+// (see ~/lib/newsletter), which is the source of truth for the founders' list and
+// the /admin Newsletter tab, so a signup survives even when this call fails.
 export async function subscribeEmail(email: string): Promise<{ ok: boolean; error?: string }> {
   const data = await runAdminQuery<{
     customerCreate: { customer: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> };

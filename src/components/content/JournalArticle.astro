@@ -43,9 +43,14 @@ const breadcrumbJsonLd = {
 
 <JournalListPane activeSlug={post.slug} mode="detail">
   <main class="nt-detail">
-    <a class="nt-detail__back" href={`${prefix}/blog`} aria-label="Back to The Journal">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-    </a>
+    <div class="nt-detail__toolbar">
+      <a class="nt-detail__back" href={`${prefix}/blog`} aria-label="Back to The Journal">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <button type="button" class="nt-detail__mshare" data-url={shareUrl} data-title={post.title} aria-label="Share this note">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>
+      </button>
+    </div>
     <p class="nt-detail__date"><time datetime={post.date}>{formatJournalDate(post.date)}</time></p>
     <article class="nt-detail__art">
       <h1 class="nt-detail__title">{post.title}</h1>
@@ -96,11 +101,9 @@ const breadcrumbJsonLd = {
 
 <script is:inline>
   (function () {
-    var btn = document.querySelector('.nt-copy');
     var flag = document.getElementById('ntCopied');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      var u = btn.getAttribute('data-url') || location.href;
+    function copyLink(url) {
+      var u = url || location.href;
       var done = function () {
         if (!flag) return;
         flag.hidden = false;
@@ -108,6 +111,25 @@ const breadcrumbJsonLd = {
         flag._t = setTimeout(function () { flag.hidden = true; }, 2200);
       };
       if (navigator.clipboard) navigator.clipboard.writeText(u).then(done, done); else done();
-    });
+    }
+
+    var btn = document.querySelector('.nt-copy');
+    if (btn) btn.addEventListener('click', function () { copyLink(btn.getAttribute('data-url')); });
+
+    // Mobile toolbar share button — native share sheet where available
+    // (title/text/url, like sharing anything else on the phone), falling
+    // back to the same copy-link behavior as the desktop share row.
+    var mshare = document.querySelector('.nt-detail__mshare');
+    if (mshare) {
+      mshare.addEventListener('click', function () {
+        var u = mshare.getAttribute('data-url') || location.href;
+        var t = mshare.getAttribute('data-title') || document.title;
+        if (navigator.share) {
+          navigator.share({ title: t, url: u }).catch(function () {});
+        } else {
+          copyLink(u);
+        }
+      });
+    }
   })();
 </script>

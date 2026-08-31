@@ -34,6 +34,7 @@
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="demos">Try at Home <span class="ad-nav__n" id="nDemos"></span></button>
       <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
+      <button class="ad-nav__item" data-view="newsletter">Newsletter <span class="ad-nav__n" id="nNews"></span></button>
       <div class="ad-nav__foot">
         <span class="ad-nav__upd" id="updated"></span>
         <button class="ad-nav__out" id="lockBtn" type="button">Lock dashboard</button>
@@ -112,6 +113,14 @@
         </div>
         <div id="affBody"></div>
       </section>
+      <section class="ad-view" data-view="newsletter" hidden>
+        <h1 class="ad-display ad-h1">Newsletter</h1>
+        <p class="ad-sub">Everyone who signed up from the site footer. Stored here even when Shopify sync is unavailable — “In Shopify?” shows whether the marketing-consent customer was created.</p>
+        <div class="ad-daterow">
+          <button class="ad-chip ad-chip--date" id="newsCsv" type="button">Download CSV</button>
+        </div>
+        <div class="ad-panel"><div class="ad-scroll" id="allSubs"></div></div>
+      </section>
     </div>
   </div>
 
@@ -135,6 +144,7 @@
     var PEOPLE = [];
     var ORDERS = [];
     var AFFILIATES = [];
+    var SUBSCRIBERS = [];
     var FULFIL_PENDING = 0;
     var FILTER = 'all';   // active stage filter in the People view
     var DATE_FILTER = 'all';
@@ -193,6 +203,26 @@
         return '<tr data-idx="' + i + '"><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + demoPill(d.status) + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
     }
+    function subscribersTable(subs) {
+      if (!subs) return '<p class="ad-note ad-pad">Newsletter signups aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p>';
+      if (!subs.length) return '<p class="ad-note ad-pad">No newsletter signups yet.</p>';
+      return '<table class="ad-table"><thead><tr><th>Email</th><th>Signed up</th><th>Source</th><th>In Shopify?</th></tr></thead><tbody>' + subs.map(function (s) {
+        return '<tr><td class="nm">' + esc(s.email) + '</td><td>' + when(s.createdAt) + '</td><td>' + esc(s.source || 'footer') + '</td><td>' + (s.shopifyOk ? '<span class="ad-pill ad-pill--good">Yes</span>' : '<span class="ad-pill ad-pill--wait">No</span>') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }
+    function newsletterCsv() {
+      var rows = SUBSCRIBERS || [];
+      var lines = ['email,signed_up,source,in_shopify'];
+      rows.forEach(function (s) {
+        lines.push(['"' + String(s.email || '').replace(/"/g, '""') + '"', s.createdAt || '', s.source || 'footer', s.shopifyOk ? 'yes' : 'no'].join(','));
+      });
+      var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mir-kash-newsletter.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
     // ── Unread badges ─────────────────────────────────────────────────────────
     // Each nav badge counts records newer than the last time that tab was opened,
     // so it reads as "new since you last looked" rather than a running total.
@@ -233,6 +263,7 @@
       setBadge('nOrders', unreadCount('orders', ORDERS, byCreated));
       setBadge('nDemos', unreadCount('demos', DEMOS, byCreated));
       setBadge('nAff', unreadCount('affiliates', AFFILIATES, function (a) { return a.createdAt; }));
+      setBadge('nNews', unreadCount('newsletter', SUBSCRIBERS || [], function (s) { return s.createdAt; }));
       // Fulfilment is a work queue, not a feed: the badge is how much is waiting
       // on you right now, so it stays a live count rather than an unread mark.
       setBadge('nFulfil', FULFIL_PENDING);
@@ -258,6 +289,7 @@
       PEOPLE = data.people || [];
       ORDERS = orders;
       AFFILIATES = data.affiliates || [];
+      SUBSCRIBERS = ('subscribers' in data) ? data.subscribers : [];
 
       var now = Date.now();
       var recent = orders.filter(function (o) { var t = new Date(o.createdAt).getTime(); return isFinite(t) && now - t <= 30 * 864e5 && !o.cancelled; });
@@ -274,6 +306,7 @@
       $('ovOrders').innerHTML = ordersTable(orders.slice(0, 8));
       $('allOrders').innerHTML = ordersTable(orders);
       $('allDemos').innerHTML = demosTable(demos);
+      $('allSubs').innerHTML = subscribersTable(SUBSCRIBERS);
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
       renderProducts(data.products);
@@ -984,6 +1017,7 @@
       if (e.target.value) { MONTH = e.target.value; renderDaily(); }
     });
     $('monthCsv').addEventListener('click', dailyCsv);
+    $('newsCsv').addEventListener('click', newsletterCsv);
     // Delegated: the toggle is re-created on every grid render.
     $('dailyBody').addEventListener('change', function (e) {
       if (e.target && e.target.id === 'showBots') { SHOW_BOTS = e.target.checked; renderDaily(); }
