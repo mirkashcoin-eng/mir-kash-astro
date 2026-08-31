@@ -32,7 +32,10 @@ export function botName(ua: string): string {
   for (const [re, name] of NAMED_BOTS) if (re.test(ua)) return name;
   return BOT_UA.test(ua) ? 'Other bot' : '';
 }
-const SKIP_PATHS = [/^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/];
+// /admin is an internal tool, not a localized storefront page — it has no
+// locale-prefixed counterpart (only src/pages/admin exists), so it must never
+// get geo/cookie-redirected to e.g. /en-us/admin, which would just 404.
+const SKIP_PATHS = [/^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/, /^\/admin(\/|$)/];
 
 function shouldSkip(pathname: string, ua: string): boolean {
   if (BOT_UA.test(ua)) return true;

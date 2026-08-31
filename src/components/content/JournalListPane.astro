@@ -1,0 +1,385 @@
+---
+// Shared app shell for the Journal: wallpaper + floating "glass" window + traffic
+// lights + folders sidebar + note-list column — used by both the index page
+// (/blog) and the article page (/blog/[slug]). The detail pane is passed in as
+// the default slot so both pages render this exact same shell instead of drifting.
+//
+// This deliberately does NOT reuse <SiteHeader>/<SiteFooter> — the reference this
+// is modeled on (a macOS Notes-style app window on a wallpaper) doesn't fit inside
+// the site's normal nav chrome. Instead a minimal brand strip (monogram + "Shop"
+// link) is woven into the window itself, just enough to get back to the store.
+import { POSTS, CATEGORIES, groupByMonth, formatShortDate } from '~/data/journal';
+
+interface Props { activeSlug?: string; mode: 'list' | 'detail' }
+const { activeSlug, mode } = Astro.props;
+
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const url = (slug: string) => `${prefix}/blog/${slug}`;
+const homeHref = prefix || '/';
+const shopHref = `${prefix}/shop`;
+const folderIcon = 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z';
+
+const byNewest = [...POSTS].sort((a, b) => b.date.localeCompare(a.date));
+const pinned = byNewest.find((p) => p.role === 'cover') ?? null;
+const stories = pinned ? byNewest.filter((p) => p.slug !== pinned.slug) : byNewest;
+const monthGroups = groupByMonth(stories);
+const counts = Object.fromEntries(CATEGORIES.map((c) => [c, POSTS.filter((p) => p.category === c).length]));
+const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
+---
+<div class="nt-shell">
+  <div class="nt-window">
+    <div class="nt-topbar">
+      <a class="nt-topbar__brand" href={homeHref} aria-label="Mir Kash — home">
+        <img src="/android-chrome-192x192.png" alt="" width="15" height="15" />
+        <span>Mir Kash</span>
+      </a>
+      <a class="nt-topbar__shop" href={shopHref}>Shop</a>
+    </div>
+
+    <div class="nt-app" data-mode={mode}>
+      <aside class="nt-sidebar" aria-label="Folders">
+        <div class="nt-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p class="nt-sidebar__lbl">Folders</p>
+        <ul class="nt-folders" id="ntFolders" role="listbox" aria-label="Filter by folder">
+          <li role="presentation">
+            <button type="button" data-cat="all" aria-selected="true" class="is-on">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={folderIcon}/></svg>
+              <span class="nt-folder-name">The Journal</span>
+              <span class="nt-folder-count">{POSTS.length}</span>
+            </button>
+          </li>
+          {CATEGORIES.map((c) => (
+            <li role="presentation">
+              <button type="button" data-cat={c} aria-selected="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={folderIcon}/></svg>
+                <span class="nt-folder-name">{c}</span>
+                <span class="nt-folder-count">{counts[c]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <div class="nt-list" id="ntList">
+        <div class="nt-list__mhead">
+          <a class="nt-list__mback" href={`${prefix}/blog`} aria-label="Back to folders">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </a>
+          <p class="nt-list__mtitle" id="ntFolderLabel">The Journal</p>
+          <p class="nt-list__mcount" id="ntFolderCount">{storyWord(POSTS.length)}</p>
+        </div>
+
+        <div class="nt-groups" id="ntGroups" data-folder="all">
+          {pinned && (
+            <div class="nt-group" data-group="pinned">
+              <h2 class="nt-month">Pinned</h2>
+              <ul class="nt-rows">
+                <li>
+                  <a class:list={['nt-row', { 'is-active': activeSlug === pinned.slug }]} data-cat={pinned.category} href={url(pinned.slug)}>
+                    <p class="nt-row__t">{pinned.title}</p>
+                    <p class="nt-row__l2"><time datetime={pinned.date} class="nt-row__date">{formatShortDate(pinned.date)}</time>{pinned.excerpt}</p>
+                    <p class="nt-row__folder">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={folderIcon}/></svg>
+                      {pinned.category}
+                    </p>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          )}
+          {monthGroups.map((g) => (
+            <div class="nt-group" data-group={g.key}>
+              <h2 class="nt-month">{g.label}</h2>
+              <ul class="nt-rows">
+                {g.posts.map((p) => (
+                  <li>
+                    <a class:list={['nt-row', { 'is-active': activeSlug === p.slug }]} data-cat={p.category} href={url(p.slug)}>
+                      <p class="nt-row__t">{p.title}</p>
+                      <p class="nt-row__l2"><time datetime={p.date} class="nt-row__date">{formatShortDate(p.date)}</time>{p.excerpt}</p>
+                      <p class="nt-row__folder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={folderIcon}/></svg>
+                        {p.category}
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <p class="nt-empty" id="ntEmpty" hidden>No stories in this folder yet.</p>
+      </div>
+
+      <slot />
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* ═══ Journal app shell — wallpaper, glass window, traffic lights, sidebar,
+     list, and detail pane all styled here so the index and article pages (which
+     both render this component) stay pixel-identical instead of drifting. Fonts/
+     colors intentionally match the Apple Notes reference exactly (system font
+     stack, its literal gold accents) rather than the site's normal Jost/brand
+     palette — a deliberate one-off for this section only. ══ */
+
+  .nt-window {
+    --nt-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --nt-gold-deep: #ecae12;   /* selected sidebar folder */
+    --nt-gold-pale: #fed87a;   /* selected/active note row */
+    --nt-ink: #171717;         /* neutral-900 */
+    --nt-mid: #6b6b6b;         /* neutral-500 */
+    --nt-soft: #a3a3a3;        /* neutral-400 */
+    --nt-line: rgba(0,0,0,.1);
+    font-family: var(--nt-font);
+    color: var(--nt-ink);
+  }
+
+  /* ── Wallpaper + floating window ─────────────────────── */
+  .nt-shell {
+    height: 100dvh; width: 100%; overflow: hidden;
+    background: #000 url('/journal/wallpaper.svg') center/cover no-repeat;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; box-sizing: border-box;
+  }
+  @media (min-width: 640px) { .nt-shell { padding: 12px; } }
+  @media (min-width: 1024px) { .nt-shell { padding: 20px; } }
+
+  .nt-window {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    overflow: hidden; background: #fff;
+  }
+  @media (min-width: 640px) {
+    .nt-window {
+      border-radius: 1.4rem; border: 1px solid rgba(0,0,0,.1);
+      background: rgba(244,244,243,.78); backdrop-filter: blur(30px) saturate(1.3);
+      -webkit-backdrop-filter: blur(30px) saturate(1.3);
+      box-shadow: 0 45px 115px -15px rgba(0,0,0,.45), 0 15px 45px -10px rgba(0,0,0,.28);
+    }
+  }
+
+  /* ── Minimal brand strip — the only site nav inside the window ─────────── */
+  .nt-topbar {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+    height: 38px; padding: 0 14px; border-bottom: 1px solid var(--nt-line);
+    background: rgba(255,255,255,.5);
+  }
+  .nt-topbar__brand { display: flex; align-items: center; gap: 6px; text-decoration: none; color: var(--nt-ink); font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+  .nt-topbar__brand img { display: block; height: 15px; width: auto; }
+  .nt-topbar__shop { font-size: 12.5px; color: var(--nt-mid); text-decoration: none; }
+  .nt-topbar__shop:hover { color: var(--nt-ink); text-decoration: underline; }
+
+  .nt-app {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 224px 288px minmax(0, 1fr);
+  }
+  @media (min-width: 1024px) { .nt-app { grid-template-columns: 224px 320px minmax(0, 1fr); } }
+
+  /* ── Sidebar ─────────────────────────────────────────── */
+  .nt-sidebar { min-width: 0; overflow-y: auto; background: rgba(251,251,252,.6); border-right: 1px solid var(--nt-line); padding-bottom: 16px; }
+  .nt-traffic { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; }
+  .nt-traffic span { width: 11px; height: 11px; border-radius: 50%; }
+  .nt-traffic span:nth-child(1) { background: #ff5f57; }
+  .nt-traffic span:nth-child(2) { background: #febc2e; }
+  .nt-traffic span:nth-child(3) { background: #28c840; }
+  .nt-sidebar__lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(107,107,107,.8); margin: 6px 0 8px; padding: 0 22px 0 24px; }
+  .nt-folders { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
+  .nt-folders button {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    font-family: inherit; font-size: 13.5px; color: var(--nt-ink);
+    background: none; border: none; padding: 6px 10px; border-radius: 8px;
+    cursor: pointer; text-align: left; transition: background-color .15s;
+  }
+  .nt-folders button:hover { background: rgba(0,0,0,.05); }
+  .nt-folders button.is-on { background: var(--nt-gold-deep); color: #fff; font-weight: 600; }
+  .nt-folders button svg { flex: 0 0 auto; color: var(--nt-soft); }
+  .nt-folders button.is-on svg { color: #fff; }
+  .nt-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nt-folder-count { flex: 0 0 auto; font-size: 13px; font-weight: 500; color: var(--nt-soft); font-variant-numeric: tabular-nums; }
+  .nt-folders button.is-on .nt-folder-count { color: rgba(255,255,255,.8); }
+
+  /* ── List column ────────────────────────────────────── */
+  .nt-list { min-width: 0; border-right: 1px solid var(--nt-line); overflow-y: auto; padding: 0 12px 24px; }
+  .nt-list__mback { display: none; }
+  .nt-list__mtitle { display: none; }
+  .nt-list__mcount { display: none; }
+  .nt-list__mhead { display: none; }
+
+  .nt-groups { padding-top: 8px; }
+  .nt-group.is-empty { display: none; }
+  .nt-month { font-size: 15px; font-weight: 700; margin: 0; padding: 16px 10px 6px; }
+
+  .nt-rows { list-style: none; margin: 0; padding: 0; }
+  .nt-rows li[hidden] { display: none; }
+  .nt-row {
+    display: block; border-radius: 12px; padding: 10px 12px;
+    text-decoration: none; color: inherit; transition: background-color .15s;
+  }
+  .nt-row:hover { background: rgba(0,0,0,.04); }
+  .nt-row.is-active { background: var(--nt-gold-pale); }
+  .nt-row__t { font-size: 15px; font-weight: 600; line-height: 1.3; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nt-row__l2 { font-size: 13px; line-height: 1.3; color: var(--nt-mid); margin: 1px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nt-row.is-active .nt-row__l2 { color: #3f3f3f; }
+  .nt-row__date { margin-right: 8px; color: var(--nt-mid); font-variant-numeric: tabular-nums; }
+  .nt-row.is-active .nt-row__date { color: #3f3f3f; }
+  .nt-row__folder { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--nt-mid); margin: 4px 0 0; }
+  .nt-row__folder svg { flex: 0 0 auto; }
+  .nt-groups[data-folder="all"] .nt-row__folder { display: flex; }
+  .nt-empty { text-align: center; font-size: 14px; color: var(--nt-soft); padding: 60px 0; }
+
+  /* ── Detail pane (styled here; markup lives in each page) ───────────────── */
+  .nt-detail { min-width: 0; overflow-y: auto; background: rgba(255,255,255,.97); }
+  .nt-detail__date { width: 100%; text-align: center; font-size: 12px; color: var(--nt-soft); padding: 20px 0 16px; margin: 0; }
+  .nt-detail__back { display: none; }
+  .nt-detail__art { padding: 0 24px 80px; }
+  @media (min-width: 640px) { .nt-detail__art { padding: 0 40px 80px; } }
+  @media (min-width: 1024px) { .nt-detail__art { padding: 0 56px 80px; } }
+  .nt-detail__title { font-size: 26px; font-weight: 700; line-height: 1.25; margin: 0 0 16px; }
+  .nt-detail__sub { font-style: italic; color: var(--nt-mid); font-size: 16px; line-height: 1.5; margin: -8px 0 20px; }
+
+  /* Values below are lifted verbatim from the reference site's own compiled
+     markdown-styles-module CSS (not approximated) — font-size:15px/line-height
+     1.625, exact heading sizes/weights, the gold #e0a30c link/blockquote accent. */
+  .nt-detail__body { font-size: 15px; line-height: 1.625; color: var(--nt-ink); }
+  .nt-detail__body > :first-child { margin-top: 0; }
+  .nt-detail__body p { margin: 1rem 0; }
+  .nt-detail__body div { margin: 0 0 14px; }
+  .nt-detail__body h2 { font-family: inherit; font-weight: 700; font-size: 1.25rem; line-height: 1.375; margin: 2rem 0 .75rem; }
+  .nt-detail__body h3 { font-family: inherit; font-weight: 600; font-size: 1.125rem; line-height: 1.375; margin: 1.5rem 0 .75rem; }
+  .nt-detail__body h4 { font-family: inherit; font-weight: 600; font-size: 1rem; margin: 1.25rem 0 .5rem; }
+  .nt-detail__body a { color: #e0a30c; text-decoration: underline; text-underline-offset: 2px; }
+  .nt-detail__body strong { font-weight: 600; }
+  .nt-detail__body ul, .nt-detail__body ol { margin: 1rem 0; padding-left: 1.5rem; }
+  .nt-detail__body ul { list-style-type: disc; }
+  .nt-detail__body ol { list-style-type: decimal; }
+  .nt-detail__body li { margin-bottom: 6px; }
+  .nt-detail__body img { display: block; max-width: 100%; height: auto; max-height: 60vh; margin: 1rem 0; object-fit: contain; border-radius: .5rem; }
+  .nt-detail__body blockquote {
+    margin: 1rem 0; padding: .5rem .75rem .5rem 1rem; border-left: 3px solid #e0a30c;
+    border-top-right-radius: .5rem; border-bottom-right-radius: .5rem;
+    background: #e0a30c12; color: #525252; font-style: italic;
+  }
+  .nt-detail__body hr { border: none; height: 1px; background: rgba(0,0,0,.1); margin: 2rem 0; }
+  .nt-detail__body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 14px; }
+  .nt-detail__body th, .nt-detail__body td { text-align: left; padding: .375rem .75rem; border: 1px solid rgba(0,0,0,.1); vertical-align: top; }
+  .nt-detail__body th { background: rgba(0,0,0,.05); font-weight: 600; }
+  .nt-detail__body code { background: rgba(0,0,0,.05); border-radius: .25rem; padding: .125rem .25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; }
+  .nt-detail__body pre { background: rgba(0,0,0,.05); border-radius: .5rem; margin: 1rem 0; padding: 1rem; overflow-x: auto; }
+  .nt-detail__body pre code { background: none; padding: 0; }
+
+  .nt-detail__share { display: flex; align-items: center; gap: 10px; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--nt-line); }
+  .nt-detail__share-lbl { font-size: 12px; color: var(--nt-soft); margin-right: 2px; }
+  .nt-ico {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--nt-line);
+    background: none; padding: 0; cursor: pointer; color: var(--nt-ink); text-decoration: none;
+    transition: background-color .15s, color .15s;
+  }
+  .nt-ico:hover { background: var(--nt-ink); border-color: var(--nt-ink); color: #fff; }
+  .nt-detail__copied { font-size: 12px; color: var(--nt-mid); }
+
+  .nt-detail__foot { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--nt-line); display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .nt-detail__foot a { font-size: 13px; font-weight: 500; color: var(--nt-ink); text-decoration: none; border-bottom: 1px solid var(--nt-line); padding-bottom: 2px; }
+  .nt-detail__foot a:hover { color: var(--nt-mid); }
+
+  .nt-detail__related { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--nt-line); }
+  .nt-detail__related-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--nt-soft); margin: 0 0 10px; }
+  .nt-detail__related ul { list-style: none; margin: 0; padding: 0; }
+  .nt-detail__related li { border-bottom: 1px solid var(--nt-line); }
+  .nt-detail__related a { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 10px 0; text-decoration: none; color: inherit; }
+  .nt-detail__related a:hover { opacity: .6; }
+  .nt-detail__related-t { font-size: 14px; font-weight: 600; }
+  .nt-detail__related-c { flex: 0 0 auto; font-size: 11.5px; color: var(--nt-soft); }
+  .nt-detail__empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--nt-soft); font-size: 14px; }
+
+  /* ── Responsive: < 640px collapses to one full-width pane at a time ─────── */
+  @media (max-width: 639px) {
+    .nt-app { grid-template-columns: 1fr; }
+    .nt-app[data-mode="list"] .nt-detail { display: none; }
+    .nt-app[data-mode="detail"] .nt-sidebar,
+    .nt-app[data-mode="detail"] .nt-list { display: none; }
+    .nt-app[data-mode="detail"] .nt-detail { display: block; }
+
+    .nt-sidebar { border-right: none; border-bottom: 1px solid var(--nt-line); }
+    .nt-traffic { display: none; }
+    .nt-folders { flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 8px; padding: 10px 12px; }
+    .nt-sidebar__lbl { display: none; }
+    .nt-folders li { flex: 0 0 auto; }
+    .nt-folders button { white-space: nowrap; border-radius: 999px; border: 1px solid var(--nt-line); }
+    .nt-folders button.is-on { border-color: var(--nt-gold-deep); }
+
+    .nt-list { border-right: none; padding: 0 var(--gutter) 60px; background: #f2f2f4; }
+    .nt-list__mhead { display: flex; align-items: center; gap: 12px; padding: 18px 0 4px; flex-wrap: wrap; }
+    .nt-list__mback { display: none; }
+    .nt-list__mtitle { display: block; font-size: 30px; font-weight: 700; margin: 0; width: 100%; }
+    .nt-list__mcount { display: block; font-size: 13px; color: var(--nt-mid); margin: 0; width: 100%; }
+    .nt-month { font-size: 20px; padding: 18px 2px 8px; }
+    .nt-groups { border-top: none; }
+    .nt-group { background: #fff; border: 1px solid var(--nt-line); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+    .nt-row { border-radius: 0; margin: 0; padding: 12px 14px; }
+    .nt-rows li + li .nt-row { border-top: 1px solid var(--nt-line); }
+    .nt-row.is-active { background: none; }
+
+    .nt-detail__back { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--nt-line); color: var(--nt-ink); margin: 14px 0 0 var(--gutter); }
+    .nt-detail__art { padding: 0 var(--gutter) 60px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .nt-app * { transition: none !important; } }
+</style>
+
+<script is:inline>
+  (function () {
+    var bar = document.getElementById('ntFolders');
+    var groupsEl = document.getElementById('ntGroups');
+    var label = document.getElementById('ntFolderLabel');
+    var countEl = document.getElementById('ntFolderCount');
+    var empty = document.getElementById('ntEmpty');
+    if (!bar || !groupsEl) return;
+
+    var buttons = Array.prototype.slice.call(bar.querySelectorAll('button'));
+    var groups = Array.prototype.slice.call(groupsEl.querySelectorAll('.nt-group'));
+
+    function apply(cat, push) {
+      var total = 0;
+      groups.forEach(function (g) {
+        var rows = Array.prototype.slice.call(g.querySelectorAll('.nt-row'));
+        var shown = 0;
+        rows.forEach(function (r) {
+          var li = r.closest('li');
+          var show = cat === 'all' || r.dataset.cat === cat;
+          if (li) li.hidden = !show;
+          if (show) shown++;
+        });
+        g.classList.toggle('is-empty', shown === 0);
+        total += shown;
+      });
+      groupsEl.setAttribute('data-folder', cat);
+      buttons.forEach(function (b) {
+        var on = b.dataset.cat === cat;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on && label) label.textContent = cat === 'all' ? 'The Journal' : b.querySelector('.nt-folder-name').textContent;
+      });
+      if (countEl) countEl.textContent = total + (total === 1 ? ' story' : ' stories');
+      if (empty) empty.hidden = total > 0;
+
+      var next = cat === 'all' ? location.pathname : location.pathname + '?topic=' + encodeURIComponent(cat);
+      if (push && next !== location.pathname + location.search) history.pushState({ cat: cat }, '', next);
+    }
+
+    function fromUrl() {
+      var t = new URLSearchParams(location.search).get('topic');
+      return t && buttons.some(function (b) { return b.dataset.cat === t; }) ? t : 'all';
+    }
+
+    bar.addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (btn) apply(btn.dataset.cat, true);
+    });
+    window.addEventListener('popstate', function () { apply(fromUrl(), false); });
+
+    var initial = fromUrl();
+    if (initial !== 'all') apply(initial, false);
+  })();
+</script>

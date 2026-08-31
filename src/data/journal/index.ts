@@ -191,3 +191,32 @@ export function relatedPosts(slug: string, n = 3): JournalPost[] {
 export function formatJournalDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
+
+// "20/07/26" — short numeric date, for the Notes-style list rows and article header.
+export function formatShortDate(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+  });
+}
+
+export interface JournalMonthGroup {
+  key: string;   // "2026-07" — sort/dedupe key
+  label: string; // "July 2026" — display label
+  posts: JournalPost[];
+}
+
+// Groups posts by calendar month, newest month first, newest post first within a month.
+export function groupByMonth(posts: JournalPost[]): JournalMonthGroup[] {
+  const byNewest = [...posts].sort((a, b) => b.date.localeCompare(a.date));
+  const map = new Map<string, JournalPost[]>();
+  for (const p of byNewest) {
+    const key = p.date.slice(0, 7); // "YYYY-MM"
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(p);
+  }
+  return [...map.entries()].map(([key, groupPosts]) => ({
+    key,
+    label: new Date(key + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+    posts: groupPosts,
+  }));
+}

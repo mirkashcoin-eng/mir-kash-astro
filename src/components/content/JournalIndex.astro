@@ -1,322 +1,117 @@
 ---
-import SiteHeader from '../SiteHeader.astro';
-import SiteFooter from '../SiteFooter.astro';
-import { POSTS, CATEGORIES } from '~/data/journal';
+import JournalListPane from './JournalListPane.astro';
+import { POSTS, relatedPosts, formatJournalDate, type JournalPost } from '~/data/journal';
+import { SITE_ORIGIN, absoluteUrl } from '~/lib/markets';
 
 const { marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 const url = (slug: string) => `${prefix}/blog/${slug}`;
-const longDate = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
+// Desktop shows a note open in the detail pane by default, same as the reference —
+// the pinned/cover post, falling back to the newest.
 const byNewest = [...POSTS].sort((a, b) => b.date.localeCompare(a.date));
-const featured = byNewest.find((p) => p.role === 'cover') ?? byNewest[0];
-const stories = byNewest.filter((p) => p.slug !== featured.slug);
-const counts = Object.fromEntries(CATEGORIES.map((c) => [c, stories.filter((p) => p.category === c).length]));
-const pad = (n: number) => String(n).padStart(2, '0');
+const post: JournalPost | undefined = byNewest.find((p) => p.role === 'cover') ?? byNewest[0];
+const related = post ? relatedPosts(post.slug, 3) : [];
+const shareUrl = post ? Astro.url.origin + url(post.slug) : '';
+const waHref = post ? `https://wa.me/?text=${encodeURIComponent(post.title + ' — ' + shareUrl)}` : '';
+const fbHref = post ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` : '';
+const pinHref = post ? `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent(post.title)}` : '';
+
+const canonical = absoluteUrl(`${prefix}/blog`);
+const orgRef = { '@type': 'Organization', name: 'Mir Kash', url: SITE_ORIGIN, logo: SITE_ORIGIN + '/mir-kash-logo.webp' };
+// Full listing (not just the 3 related posts) so answer engines can read every
+// title/date/URL straight from the index page's own HTML, not just the sitemap.
+const blogJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: 'The Journal',
+  description: 'The Mir Kash Journal — stories on conscious craft, vegan materials, and carrying your style with a clear conscience.',
+  url: canonical,
+  publisher: orgRef,
+  blogPost: byNewest.map((p) => ({
+    '@type': 'BlogPosting',
+    headline: p.title,
+    description: p.excerpt,
+    datePublished: p.date,
+    url: absoluteUrl(url(p.slug)),
+  })),
+};
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: absoluteUrl(prefix || '/') },
+    { '@type': 'ListItem', position: 2, name: 'The Journal', item: canonical },
+  ],
+};
 ---
-<SiteHeader />
+<script type="application/ld+json" set:html={JSON.stringify(blogJsonLd)} />
+<script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)} />
+<JournalListPane activeSlug={post?.slug} mode="list">
+  <main class="nt-detail">
+    {post ? (
+      <>
+        <p class="nt-detail__date"><time datetime={post.date}>{formatJournalDate(post.date)}</time></p>
+        <article class="nt-detail__art">
+          <h1 class="nt-detail__title">{post.title}</h1>
+          <p class="nt-detail__sub">{post.excerpt}</p>
 
-<main class="jr">
+          <div class="nt-detail__body" set:html={post.body} />
 
-  <!-- ══ MASTHEAD ══ -->
-  <section class="jr-mast">
-    <div class="jr-mast__l">
-      <p class="jr-eyebrow">The Journal</p>
-      <h1 class="jr-display jr-mast__h">Notes on craft, material and <em>living slowly.</em></h1>
-    </div>
-    <p class="jr-mast__p">Stories from inside the atelier &mdash; how our bags are made, what they&rsquo;re made of, and how to wear them for years rather than seasons.</p>
-  </section>
+          <div class="nt-detail__share">
+            <span class="nt-detail__share-lbl">Share</span>
+            <a class="nt-ico" href={waHref} target="_blank" rel="noopener" aria-label="Share on WhatsApp" title="WhatsApp">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+            </a>
+            <a class="nt-ico" href={pinHref} target="_blank" rel="noopener" aria-label="Save to Pinterest" title="Pinterest">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.53.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0Z"/></svg>
+            </a>
+            <a class="nt-ico" href={fbHref} target="_blank" rel="noopener" aria-label="Share on Facebook" title="Facebook">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073Z"/></svg>
+            </a>
+            <button class="nt-ico nt-copy" type="button" data-url={shareUrl} aria-label="Copy link" title="Copy link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+            <span class="nt-detail__copied" id="ntCopied" role="status" hidden>Link copied</span>
+          </div>
 
-  <!-- ══ FEATURED STORY ══ -->
-  <section class="jr-feat">
-    <div class="jr-feat__in">
-      <p class="jr-eyebrow">Featured &middot; {featured.category}</p>
-      <div class="jr-feat__grid">
-        <h2 class="jr-display jr-feat__h"><a href={url(featured.slug)}>{featured.title}</a></h2>
-        <p class="jr-feat__ex">{featured.excerpt}</p>
-      </div>
-      <div class="jr-feat__foot">
-        <a class="jr-link" href={url(featured.slug)}>Read the story &rarr;</a>
-        <p class="jr-meta">{longDate(featured.date)} &middot; {featured.readMin} min read</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ INDEX ══ -->
-  <section class="jr-all">
-    <div class="jr-bar">
-      <h2 class="jr-display jr-bar__h">All stories</h2>
-      <div class="jr-filters" id="jrFilters" role="group" aria-label="Filter stories by topic">
-        <button type="button" data-cat="all" aria-pressed="true" class="is-on">All</button>
-        {CATEGORIES.filter((c) => counts[c] > 0).map((c) => (
-          <button type="button" data-cat={c} aria-pressed="false">{c}</button>
-        ))}
-      </div>
-      <p class="jr-count" id="jrCount" aria-live="polite">{stories.length} stories</p>
-    </div>
-
-    <ol class="jr-list" id="jrList">
-      {stories.map((p, i) => (
-        <li class="jr-row" data-cat={p.category}>
-          <a href={url(p.slug)}>
-            <span class="jr-display jr-row__n">{pad(i + 1)}</span>
-            <span class="jr-row__body">
-              <span class="jr-row__cat">{p.category}</span>
-              <span class="jr-display jr-row__t">{p.title}</span>
-              <span class="jr-row__ex">{p.excerpt}</span>
-            </span>
-            <span class="jr-row__meta">
-              <span class="jr-row__date">{longDate(p.date)}</span>
-              <span class="jr-row__min">{p.readMin} min read</span>
-            </span>
-            <span class="jr-row__arrow" aria-hidden="true">&rarr;</span>
-          </a>
-        </li>
-      ))}
-    </ol>
-
-    <p class="jr-empty" id="jrEmpty" hidden>No stories in this topic yet.</p>
-  </section>
-
-  <!-- ══ CLOSING CTA ══ -->
-  <section class="jr-cta">
-    <p class="jr-display jr-cta__line">Beauty you can feel proud to carry.</p>
-    <div class="jr-cta__links">
-      <a href={`${prefix}/shop`}>Explore the collection &rarr;</a>
-      <a href={`${prefix}/pages/materials`}>Our materials &rarr;</a>
-    </div>
-  </section>
-
-</main>
-
-<SiteFooter />
-
-<style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
-
-  :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
-  body { background: #fff; }
-  .hdr-menu-btn { display: none; }
-  .site-header--minimal .logo { grid-column: 2; justify-self: center; }
-  .site-header--minimal .logo img { height: 22px; }
-  .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
-
-  .jr {
-    --serif-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-    --cream: #F6F1E9;
-    --oat: #EBE1D2;
-    --body-ink: #4a4038;
-    background: #fff; color: var(--depth);
-  }
-  /* Elegant serif for every display line; em = cherry accent (never italic) */
-  .jr-display { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; }
-  .jr em { font-style: normal; color: var(--cherry); }
-
-  .jr-eyebrow {
-    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-    font-weight: 500; color: var(--cherry); margin: 0 0 18px;
-  }
-  .jr-meta {
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); margin: 0; font-variant-numeric: tabular-nums;
-  }
-  .jr-link {
-    display: inline-block;
-    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth);
-    padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s;
-  }
-  .jr-link:hover { color: var(--cherry); border-color: var(--cherry); }
-
-  /* ── Masthead — headline left, intro right, edge to edge ─ */
-  .jr-mast {
-    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    align-items: end; gap: clamp(24px, 5vw, 96px);
-    padding: clamp(52px, 8vw, 116px) var(--gutter) clamp(34px, 4vw, 54px);
-  }
-  .jr-mast__h {
-    color: var(--depth); font-size: clamp(38px, 6.4vw, 104px); line-height: 1.02;
-    margin: 0; text-wrap: balance;
-  }
-  .jr-mast__p {
-    font-size: clamp(14.5px, 1.1vw, 17px); line-height: 1.85; color: var(--body-ink);
-    margin: 0; max-width: 46ch; justify-self: end; padding-bottom: 8px;
-  }
-
-  /* ── Featured story — full-bleed cream band ──────────── */
-  .jr-feat { background: var(--cream); padding: clamp(52px, 7vw, 108px) var(--gutter); }
-  .jr-feat__grid {
-    display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    align-items: end; gap: clamp(24px, 5vw, 88px);
-  }
-  .jr-feat__h { font-size: clamp(32px, 4.6vw, 76px); line-height: 1.05; margin: 0; max-width: 20ch; text-wrap: balance; }
-  .jr-feat__h a { color: var(--depth); text-decoration: none; transition: color .2s; }
-  .jr-feat__h a:hover { color: var(--cherry); }
-  .jr-feat__ex {
-    font-size: clamp(15px, 1.15vw, 18px); line-height: 1.85; color: var(--body-ink);
-    margin: 0; max-width: 52ch; justify-self: end; padding-bottom: 6px;
-  }
-  .jr-feat__foot {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 18px 40px; margin-top: clamp(30px, 3.5vw, 46px);
-    padding-top: clamp(24px, 3vw, 36px); border-top: 1px solid rgba(44, 26, 14, 0.16);
-  }
-
-  /* ── Index bar ───────────────────────────────────────── */
-  .jr-all { padding: clamp(48px, 6vw, 86px) var(--gutter) clamp(64px, 9vw, 120px); }
-  .jr-bar {
-    display: flex; align-items: baseline; flex-wrap: wrap; gap: 16px clamp(24px, 4vw, 64px);
-    padding-bottom: 20px; border-bottom: 2px solid var(--depth);
-  }
-  .jr-bar .jr-count { margin-left: clamp(8px, 2vw, 40px); }
-  .jr-bar__h { font-size: clamp(26px, 3vw, 40px); line-height: 1; color: var(--depth); margin: 0; margin-right: auto; }
-  .jr-filters { display: flex; flex-wrap: wrap; gap: 10px clamp(18px, 2vw, 32px); }
-  .jr-filters button {
-    font-family: inherit; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    font-weight: 500; color: var(--ink-mid, #6e6a64);
-    background: none; border: none; border-bottom: 1px solid transparent;
-    padding: 0 0 4px; cursor: pointer; transition: color .2s, border-color .2s;
-  }
-  .jr-filters button:hover { color: var(--depth); }
-  .jr-filters button.is-on { color: var(--depth); border-bottom-color: var(--cherry); font-weight: 600; }
-  .jr-filters button:focus-visible { outline: 1px solid var(--cherry); outline-offset: 4px; }
-  .jr-count {
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); margin: 0; white-space: nowrap;
-  }
-
-  /* ── Index rows — full width, contents-page rhythm ───── */
-  .jr-list { list-style: none; margin: 0; padding: 0; }
-  .jr-row { border-bottom: 1px solid var(--rule, #e4dfd7); }
-  .jr-row.is-hidden { display: none; }
-  .jr-row > a {
-    display: grid; align-items: start;
-    grid-template-columns: clamp(56px, 6vw, 104px) minmax(0, 1fr) auto clamp(32px, 3vw, 56px);
-    gap: clamp(16px, 2.5vw, 48px);
-    padding: clamp(26px, 3.2vw, 44px) clamp(8px, 1.2vw, 22px);
-    margin: 0 clamp(-8px, -1.2vw, -22px);
-    color: inherit; text-decoration: none;
-    transition: background-color .25s ease;
-  }
-  .jr-row > a:hover { background-color: var(--cream); }
-  .jr-row__n {
-    font-size: clamp(18px, 1.7vw, 26px); line-height: 1.4; color: var(--ink-soft, #a8a39c);
-    font-variant-numeric: lining-nums tabular-nums; transition: color .25s;
-  }
-  .jr-row > a:hover .jr-row__n { color: var(--cherry); }
-  .jr-row__body { display: block; min-width: 0; }
-  .jr-row__cat {
-    display: block; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
-    font-weight: 500; color: var(--cherry); margin-bottom: 12px;
-  }
-  .jr-row__t {
-    display: block; font-size: clamp(24px, 2.6vw, 40px); line-height: 1.12; color: var(--depth);
-    max-width: 38ch; text-wrap: balance; transition: color .25s;
-  }
-  .jr-row > a:hover .jr-row__t { color: var(--cherry); }
-  .jr-row__ex {
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    font-size: 14.5px; line-height: 1.8; color: var(--body-ink); margin-top: 12px; max-width: 96ch;
-  }
-  .jr-row__meta {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft, #a8a39c); white-space: nowrap; padding-top: 2px;
-    font-variant-numeric: tabular-nums;
-  }
-  .jr-row__arrow {
-    justify-self: end; font-size: 18px; color: var(--ink-soft, #a8a39c); line-height: 1.2;
-    transition: transform .25s ease, color .25s;
-  }
-  .jr-row > a:hover .jr-row__arrow { transform: translateX(6px); color: var(--cherry); }
-  .jr-empty { text-align: center; font-size: 15px; color: var(--ink-soft, #a8a39c); padding: 64px 0; }
-
-  /* ── Closing CTA (oat) ───────────────────────────────── */
-  .jr-cta { background: var(--oat); text-align: center; padding: clamp(80px, 12vw, 156px) var(--gutter); }
-  .jr-cta__line { color: var(--depth); font-size: clamp(28px, 4vw, 52px); line-height: 1.1; margin: 0 0 30px; }
-  .jr-cta__links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 16px 44px; }
-  .jr-cta__links a {
-    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    font-weight: 600; color: var(--depth); border-bottom: 1px solid var(--depth);
-    padding-bottom: 3px; text-decoration: none; transition: color .2s, border-color .2s;
-  }
-  .jr-cta__links a:hover { color: var(--cherry); border-color: var(--cherry); }
-
-  /* ── Responsive ──────────────────────────────────────── */
-  @media (max-width: 1100px) {
-    .jr-row > a { grid-template-columns: clamp(46px, 6vw, 72px) minmax(0, 1fr) clamp(28px, 4vw, 40px); }
-    .jr-row__meta {
-      grid-column: 2; flex-direction: row; align-items: baseline; gap: 14px;
-      justify-content: flex-start; padding-top: 14px;
-    }
-    .jr-row__t { max-width: none; }
-  }
-  @media (max-width: 860px) {
-    .jr-mast { grid-template-columns: 1fr; align-items: start; gap: 22px; }
-    .jr-mast__p { justify-self: start; max-width: none; padding-bottom: 0; }
-    .jr-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
-    .jr-bar__h { margin-right: 0; }
-    .jr-bar .jr-count { margin-left: 0; }
-    .jr-feat__grid { grid-template-columns: 1fr; align-items: start; gap: 22px; }
-    .jr-feat__ex { justify-self: start; max-width: none; padding-bottom: 0; }
-    .jr-feat__foot { flex-direction: column; align-items: flex-start; gap: 16px; }
-  }
-  @media (max-width: 560px) {
-    .jr-row > a { grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding-left: 0; padding-right: 0; margin: 0; }
-    .jr-row__n { font-size: 15px; line-height: 1.6; }
-    .jr-row__arrow { display: none; }
-    .jr-row__ex { -webkit-line-clamp: 3; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .jr-row > a, .jr-row__arrow { transition: none; }
-    .jr-row > a:hover .jr-row__arrow { transform: none; }
-  }
-</style>
+          {related.length > 0 && (
+            <div class="nt-detail__related">
+              <p class="nt-detail__related-lbl">More notes</p>
+              <ul>
+                {related.map((r) => (
+                  <li>
+                    <a href={url(r.slug)}>
+                      <span class="nt-detail__related-t">{r.title}</span>
+                      <span class="nt-detail__related-c">{r.category}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </article>
+      </>
+    ) : (
+      <p class="nt-detail__empty">Select a note to read.</p>
+    )}
+  </main>
+</JournalListPane>
 
 <script is:inline>
   (function () {
-    var bar = document.getElementById('jrFilters');
-    var list = document.getElementById('jrList');
-    var count = document.getElementById('jrCount');
-    var empty = document.getElementById('jrEmpty');
-    if (!bar || !list) return;
-
-    var buttons = Array.prototype.slice.call(bar.querySelectorAll('button'));
-    var rows = Array.prototype.slice.call(list.querySelectorAll('.jr-row'));
-
-    function apply(cat, push) {
-      var shown = 0;
-      rows.forEach(function (r) {
-        var show = cat === 'all' || r.dataset.cat === cat;
-        r.classList.toggle('is-hidden', !show);
-        if (show) shown++;
-      });
-      buttons.forEach(function (b) {
-        var on = b.dataset.cat === cat;
-        b.classList.toggle('is-on', on);
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      });
-      if (count) count.textContent = shown + (shown === 1 ? ' story' : ' stories') + (cat === 'all' ? '' : ' in ' + cat);
-      if (empty) empty.hidden = shown > 0;
-
-      // Keep the choice in the URL so it survives back/forward and can be shared.
-      var next = cat === 'all' ? location.pathname : location.pathname + '?topic=' + encodeURIComponent(cat);
-      if (push && next !== location.pathname + location.search) history.pushState({ cat: cat }, '', next);
-    }
-
-    function fromUrl() {
-      var t = new URLSearchParams(location.search).get('topic');
-      return t && buttons.some(function (b) { return b.dataset.cat === t; }) ? t : 'all';
-    }
-
-    bar.addEventListener('click', function (e) {
-      var btn = e.target.closest('button');
-      if (btn) apply(btn.dataset.cat, true);
+    var btn = document.querySelector('.nt-copy');
+    var flag = document.getElementById('ntCopied');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var u = btn.getAttribute('data-url') || location.href;
+      var done = function () {
+        if (!flag) return;
+        flag.hidden = false;
+        clearTimeout(flag._t);
+        flag._t = setTimeout(function () { flag.hidden = true; }, 2200);
+      };
+      if (navigator.clipboard) navigator.clipboard.writeText(u).then(done, done); else done();
     });
-    window.addEventListener('popstate', function () { apply(fromUrl(), false); });
-
-    var initial = fromUrl();
-    if (initial !== 'all') apply(initial, false);
   })();
 </script>

@@ -1,0 +1,5 @@
+# HTTrack Website Copier Cookie File
+# This file format is compatible with Netscape cookies
+notes.muskanvaswan.xyz	TRUE	/	FALSE	1999999999	polish_session	9d4ea04c-3281-4487-a0e6-76a692213687
+notes.muskanvaswan.xyz	TRUE	/	FALSE	1999999999	SameSite	lax
+

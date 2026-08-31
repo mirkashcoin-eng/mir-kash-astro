@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1125" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c8bdec"/>
+      <stop offset="1" stop-color="#d9cdee"/>
+    </linearGradient>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a06df2"/>
+      <stop offset="0.3" stop-color="#5b2fe0"/>
+      <stop offset="0.55" stop-color="#3f3bdd"/>
+      <stop offset="0.8" stop-color="#3c66e6"/>
+      <stop offset="1" stop-color="#6fb1ee"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7c4ff0"/>
+      <stop offset="0.25" stop-color="#3d2fd6"/>
+      <stop offset="0.5" stop-color="#3a5be4"/>
+      <stop offset="0.7" stop-color="#57c4dd"/>
+      <stop offset="0.85" stop-color="#a8e8a8"/>
+      <stop offset="1" stop-color="#eef6e3"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a64ea"/>
+      <stop offset="0.45" stop-color="#4a9ade"/>
+      <stop offset="0.75" stop-color="#8edfa8"/>
+      <stop offset="1" stop-color="#b9eeb2"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b3be4"/>
+      <stop offset="0.35" stop-color="#3f4ae0"/>
+      <stop offset="0.6" stop-color="#44a3d9"/>
+      <stop offset="0.85" stop-color="#9fe5a5"/>
+      <stop offset="1" stop-color="#ddf2d8"/>
+    </linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8d4ef0"/>
+      <stop offset="0.4" stop-color="#5527dd"/>
+      <stop offset="0.75" stop-color="#4334da"/>
+      <stop offset="1" stop-color="#6a4fe8"/>
+    </linearGradient>
+    <linearGradient id="g6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b06bf4"/>
+      <stop offset="0.3" stop-color="#7b3deb"/>
+      <stop offset="0.55" stop-color="#5b43e2"/>
+      <stop offset="0.8" stop-color="#62c1d8"/>
+      <stop offset="1" stop-color="#e2f3ec"/>
+    </linearGradient>
+    <linearGradient id="g7" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a558f2"/>
+      <stop offset="0.45" stop-color="#6c2fe4"/>
+      <stop offset="1" stop-color="#8447ea"/>
+    </linearGradient>
+    <linearGradient id="sph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f9be8"/>
+      <stop offset="0.5" stop-color="#63c2c4"/>
+      <stop offset="0.8" stop-color="#9ce6a8"/>
+      <stop offset="1" stop-color="#c4f0ba"/>
+    </linearGradient>
+    <filter id="soft" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="softer" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <rect width="2000" height="1125" fill="url(#bg)"/>
+
+  <g filter="url(#soft)" stroke="#f2b8f5" stroke-opacity="0.55" stroke-width="4">
+    <rect x="-60" y="-180" width="260" height="1010" rx="130" fill="url(#g1)"/>
+    <rect x="236" y="-150" width="260" height="1430" rx="130" fill="url(#g2)"/>
+    <rect x="532" y="-180" width="260" height="650" rx="130" fill="url(#g3)"/>
+    <rect x="828" y="-120" width="260" height="1420" rx="130" fill="url(#g4)"/>
+    <rect x="1124" y="-180" width="260" height="1440" rx="130" fill="url(#g5)"/>
+    <rect x="1420" y="-140" width="260" height="1440" rx="130" fill="url(#g6)"/>
+    <rect x="1716" y="-160" width="260" height="1140" rx="130" fill="url(#g7)"/>
+  </g>
+
+  <g filter="url(#softer)" stroke="#f2b8f5" stroke-opacity="0.6" stroke-width="3">
+    <circle cx="662" cy="700" r="200" fill="url(#sph)"/>
+    <circle cx="1985" cy="245" r="230" fill="url(#sph)"/>
+    <circle cx="1990" cy="1020" r="175" fill="url(#sph)"/>
+  </g>
+</svg>
