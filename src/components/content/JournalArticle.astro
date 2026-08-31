@@ -116,6 +116,23 @@ const breadcrumbJsonLd = {
     var btn = document.querySelector('.nt-copy');
     if (btn) btn.addEventListener('click', function () { copyLink(btn.getAttribute('data-url')); });
 
+    // Toolbar back button — step back to whatever list/folder screen the
+    // reader actually came from (its href only knows the bare /blog URL,
+    // which would always reopen on the Folders screen). history.back()
+    // replays the real previous entry — e.g. /blog?topic=Materials — so the
+    // list they were browsing is still there, not the top-level Folders
+    // screen. Falls back to the plain link when there's no in-site history
+    // to go back to (a shared link opened directly, a new tab, etc).
+    var back = document.querySelector('.nt-detail__back');
+    if (back) {
+      back.addEventListener('click', function (e) {
+        if (document.referrer && document.referrer.indexOf(location.origin) === 0 && window.history.length > 1) {
+          e.preventDefault();
+          history.back();
+        }
+      });
+    }
+
     // Mobile toolbar share button — native share sheet where available
     // (title/text/url, like sharing anything else on the phone), falling
     // back to the same copy-link behavior as the desktop share row.

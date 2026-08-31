@@ -40,13 +40,13 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     <div class="nt-app" data-mode={mode}>
       <aside class="nt-sidebar" aria-label="Folders">
         <div class="nt-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p class="nt-sidebar__lbl">Folders</p>
-        <p class="nt-sidebar__mtitle">Folders</p>
+        <p class="nt-sidebar__lbl">Journal</p>
+        <p class="nt-sidebar__mtitle">Journal</p>
         <ul class="nt-folders" id="ntFolders" role="listbox" aria-label="Filter by folder">
           <li role="presentation">
             <button type="button" data-cat="all" aria-selected="true" class="is-on">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={folderIcon}/></svg>
-              <span class="nt-folder-name">The Journal</span>
+              <span class="nt-folder-name">All Notes</span>
               <span class="nt-folder-count">{POSTS.length}</span>
             </button>
           </li>
@@ -71,7 +71,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
           <button type="button" class="nt-list__mback" id="ntBackToFolders" aria-label="Back to folders">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
           </button>
-          <p class="nt-list__mtitle" id="ntFolderLabel">The Journal</p>
+          <p class="nt-list__mtitle" id="ntFolderLabel">All Notes</p>
           <p class="nt-list__mcount" id="ntFolderCount">{storyWord(POSTS.length)}</p>
         </div>
 
@@ -190,6 +190,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
   .nt-traffic span:nth-child(2) { background: #febc2e; }
   .nt-traffic span:nth-child(3) { background: #28c840; }
   .nt-sidebar__lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(107,107,107,.8); margin: 6px 0 8px; padding: 0 22px 0 24px; }
+  .nt-sidebar__mtitle { display: none; }
   .nt-folders { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
   .nt-folders button {
     width: 100%; display: flex; align-items: center; gap: 10px;
@@ -406,7 +407,7 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
         var on = b.dataset.cat === cat;
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
-        if (on && label) label.textContent = cat === 'all' ? 'The Journal' : b.querySelector('.nt-folder-name').textContent;
+        if (on && label) label.textContent = cat === 'all' ? 'All Notes' : b.querySelector('.nt-folder-name').textContent;
       });
       if (countEl) countEl.textContent = total + (total === 1 ? ' story' : ' stories');
       if (empty) empty.hidden = total > 0;
@@ -414,13 +415,22 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
       // screen to the note list — matches the reference's real navigation.
       setMstage('list');
 
-      var next = cat === 'all' ? location.pathname : location.pathname + '?topic=' + encodeURIComponent(cat);
+      // "All Notes" used to drop the query param entirely, which left the URL
+      // identical to the bare Folders screen — so there was no history entry
+      // to return to, and a note opened from "All Notes" sent its back button
+      // straight past the list to Folders. Every pick (including "all") now
+      // gets its own ?topic= entry so the list stage is always reconstructable
+      // from the URL alone, on both popstate and a fresh page load.
+      var next = location.pathname + '?topic=' + encodeURIComponent(cat);
       if (push && next !== location.pathname + location.search) history.pushState({ cat: cat }, '', next);
     }
 
+    // null = no ?topic= at all = the true entry point, show Folders.
+    // 'all'/a known category = already drilled into the list, show it directly.
     function fromUrl() {
       var t = new URLSearchParams(location.search).get('topic');
-      return t && buttons.some(function (b) { return b.dataset.cat === t; }) ? t : 'all';
+      if (!t) return null;
+      return t === 'all' || buttons.some(function (b) { return b.dataset.cat === t; }) ? t : 'all';
     }
 
     bar.addEventListener('click', function (e) {
@@ -428,15 +438,12 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
       if (btn) apply(btn.dataset.cat, true);
     });
     if (backBtn) backBtn.addEventListener('click', function () { setMstage('folders'); });
-    window.addEventListener('popstate', function () { apply(fromUrl(), false); });
+    window.addEventListener('popstate', function () {
+      var t = fromUrl();
+      if (t) apply(t, false); else setMstage('folders');
+    });
 
     var initial = fromUrl();
-    if (initial !== 'all') {
-      apply(initial, false);
-    } else if (new URLSearchParams(location.search).has('topic')) {
-      // ?topic= was present but didn't match a known folder — still land on
-      // the list (unfiltered) rather than the Folders picker.
-      setMstage('list');
-    }
+    if (initial) apply(initial, false);
   })();
 </script>
