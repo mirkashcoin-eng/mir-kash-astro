@@ -358,6 +358,12 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
      its own screenshots), not a compressed version of the desktop layout. ── */
   @media (max-width: 639px) {
     .nt-app { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: none; }
+    /* Resetting the parent's grid-template-areas isn't enough on its own —
+       these still carry a named grid-area from the desktop layout, and with
+       no matching area left to resolve against, browsers don't reliably fall
+       back to plain auto-placement (produced stale multi-column tracks).
+       Reset the items themselves too. */
+    .nt-sidebar, .nt-list, .nt-detail, .nt-viewbar { grid-area: auto; }
     .nt-viewbar { display: none; }
     .nt-app[data-mode="list"] .nt-detail { display: none; }
     .nt-app[data-mode="detail"] .nt-sidebar,

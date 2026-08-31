@@ -35,7 +35,20 @@ export function botName(ua: string): string {
 // /admin is an internal tool, not a localized storefront page — it has no
 // locale-prefixed counterpart (only src/pages/admin exists), so it must never
 // get geo/cookie-redirected to e.g. /en-us/admin, which would just 404.
-const SKIP_PATHS = [/^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/, /^\/admin(\/|$)/];
+//
+// The Journal, Materials and About pages carry no market-specific pricing or
+// currency — the content is identical everywhere — so auto-redirecting a
+// visitor from /blog into /en-sg/blog etc. only forks one canonical URL into
+// several, with no actual localization to show for it. Their locale-prefixed
+// routes still exist and render fine if linked directly; they're just no
+// longer where geo/cookie routing sends a visitor.
+const SKIP_PATHS = [
+  /^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/,
+  /^\/admin(\/|$)/,
+  /^\/blog(\/|$)/,
+  /^\/pages\/about(\/|$)/,
+  /^\/pages\/materials(\/|$)/,
+];
 
 function shouldSkip(pathname: string, ua: string): boolean {
   if (BOT_UA.test(ua)) return true;
