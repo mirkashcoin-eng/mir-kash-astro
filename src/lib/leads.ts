@@ -185,6 +185,7 @@ async function mergeAnonInto(
     if (v[k]) carry[k] = v[k];
   }
   if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
+  if (v.intent) { carry.intent = true; if (v.intentAt) carry.intentAt = v.intentAt; }
   if (Object.keys(carry).length) await db.collection('people').doc(key).set(carry, { merge: true });
   await anonRef.delete();
 }
@@ -246,6 +247,13 @@ async function linkPerson(
     if (l.city) patch.city = l.city;
     if (l.province) patch.province = l.province;
     if (l.pin) patch.pin = l.pin;
+  }
+  // Cart / phone / address = a lead worth keeping in view for good. Stamp it once so
+  // getPeople can pull every intent person no matter how stale — they must never be
+  // pushed out of the dashboard by the recent-visitors window.
+  if (!prev.intent && (l.event === 'add_to_cart' || l.event === 'phone' || l.event === 'address')) {
+    patch.intent = true;
+    patch.intentAt = now;
   }
   await ref.set(patch, { merge: true });
   // Immutable per-day funnel counts the dashboard reads directly. `!snap.exists`
@@ -310,16 +318,10 @@ function stageOf(v: Record<string, unknown>): Stage {
   return 'visited';
 }
 
-// Most-recently-active people first. Returns null if the service account isn't set.
-export async function getPeople(max = 500): Promise<Person[] | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('people').orderBy('lastSeen', 'desc').limit(max).get();
-    return snap.docs.map((d) => {
-      const v = d.data() as Record<string, unknown>;
-      const sessionIds = Array.isArray(v.sessionIds) ? (v.sessionIds as string[]) : [];
-      return {
+function toPerson(d: FirebaseFirestore.QueryDocumentSnapshot): Person {
+  const v = d.data() as Record<string, unknown>;
+  const sessionIds = Array.isArray(v.sessionIds) ? (v.sessionIds as string[]) : [];
+  return {
         id: d.id,
         name: (v.name as string) ?? null,
         phone: (v.phone as string) ?? null,
@@ -356,8 +358,26 @@ export async function getPeople(max = 500): Promise<Person[] | null> {
         lastPage: (v.lastPage as string) ?? null,
         bot: (v.bot as string) ?? null,
         country: (v.country as string) ?? null,
-      };
-    });
+  };
+}
+
+// The People table's dataset: the `recent` most-recently-active people, PLUS every
+// person who ever showed intent (cart / phone / address — flagged `intent` on the
+// doc). The second query is unbounded but tiny (only leads, not the anonymous-
+// visitor flood), so a real lead can never scroll out of view no matter how long
+// ago they last visited. Merged by id, newest-active first. Null if no service acct.
+export async function getPeople(recent = 500): Promise<Person[] | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const [recentSnap, intentSnap] = await Promise.all([
+      db.collection('people').orderBy('lastSeen', 'desc').limit(recent).get(),
+      db.collection('people').where('intent', '==', true).get(),
+    ]);
+    const byId = new Map<string, Person>();
+    for (const d of recentSnap.docs) byId.set(d.id, toPerson(d));
+    for (const d of intentSnap.docs) if (!byId.has(d.id)) byId.set(d.id, toPerson(d));
+    return [...byId.values()].sort((a, b) => (b.lastSeen ?? '').localeCompare(a.lastSeen ?? ''));
   } catch {
     return null;
   }
