@@ -154,7 +154,7 @@
     var SEARCH = '';
     // Internal / test numbers — kept out of every count and table unless "Show test
     // records" is ticked. Matches the last-10-digits key the People collection uses.
-    var HIDDEN_TELS = ['7738784781'];
+    var HIDDEN_TELS = ['7738784781', '8306883773'];
     var SHOW_HIDDEN = false;
     var tel10 = function (x) { return String(x == null ? '' : x).replace(/[^0-9]/g, '').slice(-10); };
     var isHiddenTel = function (x) { return HIDDEN_TELS.indexOf(tel10(x)) > -1; };
@@ -300,7 +300,19 @@
       }
       return n;
     }
-    function totalVisitors() { return funnelTotal('visitors'); }
+    // True until the funnel_daily backfill has run — until then the Daily funnel
+    // grid and this KPI fall back to computing from the (capped) People list, so
+    // there's no blank period on deploy.
+    function haveFunnelAggregates() { return Object.keys(FUNNEL_DAILY).length > 0; }
+    function countedPerson(p) {
+      if (p.bot && !SHOW_BOTS) return false;
+      if (isHiddenPerson(p) && !SHOW_HIDDEN) return false;
+      return true;
+    }
+    function totalVisitors() {
+      if (haveFunnelAggregates()) return funnelTotal('visitors');
+      return PEOPLE.filter(countedPerson).length;
+    }
     // Re-render everything from the last payload (the toggles change what's counted).
     function rerender() { if (LAST_DATA) render(LAST_DATA); }
 
@@ -511,20 +523,38 @@
       var grid = {};
       DAILY_ROWS.forEach(function (r) { grid[r.key] = {}; });
       grid.checkout = {}; grid.ordered = {};
-      for (var day in FUNNEL_DAILY) {
-        if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
-        var d = FUNNEL_DAILY[day];
-        DAILY_ROWS.forEach(function (r) {
-          var v = Number(d[r.key] || 0);
-          if (SHOW_BOTS) v += Number(d['bot_' + r.key] || 0);
-          if (SHOW_HIDDEN) v += Number(d['hidden_' + r.key] || 0);
-          if (v) grid[r.key][day] = v;
-        });
-      }
       var bump = function (key, day) {
         if (!day || day.slice(0, 7) !== month) return;
         grid[key][day] = (grid[key][day] || 0) + 1;
       };
+      if (haveFunnelAggregates()) {
+        for (var day in FUNNEL_DAILY) {
+          if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
+          var d = FUNNEL_DAILY[day];
+          DAILY_ROWS.forEach(function (r) {
+            var v = Number(d[r.key] || 0);
+            if (SHOW_BOTS) v += Number(d['bot_' + r.key] || 0);
+            if (SHOW_HIDDEN) v += Number(d['hidden_' + r.key] || 0);
+            if (v) grid[r.key][day] = v;
+          });
+        }
+      } else {
+        // Pre-backfill fallback: compute the funnel rows from the People list, the
+        // same cumulative-milestone way the backfill and the live path do.
+        PEOPLE.forEach(function (p) {
+          if (!countedPerson(p)) return;
+          var first = istDay(p.firstSeen);
+          var lastView = istDay(p.viewedAt) || first;
+          var nv = (p.viewed || []).length;
+          bump('visitors', first);
+          if (nv >= 1) bump('p1', first);
+          if (nv >= 2) bump('p2', lastView);
+          if (nv >= 3) bump('p3', lastView);
+          bump('cart', istDay(p.cartAt));
+          bump('phone', istDay(p.phoneAt));
+          bump('address', istDay(p.addressAt));
+        });
+      }
       visibleAbandoned().forEach(function (a) { bump('checkout', istDay(a.createdAt)); });
       visibleOrders().forEach(function (o) {
         if (o.cancelled) return;
@@ -560,7 +590,6 @@
       // Crawler activity for this month. The headline is the immutable aggregate;
       // the per-name breakdown is from the (recent) People list, so older months
       // may show fewer names than the total.
-      var botMonth = funnelMonthTotal('visitors', MONTH, 'bot_');
       var bots = {};
       PEOPLE.forEach(function (p) {
         if (!p.bot) return;
@@ -568,6 +597,9 @@
         bots[p.bot] = (bots[p.bot] || 0) + 1;
       });
       var botNames = Object.keys(bots).sort(function (a, b) { return bots[b] - bots[a]; });
+      var botMonth = haveFunnelAggregates()
+        ? funnelMonthTotal('visitors', MONTH, 'bot_')
+        : botNames.reduce(function (s, n) { return s + bots[n]; }, 0);
       var botHtml = (botMonth || botNames.length)
         ? '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Crawlers</span>' +
           '<label class="ad-bottoggle"><input type="checkbox" id="showBots"' + (SHOW_BOTS ? ' checked' : '') +
@@ -583,7 +615,8 @@
         '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST' +
         (SHOW_BOTS ? '' : ', excluding crawlers') +
         (SHOW_HIDDEN ? ', including test records' : '') + '. ' +
-        'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.</p>';
+        'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.' +
+        (haveFunnelAggregates() ? '' : ' Showing an estimate from recent visitors — run the funnel backfill to lock in accurate history.') + '</p>';
     }
     function dailyCsv() {
       var n = daysInMonth(MONTH), grid = dailyCounts(MONTH);

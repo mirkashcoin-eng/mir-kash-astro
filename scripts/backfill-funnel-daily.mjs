@@ -9,26 +9,48 @@
 // Safe to re-run: every day-doc is recomputed from scratch and overwritten. Re-run
 // after a while if you want the small live-path drift (see NOTE below) cleaned up.
 //
-//   node --env-file=.env scripts/backfill-funnel-daily.mjs [--dry]
+// Credentials — any one of these:
+//   1. A key file downloaded from Firebase Console → Project settings →
+//      Service accounts → "Generate new private key":
+//        node scripts/backfill-funnel-daily.mjs --key ~/Downloads/mirkash-xxxx.json
+//      (or set GOOGLE_APPLICATION_CREDENTIALS to that path)
+//   2. FIREBASE_SERVICE_ACCOUNT in the env (raw JSON or base64), same as Vercel:
+//        node --env-file=.env scripts/backfill-funnel-daily.mjs
 //
-// Needs FIREBASE_SERVICE_ACCOUNT in the environment (same value as Vercel) — the
-// raw service-account JSON, or a base64 blob of it.
+// Add --dry to preview the per-day counts without writing anything.
+// The key file is a secret — keep it outside the repo and delete it when done.
 //
 // NOTE on accuracy: we only store `firstSeen` and `viewedAt` (last product view),
 // not a timestamp per product. So p1 (1st product view) is attributed to the
 // first-seen day and p2/p3 to the last-view day — an approximation for people who
 // browsed across several days. Everything else (visitors, cart, phone, address)
 // is exact.
+import { readFileSync } from 'node:fs';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const DRY = process.argv.includes('--dry');
-const HIDDEN = new Set(['7738784781']); // keep in sync with HIDDEN_PERSON_KEYS in src/lib/funnel.ts
+const HIDDEN = new Set(['7738784781', '8306883773']); // keep in sync with HIDDEN_PERSON_KEYS in src/lib/funnel.ts
+
+function keyFilePath() {
+  const i = process.argv.indexOf('--key');
+  if (i > -1 && process.argv[i + 1]) return process.argv[i + 1];
+  return process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
+}
 
 function serviceAccount() {
-  const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  const path = keyFilePath();
+  let raw = '';
+  if (path) {
+    try { raw = readFileSync(path.replace(/^~/, process.env.HOME || '~'), 'utf8').trim(); }
+    catch (e) { console.error(`Could not read key file at ${path}: ${e.message}`); process.exit(1); }
+  } else {
+    raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  }
   if (!raw) {
-    console.error('FIREBASE_SERVICE_ACCOUNT is not set. Add it to .env (same value as Vercel).');
+    console.error('No credentials. Pass --key <path-to-service-account.json> (download it from');
+    console.error('Firebase Console → Project settings → Service accounts → Generate new private key),');
+    console.error('or set FIREBASE_SERVICE_ACCOUNT in the environment.');
     process.exit(1);
   }
   const jsonStr = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');

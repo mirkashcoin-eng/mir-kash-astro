@@ -10,6 +10,12 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Firebase service-account keys — never commit
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+firebase-key*.json
+firebase-mir-kash-web-firebase-adminsdk-fbsvc-5021b5a17b.json
+
 # Generated planning artifacts (built by scripts/build-*.mjs)
 Mir-Kash-*.docx
 scripts/_diagrams/

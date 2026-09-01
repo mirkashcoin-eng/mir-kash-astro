@@ -17,7 +17,7 @@ type LeadLike = { event: string; item?: string; bot?: string };
 
 // People whose activity is kept out of every count by default. Keys are the same
 // last-10-digits form personKey() produces, so they match the people doc id.
-export const HIDDEN_PERSON_KEYS = new Set<string>(['7738784781']);
+export const HIDDEN_PERSON_KEYS = new Set<string>(['7738784781', '8306883773']);
 
 // The funnel steps, in order. `visitors` is the first touch; p1/p2/p3 are the days
 // a person reached their 1st / 2nd / 3rd distinct product view (cumulative
