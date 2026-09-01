@@ -5,6 +5,7 @@ import { getFunnel, getProductStats } from '~/lib/analytics';
 import { getPeople, personKey, type Person } from '~/lib/leads';
 import { getAffiliateSummary } from '~/lib/clicks';
 import { getSubscribers } from '~/lib/newsletter';
+import { getFunnelDaily } from '~/lib/funnel';
 
 export const prerender = false;
 
@@ -43,7 +44,7 @@ function daysBetween(from: string | null, to: string | null): number | null {
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers] = await Promise.all([
+  const [demos, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily] = await Promise.all([
     getDemoBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
     getAbandonedDrafts(),    // India store — open Cashfree payment drafts
@@ -52,6 +53,7 @@ export const GET: APIRoute = async ({ request }) => {
     getPeople(500),          // durable people (phone-keyed), with their journey data
     getProductStats(20),     // most-viewed products
     getSubscribers(1000),    // newsletter signups (Firestore)
+    getFunnelDaily(240),     // immutable per-day funnel counts (Daily funnel grid)
   ]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -134,5 +136,5 @@ export const GET: APIRoute = async ({ request }) => {
     };
   });
 
-  return json({ demos, abandoned, orders, funnel, people: rows, products, affiliates, subscribers });
+  return json({ demos, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily });
 };

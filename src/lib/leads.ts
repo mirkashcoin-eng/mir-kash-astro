@@ -8,6 +8,7 @@
 // collections are never public. Read into /admin for follow-up.
 import { adminDb } from './firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { recordMilestones } from './funnel';
 
 export interface CartLine {
   title: string;
@@ -168,6 +169,11 @@ async function mergeAnonInto(
   // firstSeen from the anon record is earlier by definition — it started the journey.
   if (v.firstSeen) carry.firstSeen = v.firstSeen;
   if (v.cartAt) carry.cartAt = v.cartAt;
+  // Step timestamps + the address itself — carried so the funnel doesn't re-count a
+  // step the anon session already reached, and the People table keeps the address.
+  if (v.phoneAt) carry.phoneAt = v.phoneAt;
+  if (v.addressAt) carry.addressAt = v.addressAt;
+  for (const k of ['address1', 'city', 'province', 'pin']) if (v[k]) carry[k] = v[k];
   if (v.cart) { carry.cart = v.cart; carry.cartValue = v.cartValue; carry.cartCurrency = v.cartCurrency; }
   if (Array.isArray(v.items) && v.items.length) carry.items = FieldValue.arrayUnion(...(v.items as string[]));
   if (Array.isArray(v.viewed) && v.viewed.length) carry.viewed = FieldValue.arrayUnion(...(v.viewed as string[]));
@@ -194,6 +200,7 @@ async function linkPerson(
 ): Promise<void> {
   const ref = db.collection('people').doc(key);
   const snap = await ref.get();
+  const prev = (snap.data() as Record<string, unknown>) ?? {};
   const patch: Record<string, unknown> = {
     lastSeen: now,
     sessionIds: FieldValue.arrayUnion(l.sessionId),
@@ -241,6 +248,11 @@ async function linkPerson(
     if (l.pin) patch.pin = l.pin;
   }
   await ref.set(patch, { merge: true });
+  // Immutable per-day funnel counts the dashboard reads directly. `!snap.exists`
+  // and `prev` (state before this write) let it count each step only the first
+  // time this person reaches it. A just-merged anon carries its markers in via
+  // mergeAnonInto, so its already-counted steps aren't counted again.
+  await recordMilestones(db, key, l, !snap.exists, prev);
 }
 
 // ── Reading: people + journeys ───────────────────────────────────────────────

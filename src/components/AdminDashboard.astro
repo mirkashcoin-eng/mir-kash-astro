@@ -36,6 +36,7 @@
       <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
       <button class="ad-nav__item" data-view="newsletter">Newsletter <span class="ad-nav__n" id="nNews"></span></button>
       <div class="ad-nav__foot">
+        <label class="ad-nav__toggle"><input type="checkbox" id="showHidden" /> Show test records</label>
         <span class="ad-nav__upd" id="updated"></span>
         <button class="ad-nav__out" id="lockBtn" type="button">Lock dashboard</button>
       </div>
@@ -145,10 +146,19 @@
     var ORDERS = [];
     var AFFILIATES = [];
     var SUBSCRIBERS = [];
+    var FUNNEL_DAILY = {};   // { 'YYYY-MM-DD': { visitors, p1, …, bot_visitors, hidden_visitors, … } }
+    var LAST_DATA = null;    // last payload, so the toggles can re-render without a refetch
     var FULFIL_PENDING = 0;
     var FILTER = 'all';   // active stage filter in the People view
     var DATE_FILTER = 'all';
     var SEARCH = '';
+    // Internal / test numbers — kept out of every count and table unless "Show test
+    // records" is ticked. Matches the last-10-digits key the People collection uses.
+    var HIDDEN_TELS = ['7738784781'];
+    var SHOW_HIDDEN = false;
+    var tel10 = function (x) { return String(x == null ? '' : x).replace(/[^0-9]/g, '').slice(-10); };
+    var isHiddenTel = function (x) { return HIDDEN_TELS.indexOf(tel10(x)) > -1; };
+    var isHiddenPerson = function (p) { return p && (HIDDEN_TELS.indexOf(tel10(p.phone)) > -1 || HIDDEN_TELS.indexOf(tel10(p.id)) > -1); };
     var AUTH = null; // { kind:'key', key } | { kind:'token' } — in memory only, never persisted
     var $ = function (id) { return document.getElementById(id); };
     // Auth header for follow-up admin actions, reusing this session's credential.
@@ -269,6 +279,31 @@
       setBadge('nFulfil', FULFIL_PENDING);
     }
 
+    // ── Test-record + count helpers ──────────────────────────────────────────
+    function visibleOrders() {
+      return ORDERS.filter(function (o) { return SHOW_HIDDEN || !isHiddenTel(o.phone); });
+    }
+    function visibleAbandoned() {
+      return ABANDONED.filter(function (a) { return SHOW_HIDDEN || !isHiddenTel(a.phone); });
+    }
+    // Sum one funnel step across every stored day — real humans always, plus bots
+    // and/or test records per the toggles. Used for the "People captured" KPI so it
+    // is no longer capped by the 500-row People query.
+    function funnelTotal(step) {
+      var n = 0;
+      for (var day in FUNNEL_DAILY) {
+        if (!FUNNEL_DAILY.hasOwnProperty(day)) continue;
+        var d = FUNNEL_DAILY[day];
+        n += Number(d[step] || 0);
+        if (SHOW_BOTS) n += Number(d['bot_' + step] || 0);
+        if (SHOW_HIDDEN) n += Number(d['hidden_' + step] || 0);
+      }
+      return n;
+    }
+    function totalVisitors() { return funnelTotal('visitors'); }
+    // Re-render everything from the last payload (the toggles change what's counted).
+    function rerender() { if (LAST_DATA) render(LAST_DATA); }
+
     function switchView(view) {
       var items = document.querySelectorAll('.ad-nav__item');
       for (var i = 0; i < items.length; i++) items[i].classList.toggle('on', items[i].getAttribute('data-view') === view);
@@ -281,15 +316,18 @@
     function render(data) {
       $('gate').hidden = true;
       $('shell').hidden = false;
-      var orders = data.orders || [];
-      var abandoned = data.abandoned || [];
-      ABANDONED = abandoned;
+      LAST_DATA = data;
+      ORDERS = data.orders || [];
+      ABANDONED = data.abandoned || [];
+      FUNNEL_DAILY = data.funnelDaily || {};
       var demos = data.demos || [];
       DEMOS = demos;
       PEOPLE = data.people || [];
-      ORDERS = orders;
       AFFILIATES = data.affiliates || [];
       SUBSCRIBERS = ('subscribers' in data) ? data.subscribers : [];
+      // Everything below shows the internal/test numbers only when the toggle is on.
+      var orders = visibleOrders();
+      var abandoned = visibleAbandoned();
 
       var now = Date.now();
       var recent = orders.filter(function (o) { var t = new Date(o.createdAt).getTime(); return isFinite(t) && now - t <= 30 * 864e5 && !o.cancelled; });
@@ -298,7 +336,7 @@
       var conv = (f && f.visit) ? ((recent.length / f.visit) * 100).toFixed(1) + '%' : '—';
       $('kpis').innerHTML = [
         { n: inr(String(revenue)), k: 'Revenue · 30d', d: recent.length + ' orders →', v: 'orders' },
-        { n: String(PEOPLE.length), k: 'People captured', d: 'view all →', v: 'people' },
+        { n: String(totalVisitors()), k: 'People captured', d: 'view all →', v: 'people' },
         { n: String(abandoned.length), k: 'Abandoned', d: 'chase them →', v: 'people' },
         { n: conv, k: 'Visitor → order', d: f ? 'last ' + f.days + 'd' : '', v: 'overview' },
       ].map(function (x) { return '<button type="button" class="ad-kpi ad-kpi--click" data-view="' + x.v + '"><span class="ad-kpi__n">' + esc(x.n) + '</span><span class="ad-kpi__k">' + esc(x.k) + '</span><span class="ad-kpi__d">' + esc(x.d) + '</span></button>'; }).join('');
@@ -425,7 +463,10 @@
     // ── Daily funnel grid ─────────────────────────────────────────────────────
     // One column per day of a month, one row per funnel step. A person counts on
     // the day they FIRST reached a step, so each row is "how many new people got
-    // this far that day" — the columns are comparable and nobody is double-counted.
+    // this far that day" and nobody is double-counted. The funnel rows are served
+    // from the immutable funnel_daily aggregates (written server-side as each
+    // person crosses each step), so a past column never changes once the day ends —
+    // unlike the old client-side count from the capped People list.
     var MONTH = '';       // 'YYYY-MM'; set on first render
     var SHOW_BOTS = false; // crawlers are recorded but excluded from counts by default
     // The IST calendar day (YYYY-MM-DD) an instant falls on. Firestore stores UTC,
@@ -441,35 +482,51 @@
       var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
       return new Date(y, mo, 0).getDate(); // day 0 of next month = last day of this one
     }
-    // The nine rows, in funnel order. Each returns the day a person counts on, or
-    // '' to skip them. Product-count rows are mutually exclusive buckets.
+    // The funnel rows, in order. p1/p2/p3 are cumulative milestones — the day a
+    // person reached their 1st / 2nd / 3rd distinct product view — so the column
+    // totals form a real funnel (everyone in p2 is also in p1).
     var DAILY_ROWS = [
-      { key: 'visits',   label: 'Unique visitors',    day: function (p) { return istDay(p.firstSeen); } },
-      { key: 'p1',       label: 'Viewed 1 product',   day: function (p) { return p.viewed.length === 1 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
-      { key: 'p2',       label: 'Viewed 2 products',  day: function (p) { return p.viewed.length === 2 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
-      { key: 'p3',       label: 'Viewed 2+ products', day: function (p) { return p.viewed.length > 2 ? istDay(p.viewedAt || p.firstSeen) : ''; } },
-      { key: 'cart',     label: 'Added to cart',      day: function (p) { return istDay(p.cartAt); } },
-      { key: 'phone',    label: 'Added phone number', day: function (p) { return istDay(p.phoneAt); } },
-      { key: 'address',  label: 'Added address',      day: function (p) { return istDay(p.addressAt); } },
+      { key: 'visitors', label: 'Unique visitors' },
+      { key: 'p1',       label: 'Viewed a product' },
+      { key: 'p2',       label: 'Viewed a 2nd product' },
+      { key: 'p3',       label: 'Viewed a 3rd+ product' },
+      { key: 'cart',     label: 'Added to cart' },
+      { key: 'phone',    label: 'Added phone number' },
+      { key: 'address',  label: 'Added address' },
     ];
-    // Builds { rowKey: { 'YYYY-MM-DD': n } } for the given month.
+    // Bot / test visitors for `month`, from the immutable aggregates.
+    function funnelMonthTotal(step, month, prefix) {
+      var n = 0;
+      for (var day in FUNNEL_DAILY) {
+        if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
+        n += Number(FUNNEL_DAILY[day][(prefix || '') + step] || 0);
+      }
+      return n;
+    }
+    // Builds { rowKey: { 'YYYY-MM-DD': n } } for the given month. The funnel rows
+    // come from funnel_daily — immutable per-day counts written when each person
+    // first reaches a step — so a column never changes once the day has passed.
+    // Checkout + Ordered come from Shopify, which is authoritative for both.
     function dailyCounts(month) {
       var grid = {};
       DAILY_ROWS.forEach(function (r) { grid[r.key] = {}; });
       grid.checkout = {}; grid.ordered = {};
+      for (var day in FUNNEL_DAILY) {
+        if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
+        var d = FUNNEL_DAILY[day];
+        DAILY_ROWS.forEach(function (r) {
+          var v = Number(d[r.key] || 0);
+          if (SHOW_BOTS) v += Number(d['bot_' + r.key] || 0);
+          if (SHOW_HIDDEN) v += Number(d['hidden_' + r.key] || 0);
+          if (v) grid[r.key][day] = v;
+        });
+      }
       var bump = function (key, day) {
         if (!day || day.slice(0, 7) !== month) return;
         grid[key][day] = (grid[key][day] || 0) + 1;
       };
-      PEOPLE.forEach(function (p) {
-        // Crawlers never buy, so counting them would inflate the top of the funnel
-        // and depress every conversion rate below it.
-        if (p.bot && !SHOW_BOTS) return;
-        DAILY_ROWS.forEach(function (r) { bump(r.key, r.day(p)); });
-      });
-      // The two money steps come from Shopify, which is authoritative for both.
-      ABANDONED.forEach(function (a) { bump('checkout', istDay(a.createdAt)); });
-      ORDERS.forEach(function (o) {
+      visibleAbandoned().forEach(function (a) { bump('checkout', istDay(a.createdAt)); });
+      visibleOrders().forEach(function (o) {
         if (o.cancelled) return;
         bump('checkout', istDay(o.createdAt)); // an order necessarily attempted checkout
         bump('ordered', istDay(o.createdAt));
@@ -500,30 +557,32 @@
         return '<tr><td class="ad-daily__lab">' + esc(r.label) + '</td>' + cells +
           '<td class="r ad-daily__tot">' + total + '</td></tr>';
       }).join('');
-      // Crawler activity for this month — worth watching while AI search grows.
+      // Crawler activity for this month. The headline is the immutable aggregate;
+      // the per-name breakdown is from the (recent) People list, so older months
+      // may show fewer names than the total.
+      var botMonth = funnelMonthTotal('visitors', MONTH, 'bot_');
       var bots = {};
-      var botTotal = 0;
       PEOPLE.forEach(function (p) {
         if (!p.bot) return;
         if (istDay(p.firstSeen).slice(0, 7) !== MONTH) return;
         bots[p.bot] = (bots[p.bot] || 0) + 1;
-        botTotal++;
       });
       var botNames = Object.keys(bots).sort(function (a, b) { return bots[b] - bots[a]; });
-      var botHtml = botTotal
+      var botHtml = (botMonth || botNames.length)
         ? '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Crawlers</span>' +
           '<label class="ad-bottoggle"><input type="checkbox" id="showBots"' + (SHOW_BOTS ? ' checked' : '') +
           ' /> Count them in the grid above</label></div>' +
-          '<div class="ad-pad"><p class="ad-note">' + botTotal + ' crawler ' +
-          (botTotal === 1 ? 'visit' : 'visits') + ' this month · ' +
-          botNames.map(function (n) { return esc(n) + ' ' + bots[n]; }).join(' · ') +
+          '<div class="ad-pad"><p class="ad-note">' + botMonth + ' crawler ' +
+          (botMonth === 1 ? 'visit' : 'visits') + ' this month' +
+          (botNames.length ? ' · ' + botNames.map(function (n) { return esc(n) + ' ' + bots[n]; }).join(' · ') : '') +
           '</p></div></div>'
         : '';
       body.innerHTML = '<div class="ad-panel"><div class="ad-scroll">' +
         '<table class="ad-table ad-daily"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table>' +
         '</div></div>' + botHtml +
         '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST' +
-        (SHOW_BOTS ? '' : ', excluding crawlers') + '. ' +
+        (SHOW_BOTS ? '' : ', excluding crawlers') +
+        (SHOW_HIDDEN ? ', including test records' : '') + '. ' +
         'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.</p>';
     }
     function dailyCsv() {
@@ -567,9 +626,10 @@
     function visiblePeople() {
       var range = activeRange();
       return PEOPLE.filter(function (p) {
-        // Crawlers are recorded but aren't people to follow up with. Searching for
-        // one by name still finds it.
+        // Crawlers and internal/test numbers are recorded but aren't people to
+        // follow up with. Searching for one by name still finds it.
         if (p.bot && !SEARCH) return false;
+        if (isHiddenPerson(p) && !SHOW_HIDDEN && !SEARCH) return false;
         return (FILTER === 'all' || p.stage === FILTER) && matchesSearch(p) && inRange(p, range);
       });
     }
@@ -577,7 +637,7 @@
       var wrap = $('peopleFilters'); if (!wrap) return;
       // Counts follow the date range, so a chip never promises rows the table won't show.
       var range = activeRange();
-      var pool = PEOPLE.filter(function (p) { return !p.bot && inRange(p, range); });
+      var pool = PEOPLE.filter(function (p) { return !p.bot && !(isHiddenPerson(p) && !SHOW_HIDDEN) && inRange(p, range); });
       var counts = { all: pool.length };
       pool.forEach(function (p) { counts[p.stage] = (counts[p.stage] || 0) + 1; });
       var chips = [{ key: 'all', label: 'Everyone' }].concat(STAGES);
@@ -703,6 +763,7 @@
       var counts = {};
       people.forEach(function (p) {
         if (p.bot) return; // crawlers aren't traffic
+        if (isHiddenPerson(p) && !SHOW_HIDDEN) return;
         var c = p.country || 'Unknown';
         counts[c] = (counts[c] || 0) + 1;
       });
@@ -1018,10 +1079,12 @@
     });
     $('monthCsv').addEventListener('click', dailyCsv);
     $('newsCsv').addEventListener('click', newsletterCsv);
-    // Delegated: the toggle is re-created on every grid render.
+    // Delegated: the toggle is re-created on every grid render. Both toggles change
+    // what's counted everywhere, so re-render the whole dashboard from the last payload.
     $('dailyBody').addEventListener('change', function (e) {
-      if (e.target && e.target.id === 'showBots') { SHOW_BOTS = e.target.checked; renderDaily(); }
+      if (e.target && e.target.id === 'showBots') { SHOW_BOTS = e.target.checked; rerender(); }
     });
+    $('showHidden').addEventListener('change', function (e) { SHOW_HIDDEN = e.target.checked; rerender(); });
     $('peopleBody').addEventListener('click', function (e) {
       if (e.target.closest('a')) return;            // let WhatsApp/Call links through
       var tr = e.target.closest('[data-person]'); if (!tr) return;
@@ -1387,6 +1450,8 @@
   .ad-nav__foot { margin-top: auto; padding: 12px; }
   .ad-nav__out { background: none; border: none; cursor: pointer; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: #e7b7ae; }
   .ad-nav__upd { display: block; font-size: 9.5px; letter-spacing: .04em; color: rgba(255,255,255,.4); padding: 0 12px 9px; }
+  .ad-nav__toggle { display: flex; align-items: center; gap: 7px; font-size: 10.5px; letter-spacing: .04em; color: rgba(255,255,255,.55); cursor: pointer; padding: 0 12px 10px; }
+  .ad-nav__toggle input { accent-color: var(--cherry); cursor: pointer; }
 
   .ad-main { padding: clamp(24px,3vw,40px); min-width: 0; overflow-x: hidden; }
   .ad-h1 { font-size: clamp(26px,2.8vw,38px); color: var(--depth); margin: 0 0 22px; }
@@ -1580,7 +1645,8 @@
     .ad-nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
     .ad-nav__logo { width: 100%; padding: 4px 8px 10px; }
     .ad-nav__item { width: auto; }
-    .ad-nav__foot { margin: 0 0 0 auto; padding: 0; }
+    .ad-nav__foot { margin: 0 0 0 auto; padding: 0; display: flex; align-items: center; gap: 10px; }
+    .ad-nav__toggle { padding: 0; white-space: nowrap; }
     .ad-kpis { grid-template-columns: 1fr 1fr; }
   }
 </style>
