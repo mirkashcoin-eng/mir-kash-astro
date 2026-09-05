@@ -1,9 +1,9 @@
 ---
 import SiteFooter from './SiteFooter.astro';
 import { shopifyImage } from '~/lib/shopifyImage';
-import { getAllProducts } from '~/lib/shopify/queries';
+import { getAllProducts, getProductRecommendations } from '~/lib/shopify/queries';
 import { formatMoney } from '~/lib/markets';
-import type { ProductDetail } from '~/types/shopify';
+import type { Product, ProductDetail } from '~/types/shopify';
 
 interface Props {
   product: ProductDetail;
@@ -67,7 +67,10 @@ const startPrice = formatMoney(product.priceRange.minVariantPrice, marketConfig.
 // Colours are modelled as SEPARATE products (e.g. "Carla - Plum", "Carla - Taupe"),
 // each with its own photos. So a colour swatch should navigate to that colour's product
 // rather than swap a variant image that doesn't exist. Build that map when siblings exist.
-const allProducts = await getAllProducts(market, marketConfig.countryCode, 100).catch(() => []);
+const [allProducts, recommended] = await Promise.all([
+  getAllProducts(market, marketConfig.countryCode, 100).catch(() => []),
+  getProductRecommendations(market, marketConfig.countryCode, product.id).catch(() => []),
+]);
 const firstWord = (t: string) => (t || '').toLowerCase().split(/[\s\-–—|]+/).filter(Boolean)[0] || '';
 const myFamily = firstWord(product.title);
 const myTitleLc = product.title.toLowerCase();
@@ -89,6 +92,58 @@ for (const opt of optionGroups) {
   });
   if (entries.some((e) => e.href && !e.active)) colourNav[opt.name] = entries; // only when siblings exist
 }
+
+// ── Related products ("More From Mir Kash") ─────────────────────────────────
+// Shopify's own RELATED recommendations first; newer or low-traffic products
+// often come back with too few, so backfill from the catalog already fetched
+// above — same productType first, then anything else. Colour siblings are
+// excluded throughout: they're already one tap away in the swatch row.
+const REL_TARGET = 8;
+const relPool: Product[] = [];
+const relSeen = new Set<string>([product.handle]);
+// One bag per family. Colourways are separate Shopify products ("Kelly Clutch -
+// Silver" / "- Gold"), and Shopify's recommendations happily return several of
+// the same bag — which just burns slots on near-duplicates. Seeded with this
+// product's own family, so its colour siblings are excluded too (they're already
+// one tap away in the swatch row). First one wins = Shopify's own ranking order.
+const relFamilies = new Set<string>([myFamily]);
+function addRelated(list: Product[]) {
+  for (const p of list) {
+    if (relPool.length >= REL_TARGET) return;
+    const family = firstWord(p.title);
+    if (relSeen.has(p.handle) || relFamilies.has(family)) continue;
+    relSeen.add(p.handle);
+    relFamilies.add(family);
+    relPool.push(p);
+  }
+}
+addRelated(recommended);
+addRelated(allProducts.filter((p) => p.productType && p.productType === product.productType));
+addRelated(allProducts);
+
+const relatedProducts = relPool.map((p) => ({
+  handle: p.handle,
+  href: `${prefix}/products/${p.handle}`,
+  name: p.title,
+  price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
+  variantId: p.variants?.edges?.[0]?.node.id ?? '',
+  image: p.featuredImage ? shopifyImage(p.featuredImage.url, 600) : null,
+  imageAlt: p.featuredImage?.altText ?? p.title,
+  hoverImage: (() => {
+    const node =
+      p.images?.edges?.find((e) => e.node.url !== p.featuredImage?.url)?.node ??
+      p.images?.edges?.[1]?.node ??
+      null;
+    return node ? shopifyImage(node.url, 600) : null;
+  })(),
+  badge: p.tags.includes('best-seller')
+    ? 'Best Seller'
+    : p.tags.includes('new')
+    ? 'New'
+    : p.tags.includes('selling-fast')
+    ? 'Selling Fast'
+    : null,
+}));
 
 // Colour name → swatch hex (best-effort; falls back to neutral).
 const COLOR_HEX: Record<string, string> = {
@@ -449,6 +504,31 @@ const SHOW_REELS = false;
     </div>
   </section>
   )}
+
+  <!-- ══ MORE FROM MIR KASH ══ -->
+  {relatedProducts.length > 0 && (
+  <section class="related reveal">
+    <h2 class="related__title">More From Mir Kash</h2>
+    <div class="rel-track">
+      {relatedProducts.map((r) => (
+        <a class="rel-card" href={r.href} data-name={r.name} data-handle={r.handle} data-variant={r.variantId}>
+          <div class="rel-card__img-wrap">
+            {r.image
+              ? <img class="rel-card__img rel-card__img--primary" src={r.image} alt={r.imageAlt} loading="lazy" />
+              : <div class="rel-card__img rel-card__img--ph"></div>}
+            {r.hoverImage && <img class="rel-card__img rel-card__img--alt" src={r.hoverImage} alt="" loading="lazy" />}
+            {r.badge && <span class={`rel-card__badge${r.badge === 'New' ? ' rel-card__badge--new' : ''}`}>{r.badge}</span>}
+            <button class="rel-card__add" type="button" aria-label={`Add ${r.name} to bag`}>Add to bag</button>
+          </div>
+          <div class="rel-card__meta">
+            <p class="rel-card__name">{r.name}</p>
+            <p class="rel-card__price">{r.price}</p>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+  )}
 </main>
 
 <!-- ══ STICKY MOBILE BAR ══ -->
@@ -701,6 +781,63 @@ const SHOW_REELS = false;
   }, { threshold: 0.08 });
   document.querySelectorAll('.reveal').forEach((el) => revealObs.observe(el));
 
+  // ── "More From Mir Kash" — click tracking + quick add ──
+  (function () {
+    document.querySelectorAll('.rel-card').forEach((card) => {
+      const name = card.dataset.name || '';
+
+      card.addEventListener('click', () => {
+        if (window.mkTrack) window.mkTrack('related_product_click', { product: name });
+        if (window.mkLead) window.mkLead({ event: 'related_product_click', item: name, from: productTitle });
+      });
+
+      const add = card.querySelector('.rel-card__add');
+      if (!add) return;
+      add.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (add.dataset.busy === '1') return;
+        const variantId = card.dataset.variant;
+        // No resolvable variant → let them pick one on that product's own page.
+        if (!variantId) { window.location.href = card.href; return; }
+        const original = add.dataset.label || add.textContent;
+        add.dataset.label = original;
+        add.dataset.busy = '1';
+        add.textContent = 'Adding…';
+        try {
+          const res = await fetch('/api/cart/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ merchandiseId: variantId, quantity: 1, store, countryCode }),
+          });
+          if (!res.ok) throw new Error('add failed');
+          const cart = await res.json();
+          if (window.mkTrack) window.mkTrack('add_to_cart', { product: name });
+          if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+          try {
+            if (typeof gtag === 'function') {
+              const items = [{ item_id: variantId, item_name: name, quantity: 1 }];
+              gtag('event', 'add_to_cart', { currency, items });
+              gtag('event', 'conversion', { send_to: 'AW-18098313640/HX8JCKX26J0cEKiz-bVD', currency });
+            }
+          } catch (e) { console.error('gtag add_to_cart failed:', e); }
+          document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
+          add.classList.add('is-added');
+          add.textContent = 'Added ✓';
+          setTimeout(() => {
+            add.textContent = original;
+            add.classList.remove('is-added');
+            add.dataset.busy = '';
+          }, 1500);
+        } catch {
+          add.textContent = original;
+          add.dataset.busy = '';
+          window.location.href = card.href;
+        }
+      });
+    });
+  })();
+
   // Keep the header bag badge in sync with the live cart (also on bfcache back-nav)
   (function () {
     const els = document.querySelectorAll('.bag-count');
@@ -862,6 +999,45 @@ const SHOW_REELS = false;
   .reel__sound.is-on .i-mute { display: none; }
   .reel__sound.is-on .i-sound { display: block; }
 
+  /* ══ MORE FROM MIR KASH ══ */
+  .related { padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(3rem, 5vw, 4rem); background: #fff; border-top: 1px solid var(--rule); }
+  /* Deliberately quiet: this is a signpost for a utility row, not an editorial
+     heading — it must not compete with the product <h1>. Sentence case (the card
+     names below are uppercase, so this keeps the two registers distinct), and the
+     same gutter as .rel-track so label and first card share a vertical edge. */
+  .related__title {
+    font-family: var(--serif); font-weight: 400; font-size: 17px; line-height: 1.3;
+    letter-spacing: .01em; color: var(--depth);
+    max-width: 1440px; margin: 0 auto 18px;
+    padding: 0 var(--gutter, clamp(20px,4vw,56px));
+  }
+  /* scroll-padding-left keeps mandatory snap from snapping past the gutter and
+     clipping the first card — same fix the shop grid's scroll rows already use. */
+  .rel-track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 1440px; margin: 0 auto; padding: 4px var(--gutter, clamp(20px,4vw,56px)); scroll-padding-left: var(--gutter, clamp(20px,4vw,56px)); }
+  .rel-track::-webkit-scrollbar { display: none; }
+  .rel-card { flex: 0 0 auto; width: clamp(210px, 20vw, 260px); scroll-snap-align: start; background: var(--paper); color: var(--depth); }
+  .rel-card__img-wrap { position: relative; aspect-ratio: 4/5; overflow: hidden; background: linear-gradient(170deg,#f0ede8 0%,#e0ddd8 100%); }
+  .rel-card__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .45s ease; }
+  .rel-card__img--alt { opacity: 0; }
+  .rel-card:hover .rel-card__img--primary { opacity: 0; }
+  .rel-card:hover .rel-card__img--alt { opacity: 1; }
+  .rel-card__badge { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,.92); padding: 4px 9px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: var(--depth); }
+  .rel-card__badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--earth); }
+  .rel-card__badge--new { color: var(--cherry); }
+  .rel-card__badge--new::before { background: var(--cherry); }
+  .rel-card__add {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 12px;
+    background: var(--depth); color: #fff; border: none; cursor: pointer;
+    font-family: inherit; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; font-weight: 500;
+    opacity: 0; transform: translateY(100%); transition: opacity .28s ease, transform .28s ease, background .2s;
+  }
+  .rel-card:hover .rel-card__add { opacity: 1; transform: none; }
+  .rel-card__add:hover { background: var(--cherry); }
+  .rel-card__add.is-added { background: #3D6B4F; }
+  .rel-card__meta { padding: 12px 2px 0; }
+  .rel-card__name { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; font-weight: 500; line-height: 1.4; margin-bottom: 4px; }
+  .rel-card__price { font-size: 13px; color: var(--mid); }
+
   /* ══ SCROLL REVEAL ══ */
   .reveal { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
   .reveal.in { opacity: 1; transform: none; }
@@ -902,6 +1078,18 @@ const SHOW_REELS = false;
     .story { grid-template-columns: 1fr; }
     .story__right { aspect-ratio: 4/3; order: -1; }
     .reel { width: 66vw; max-width: 300px; }
+    .rel-card { width: 52vw; max-width: 240px; }
+    /* No hover on touch — the add button becomes a small always-visible "+" pill,
+       same treatment as the Shop All grid's quick-add. */
+    .rel-card__add {
+      opacity: 1; transform: none; left: 8px; right: auto; bottom: 8px;
+      width: 28px; height: 28px; padding: 0; font-size: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--paper); color: var(--depth); box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .rel-card__add::before { content: '+'; font-size: 15px; font-weight: 300; line-height: 1; transform: translateY(-1px); }
+    .rel-card__add.is-added { background: #3D6B4F; }
+    .rel-card__add.is-added::before { content: '✓'; font-size: 12px; color: #fff; transform: none; }
     .trust { white-space: normal; }
     .full-bleed { aspect-ratio: 4/5; }
     body { padding-bottom: 80px; }

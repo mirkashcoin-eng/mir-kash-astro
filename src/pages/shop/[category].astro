@@ -1,0 +1,15 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import CategoryPage from '~/components/CategoryPage.astro';
+import { getCategory } from '~/lib/categories';
+
+const cat = getCategory(Astro.params.category!);
+if (!cat) return new Response(null, { status: 404 });
+---
+<BaseLayout
+  title={cat.seoTitle}
+  description={cat.seoDescription}
+  path={`/shop/${cat.slug}`}
+>
+  <CategoryPage slug={cat.slug} />
+</BaseLayout>

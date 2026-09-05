@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { SITE_ORIGIN } from '~/lib/markets';
 import { getAllProducts } from '~/lib/shopify/queries';
 import { POSTS } from '~/data/journal';
+import { CATEGORY_PATHS } from '~/lib/categories';
 
 export const prerender = false;
 
@@ -29,6 +30,10 @@ interface Entry { path: string; lastmod?: string }
 
 export const GET: APIRoute = async () => {
   const entries: Entry[] = staticPaths().map((path) => ({ path }));
+
+  // Shop category pages (/shop/crossbody-bags, …) — a dynamic route, so
+  // staticPaths() skips them; the registry is the source of truth.
+  for (const path of CATEGORY_PATHS) entries.push({ path });
 
   // Journal articles (auto — every post in the data module, with its publish date).
   for (const post of POSTS) entries.push({ path: `/blog/${post.slug}`, lastmod: post.date });

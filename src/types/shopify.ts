@@ -63,6 +63,10 @@ export interface ProductsResponse {
   products: ProductsConnection;
 }
 
+export interface ProductRecommendationsResponse {
+  productRecommendations: Product[] | null;
+}
+
 export interface ProductOption {
   name: string;
   values: string[];

@@ -13,6 +13,7 @@ import type {
   ProductByHandleResponse,
   CollectionByHandleResponse,
   ProductsResponse,
+  ProductRecommendationsResponse,
 } from '~/types/shopify';
 
 const GET_PRODUCTS_BY_COLLECTION = /* GraphQL */ `
@@ -51,6 +52,21 @@ const GET_ALL_PRODUCTS = /* GraphQL */ `
   }
 `;
 
+// Shopify's own recommendation engine. RELATED is auto-generated from sales data,
+// product descriptions and collection relationships — no merchant setup needed.
+// (COMPLEMENTARY exists too, but requires pairings configured in Search & Discovery.)
+const GET_PRODUCT_RECOMMENDATIONS = /* GraphQL */ `
+  ${IMAGE_FRAGMENT}
+  ${MONEY_FRAGMENT}
+  ${PRODUCT_FRAGMENT}
+  query ProductRecommendations($productId: ID!, $country: CountryCode!, $language: LanguageCode!)
+  @inContext(country: $country, language: $language) {
+    productRecommendations(productId: $productId, intent: RELATED) {
+      ...ProductFields
+    }
+  }
+`;
+
 const GET_PRODUCT_BY_HANDLE = /* GraphQL */ `
   ${IMAGE_FRAGMENT}
   ${MONEY_FRAGMENT}
@@ -83,6 +99,20 @@ export async function getAllProducts(store: Store, country: string, first = 48):
   const data = await runQuery<ProductsResponse>(store, GET_ALL_PRODUCTS, { first }, country);
   if (!data?.products) return [];
   return data.products.edges.map((e) => e.node);
+}
+
+export async function getProductRecommendations(
+  store: Store,
+  country: string,
+  productId: string,
+): Promise<Product[]> {
+  const data = await runQuery<ProductRecommendationsResponse>(
+    store,
+    GET_PRODUCT_RECOMMENDATIONS,
+    { productId },
+    country,
+  );
+  return data?.productRecommendations ?? [];
 }
 
 export async function getProductByHandle(
