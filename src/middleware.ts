@@ -1,9 +1,8 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
   MARKET_COOKIE,
-  INDIA_MARKET,
   getMarketByPath,
-  getMarketBySlug,
+  getMarketByCookie,
   getMarketByCountry,
   parseLocaleFromPath,
   getAlternateUrl,
@@ -42,9 +41,22 @@ export function botName(ua: string): string {
 // several, with no actual localization to show for it. Their locale-prefixed
 // routes still exist and render fine if linked directly; they're just no
 // longer where geo/cookie routing sends a visitor.
+// Root-only routes with no /en-xx counterpart under src/pages/[locale]. Geo-redirecting
+// these produced a guaranteed 404 (e.g. a US visitor on /try-at-home landed on
+// /en-us/try-at-home, which does not exist). /checkout already sends global-market
+// visitors to their own hosted checkout, so it needs no geo hop either.
+//
+// /go is here for a different reason: the affiliate route must run so the click is
+// recorded, and it does its own market-aware redirect afterwards. See go/[affiliate].ts.
 const SKIP_PATHS = [
   /^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/,
   /^\/admin(\/|$)/,
+  /^\/go(\/|$)/,
+  /^\/account(\/|$)/,
+  /^\/checkout(\/|$)/,
+  /^\/try-at-home(\/|$)/,
+  /^\/private-viewing(\/|$)/,
+  /^\/viewing(\/|$)/,
   /^\/blog(\/|$)/,
   /^\/pages\/about(\/|$)/,
   /^\/pages\/materials(\/|$)/,
@@ -102,11 +114,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (parseLocaleFromPath(pathname)) return next();
 
   // We're at the root (India context). A manual choice wins.
+  // url.search is carried through both redirects below: dropping it silently killed
+  // ?utm_source / ?gclid on every geo-redirected ad click.
   const saved = cookies.get(MARKET_COOKIE)?.value;
-  if (saved != null) {
-    const chosen = getMarketBySlug(saved) ?? (saved === '' ? INDIA_MARKET : undefined);
+  if (saved) {
+    const chosen = getMarketByCookie(saved);
     if (chosen && !chosen.isDefault) {
-      return redirect(getAlternateUrl(pathname, chosen), 302);
+      return redirect(getAlternateUrl(pathname, chosen) + url.search, 302);
     }
     return next(); // saved is India → stay at root
   }
@@ -116,7 +130,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (country) {
     const geoMarket = getMarketByCountry(country);
     if (!geoMarket.isDefault) {
-      return redirect(getAlternateUrl(pathname, geoMarket), 302);
+      return redirect(getAlternateUrl(pathname, geoMarket) + url.search, 302);
     }
   }
 

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { recordClick, SLUG_RE } from '~/lib/clicks';
 import { setClickId } from '~/lib/cart-session';
+import { getAlternateUrl } from '~/lib/markets';
 
 export const prerender = false;
 
@@ -20,7 +21,7 @@ function safePath(raw: string | null): string {
   return raw;
 }
 
-export const GET: APIRoute = async ({ params, url, cookies }) => {
+export const GET: APIRoute = async ({ params, url, cookies, locals }) => {
   const slug = (params.affiliate || '').toLowerCase();
   const to = safePath(url.searchParams.get('to'));
 
@@ -29,8 +30,17 @@ export const GET: APIRoute = async ({ params, url, cookies }) => {
     if (clickId) setClickId(cookies, clickId);
   }
 
+  // Record the click FIRST, then send the visitor to their own market. This route is
+  // in the middleware's SKIP_PATHS precisely so it gets to run: the geo redirect used
+  // to fire first and rewrite /go/{slug} to /en-us/go/{slug}, which does not exist —
+  // so the visitor 404'd, the click was never logged and the sale lost its affiliate.
+  // Creator links are shared as bare paths (/products/x), so a US visitor still needs
+  // the /en-us prefix added here.
+  const market = locals.marketConfig;
+  const destination = market && !market.isDefault ? getAlternateUrl(to, market) : to;
+
   return new Response(null, {
     status: 302,
-    headers: { Location: to, 'Cache-Control': 'no-store' },
+    headers: { Location: destination, 'Cache-Control': 'no-store' },
   });
 };

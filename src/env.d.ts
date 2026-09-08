@@ -47,9 +47,9 @@ interface ImportMetaEnv {
   readonly PUBLIC_FIREBASE_AUTH_DOMAIN: string;
   readonly PUBLIC_FIREBASE_PROJECT_ID: string;
   readonly PUBLIC_FIREBASE_APP_ID: string;
-  // Founders' dashboard (/admin) — Google-email allowlist AND/OR a shared passcode
+  // Founders' dashboard (/admin) — root Google-email allowlist. Anyone else's
+  // access is granted live via the Team access tab (Firestore-backed).
   readonly ADMIN_EMAILS: string;
-  readonly ADMIN_PASSCODE: string;
   // Firebase Admin SDK service-account JSON — powers the /admin funnel + Leads.
   readonly FIREBASE_SERVICE_ACCOUNT: string;
   // WhatsApp order updates + cart recovery via Meta Cloud API.

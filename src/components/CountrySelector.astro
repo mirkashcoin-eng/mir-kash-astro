@@ -5,6 +5,7 @@ import {
   MARKET_COOKIE_MAX_AGE,
   getMarketByPath,
   getAlternateUrl,
+  marketCookieValue,
 } from '~/lib/markets';
 
 const pathname = Astro.url.pathname;
@@ -12,6 +13,7 @@ const current = Astro.locals.marketConfig ?? getMarketByPath(pathname);
 
 const options = MARKETS.map((m) => ({
   slug: m.localeSlug,
+  cookie: marketCookieValue(m),
   name: m.countryName,
   flag: m.flag,
   symbol: m.currencySymbol,
@@ -29,7 +31,7 @@ const options = MARKETS.map((m) => ({
   <ul class="country-select__menu" role="listbox">
     {options.map((o) => (
       <li role="option" aria-selected={o.active}>
-        <a href={o.href} data-slug={o.slug}>
+        <a href={o.href} data-slug={o.slug} data-cookie={o.cookie}>
           <span class="country-select__flag" aria-hidden="true">{o.flag}</span>
           <span>{o.name}</span>
           <span class="country-select__cur">{o.symbol} {o.currency}</span>
@@ -85,10 +87,13 @@ const options = MARKETS.map((m) => ({
         btn.setAttribute('aria-expanded', 'false');
       }
     });
-    root.querySelectorAll('[data-slug]').forEach((link) => {
+    root.querySelectorAll('[data-cookie]').forEach((link) => {
       link.addEventListener('click', () => {
-        const slug = link.getAttribute('data-slug') ?? '';
-        document.cookie = `${MARKET_COOKIE}=${slug}; path=/; max-age=${maxAge}; samesite=lax`;
+        // data-cookie, not data-slug: India's slug is '' and an empty-valued cookie
+        // is dropped by Astro's cookies.get(), so the choice never reached the server.
+        const value = link.getAttribute('data-cookie') ?? '';
+        if (!value) return;
+        document.cookie = `${MARKET_COOKIE}=${value}; path=/; max-age=${maxAge}; samesite=lax`;
       });
     });
   });

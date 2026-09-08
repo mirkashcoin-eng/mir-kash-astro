@@ -40,7 +40,8 @@ function daysBetween(from: string | null, to: string | null): number | null {
 }
 
 // Founders-only data feed for /admin. Auth = Firebase ID token (Bearer) whose email
-// must be in the ADMIN_EMAILS allowlist, or the shared passcode. India Admin data only.
+// must be a root founder (ADMIN_EMAILS) or hold the 'full' role in Team access.
+// India Admin data only.
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 

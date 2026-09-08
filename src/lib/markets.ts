@@ -125,6 +125,21 @@ export function getMarketBySlug(slug: string): MarketConfig | undefined {
   return MARKETS.find((m) => m.localeSlug === slug);
 }
 
+// The market cookie stores a market's localeSlug — except India's is '', and
+// Astro's cookies.get() discards empty-valued cookies (it guards on `if (value)`,
+// and '' is falsy). Writing '' therefore made "I chose India" invisible to the
+// server, which fell through to geo and bounced the visitor back to /en-us.
+// India gets an explicit sentinel so the choice actually survives the round trip.
+export const INDIA_COOKIE_VALUE = 'in';
+
+export const marketCookieValue = (m: MarketConfig): string =>
+  m.localeSlug || INDIA_COOKIE_VALUE;
+
+export function getMarketByCookie(value: string): MarketConfig | undefined {
+  if (!value) return undefined;
+  return value === INDIA_COOKIE_VALUE ? INDIA_MARKET : getMarketBySlug(value);
+}
+
 export function getMarketByCountry(country: string): MarketConfig {
   const cc = (country || '').toUpperCase();
   if (cc === 'IN') return INDIA_MARKET;

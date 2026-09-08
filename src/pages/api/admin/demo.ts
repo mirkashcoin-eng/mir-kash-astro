@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
-import { verifyFirebaseUser } from '~/lib/firebaseAuth';
-import { isAdmin, passcodeOk } from '~/lib/adminAuth';
+import { requestIsAdmin } from '~/lib/adminAuth';
 import { confirmDemo, completeDemo } from '~/lib/shopify/admin';
 
 export const prerender = false;
@@ -11,17 +10,10 @@ const json = (obj: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' },
   });
 
-async function authorised(request: Request): Promise<boolean> {
-  if (passcodeOk(request.headers.get('x-admin-key'))) return true;
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const user = token ? await verifyFirebaseUser(token) : null;
-  return Boolean(user && isAdmin(user.email));
-}
-
 // Founders-only: update a home-demo booking's status (confirm with a date/time, or
-// mark completed). Same auth as /api/admin/data — passcode header or Firebase admin token.
+// mark completed). Same auth as /api/admin/data.
 export const POST: APIRoute = async ({ request }) => {
-  if (!(await authorised(request))) return json({ error: 'Not authorised' }, 401);
+  if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
   let body: { id?: string; action?: string; date?: string; time?: string };
   try { body = await request.json(); } catch { return json({ error: 'Bad request' }, 400); }

@@ -1,6 +1,7 @@
 ---
-// Founders' dashboard gate. Primary: Google sign-in as the Mir Kash account
-// (verified server-side, email must be in ADMIN_EMAILS). Fallback: shared ADMIN_PASSCODE.
+// Founders' dashboard gate. Google sign-in only, verified server-side: full access
+// for ADMIN_EMAILS (root founders) or anyone granted 'full' in Team access; the
+// restricted 'affiliate' role sees only the Affiliates tab.
 ---
 <main class="ad">
   <!-- Sign-in gate -->
@@ -13,11 +14,6 @@
         <span class="ad-google__g" aria-hidden="true">G</span> Sign in with Google
       </button>
       <p class="ad-signin-status" id="signinStatus"></p>
-      <button class="ad-altlink" id="usePass" type="button">Use a passcode instead</button>
-      <form class="ad-pass" id="gateForm" hidden>
-        <input class="ad-input" id="passInput" type="password" placeholder="Passcode" autocomplete="off" />
-        <button class="ad-enter" id="enterBtn" type="submit">Enter</button>
-      </form>
     </div>
   </section>
 
@@ -35,6 +31,8 @@
       <button class="ad-nav__item" data-view="demos">Try at Home <span class="ad-nav__n" id="nDemos"></span></button>
       <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
       <button class="ad-nav__item" data-view="newsletter">Newsletter <span class="ad-nav__n" id="nNews"></span></button>
+      <span class="ad-nav__grp ad-nav__grp--founders">Admin</span>
+      <button class="ad-nav__item ad-nav__item--founders" data-view="team">Team access</button>
       <div class="ad-nav__foot">
         <label class="ad-nav__toggle"><input type="checkbox" id="showHidden" /> Show test records</label>
         <span class="ad-nav__upd" id="updated"></span>
@@ -122,6 +120,25 @@
         </div>
         <div class="ad-panel"><div class="ad-scroll" id="allSubs"></div></div>
       </section>
+      <section class="ad-view" data-view="team" hidden>
+        <h1 class="ad-display ad-h1">Team access</h1>
+        <p class="ad-sub">Grant someone else access to this dashboard. "Full" sees everything; "Affiliate links only" sees just the Affiliates tab.</p>
+        <div class="ad-panel ad-affnew">
+          <div class="ad-panel__h"><span class="ad-panel__t">Grant access</span></div>
+          <form class="ad-affform" id="teamForm">
+            <label class="ad-flabel">Email<input class="ad-finput" id="teamEmail" type="email" placeholder="someone@example.com" autocomplete="off" /></label>
+            <label class="ad-flabel">Access
+              <select class="ad-finput" id="teamRole">
+                <option value="affiliate">Affiliate links only</option>
+                <option value="full">Full</option>
+              </select>
+            </label>
+            <button class="ad-dbtn ad-dbtn--fill" id="teamCreate" type="submit">Grant access</button>
+          </form>
+          <p class="ad-actmsg" id="teamMsg"></p>
+        </div>
+        <div id="teamBody"></div>
+      </section>
     </div>
   </div>
 
@@ -139,7 +156,6 @@
   import { getIdToken, getSessionUser, signInWithGoogle, signOut } from '~/lib/firebaseClient';
 
   (function () {
-    var LS = 'mk_admin_key';
     var ABANDONED = [];
     var DEMOS = [];
     var PEOPLE = [];
@@ -159,12 +175,12 @@
     var tel10 = function (x) { return String(x == null ? '' : x).replace(/[^0-9]/g, '').slice(-10); };
     var isHiddenTel = function (x) { return HIDDEN_TELS.indexOf(tel10(x)) > -1; };
     var isHiddenPerson = function (p) { return p && (HIDDEN_TELS.indexOf(tel10(p.phone)) > -1 || HIDDEN_TELS.indexOf(tel10(p.id)) > -1); };
-    var AUTH = null; // { kind:'key', key } | { kind:'token' } — in memory only, never persisted
+    var AUTH = null;  // truthy once signed in via Firebase; null otherwise
+    var ROLE = null;  // 'full' | 'affiliate' — which tabs/data this session can see
     var $ = function (id) { return document.getElementById(id); };
     // Auth header for follow-up admin actions, reusing this session's credential.
     async function authHeaders() {
       if (!AUTH) return null;
-      if (AUTH.kind === 'key') return { 'x-admin-key': AUTH.key };
       var t = null; try { t = await getIdToken(); } catch (e) {}
       return t ? { Authorization: 'Bearer ' + t } : null;
     }
@@ -771,6 +787,21 @@
         '<div class="ad-scroll"><table class="ad-table"><thead><tr><th>Affiliate</th><th class="r">Clicks</th><th class="r">Orders</th><th class="r">Revenue</th><th class="r">Conv.</th></tr></thead><tbody>' + html + '</tbody></table></div></div>';
     }
 
+    // The restricted 'affiliate' role's entire dashboard: just this one tab. Unlike
+    // render(), this never touches /api/admin/data — AFFILIATES comes straight from
+    // /api/admin/affiliate, the only feed that role can reach — so no other section
+    // (which this role has no data for) ever tries to draw, and auto-refresh (which
+    // render() starts) never runs.
+    function renderAffiliateOnly(rows) {
+      $('gate').hidden = true;
+      $('shell').hidden = false;
+      document.body.classList.add('ad-role-affiliate');
+      AFFILIATES = rows || [];
+      renderAffiliates(AFFILIATES);
+      switchView('affiliates');
+      stampUpdated();
+    }
+
     // ── Most-viewed products ──────────────────────────────────────────────────
     function renderProducts(products) {
       var body = $('productsBody'); if (!body) return;
@@ -967,17 +998,34 @@
         .then(function (r) { return r.json().then(function (j) { return { status: r.status, data: r.ok ? j : null }; }, function () { return { status: r.status, data: null }; }); })
         .catch(function () { return { status: 0, data: null }; });
     }
+    // The one feed the restricted 'affiliate' role can reach.
+    function callAffiliates(headers) {
+      return fetch('/api/admin/affiliate', { headers: headers })
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, data: r.ok ? j : null }; }, function () { return { status: r.status, data: null }; }); })
+        .catch(function () { return { status: 0, data: null }; });
+    }
 
     function showGate() { $('gate').hidden = false; }
     function setStatus(msg) { var s = $('signinStatus'); if (s) s.textContent = msg || ''; }
 
+    // Tries the full data feed first; a 401 there just means this email isn't a
+    // founder — it may still hold the restricted 'affiliate' role, so fall back to
+    // the one feed that role can reach before giving up. Returns true on success.
+    async function loadDashboard(headers) {
+      var r = await callData(headers);
+      if (r.data) { AUTH = true; ROLE = 'full'; document.body.classList.add('ad-role-full'); render(r.data); loadTeam(); return true; }
+      if (r.status === 401) {
+        var ar = await callAffiliates(headers);
+        if (ar.data) { AUTH = true; ROLE = 'affiliate'; renderAffiliateOnly(ar.data.affiliates); return true; }
+      }
+      return false;
+    }
+
     // Resume a Google session if there is one, so a refresh doesn't sign you out.
-    // The passcode is still NEVER persisted: it's a shared secret with no expiry and
-    // no way to revoke it, so anyone holding the device would have permanent access.
-    // A Firebase session is different in kind — the server re-verifies the token and
-    // re-checks ADMIN_EMAILS on every request, and it expires and can be revoked.
+    // The server re-verifies the token and re-resolves the role on every request,
+    // and the session expires and can be revoked — unlike the shared passcode this
+    // dashboard used to also accept.
     async function init() {
-      try { localStorage.removeItem(LS); } catch (e) {} // purge any passcode a prior build stored
       // Show the gate straight away rather than a blank page while the session check
       // runs; it's hidden again below if we get in. The sign-in button is disabled
       // meanwhile, so a click can't race the resume.
@@ -991,16 +1039,9 @@
         var user = await getSessionUser();
         if (user) {
           var token = await getIdToken();
-          if (token) {
-            var r = await callData({ Authorization: 'Bearer ' + token });
-            // Only a 200 lets us in; a signed-in non-admin still gets the gate.
-            if (r.data) {
-              AUTH = { kind: 'token' };
-              $('gate').hidden = true;
-              setStatus('');
-              render(r.data);
-              return;
-            }
+          if (token && (await loadDashboard({ Authorization: 'Bearer ' + token }))) {
+            setStatus('');
+            return;
           }
         }
       } catch (e) { /* fall through to the gate */ }
@@ -1009,19 +1050,18 @@
       if (gbtn) gbtn.disabled = false;
     }
 
-    // ── Google sign-in (primary) ──────────────────────────────────────────────
+    // ── Google sign-in ────────────────────────────────────────────────────────
     $('googleBtn').addEventListener('click', async function () {
       var btn = $('googleBtn'); btn.disabled = true;
       setStatus('Opening Google…');
       try {
         var user = await signInWithGoogle();
-        if (!user) { setStatus('Google sign-in is unavailable — use a passcode instead.'); btn.disabled = false; return; }
+        if (!user) { setStatus('Google sign-in is unavailable — please try again.'); btn.disabled = false; return; }
         setStatus('Signing in…');
         var token = await getIdToken(true);
-        var r = await callData({ Authorization: 'Bearer ' + token });
-        if (r.data) { AUTH = { kind: 'token' }; render(r.data); return; }
-        if (r.status === 401) { setStatus('That Google account isn’t an admin.'); await signOut().catch(function () {}); }
-        else { setStatus('Could not load the dashboard — please try again.'); }
+        if (await loadDashboard({ Authorization: 'Bearer ' + token })) return;
+        setStatus('That Google account isn’t an admin.');
+        await signOut().catch(function () {});
         btn.disabled = false;
       } catch (err) {
         var code = (err && err.code) || '';
@@ -1032,28 +1072,8 @@
       }
     });
 
-    // ── Passcode fallback ─────────────────────────────────────────────────────
-    $('usePass').addEventListener('click', function () {
-      $('gateForm').hidden = false;
-      $('usePass').hidden = true;
-      $('passInput').focus();
-    });
-
-    $('gateForm').addEventListener('submit', async function (e) {
-      e.preventDefault();
-      var key = ($('passInput').value || '').trim();
-      if (!key) return;
-      setStatus('Checking…');
-      var btn = $('enterBtn'); btn.disabled = true;
-      var r = await callData({ 'x-admin-key': key });
-      if (!r.data) { setStatus('Wrong passcode — try again.'); btn.disabled = false; return; }
-      AUTH = { kind: 'key', key: key }; // in memory for this session only — never persisted
-      render(r.data);
-    });
-
     $('lockBtn').addEventListener('click', async function () {
       if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-      try { localStorage.removeItem(LS); } catch (e) {}
       try { await signOut(); } catch (e) {}
       location.reload();
     });
@@ -1165,6 +1185,75 @@
         el.textContent = 'Copied ✓';
         setTimeout(function () { el.textContent = was; }, 1200);
       } catch (err) { affMsg('Copy failed — select the link manually.', true); }
+    });
+
+    // ── Team access (founders-only: who else can sign in, and at what role) ────
+    function renderTeam(founders, team) {
+      var body = $('teamBody'); if (!body) return;
+      var founderRows = (founders || []).map(function (e) {
+        return '<tr><td class="nm">' + esc(e) + '<div class="sub">Founder</div></td><td class="r">Full</td><td></td></tr>';
+      }).join('');
+      var teamRows = (team || []).map(function (u) {
+        return '<tr><td class="nm">' + esc(u.label || u.email) + '<div class="sub">' + esc(u.email) + '</div></td>' +
+          '<td class="r">' + (u.role === 'full' ? 'Full' : 'Affiliate links only') + '</td>' +
+          '<td class="r"><button type="button" class="ad-dbtn" data-remove="' + esc(u.email) + '">Remove</button></td></tr>';
+      }).join('');
+      if (!founderRows && !teamRows) {
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">No one has access yet.</p></div>';
+        return;
+      }
+      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Who has access</span></div>' +
+        '<div class="ad-scroll"><table class="ad-table"><thead><tr><th>Person</th><th class="r">Access</th><th></th></tr></thead><tbody>' +
+        founderRows + teamRows + '</tbody></table></div></div>';
+    }
+    async function loadTeam() {
+      var headers = await authHeaders();
+      if (!headers) return;
+      try {
+        var resp = await fetch('/api/admin/team', { headers: headers });
+        var j = await resp.json().catch(function () { return null; });
+        if (resp.ok && j) renderTeam(j.founders, j.team);
+      } catch (e) { /* Team access tab just stays empty */ }
+    }
+    function teamMsg(t, bad) {
+      var el = $('teamMsg'); if (!el) return;
+      el.textContent = t || '';
+      el.classList.toggle('is-bad', !!bad);
+    }
+    $('teamForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var email = ($('teamEmail').value || '').trim().toLowerCase();
+      var role = $('teamRole').value;
+      if (!email) { teamMsg('Enter an email first.', true); return; }
+      var btn = $('teamCreate'); btn.disabled = true; teamMsg('Granting…');
+      var headers = await authHeaders();
+      if (!headers) { teamMsg('Session expired — reload and sign in again.', true); btn.disabled = false; return; }
+      headers['Content-Type'] = 'application/json';
+      try {
+        var resp = await fetch('/api/admin/team', {
+          method: 'POST', headers: headers,
+          body: JSON.stringify({ email: email, role: role }),
+        });
+        var res = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !res || !res.ok) { teamMsg((res && res.error) || 'Could not grant access.', true); btn.disabled = false; return; }
+        $('teamEmail').value = '';
+        teamMsg('Access granted.');
+        loadTeam();
+      } catch (err) { teamMsg('Network error — try again.', true); }
+      btn.disabled = false;
+    });
+    $('teamBody').addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-remove]'); if (!b) return;
+      var email = b.getAttribute('data-remove');
+      if (!confirm('Remove dashboard access for ' + email + '?')) return;
+      b.disabled = true;
+      var headers = await authHeaders();
+      if (!headers) return;
+      headers['Content-Type'] = 'application/json';
+      try {
+        var resp = await fetch('/api/admin/team', { method: 'DELETE', headers: headers, body: JSON.stringify({ email: email }) });
+        if (resp.ok) loadTeam(); else b.disabled = false;
+      } catch (err) { b.disabled = false; }
     });
 
     // ── Person journey drawer ─────────────────────────────────────────────────
@@ -1485,6 +1574,15 @@
   .ad-nav__upd { display: block; font-size: 9.5px; letter-spacing: .04em; color: rgba(255,255,255,.4); padding: 0 12px 9px; }
   .ad-nav__toggle { display: flex; align-items: center; gap: 7px; font-size: 10.5px; letter-spacing: .04em; color: rgba(255,255,255,.55); cursor: pointer; padding: 0 12px 10px; }
   .ad-nav__toggle input { accent-color: var(--cherry); cursor: pointer; }
+
+  /* Restricted 'affiliate' role: only the Affiliates tab + Lock button exist. */
+  body.ad-role-affiliate .ad-nav__grp,
+  body.ad-role-affiliate .ad-nav__item:not([data-view="affiliates"]),
+  body.ad-role-affiliate .ad-nav__toggle { display: none; }
+  /* Founders-only tab: hidden by default too, until JS confirms the 'full' role. */
+  .ad-nav__grp--founders, .ad-nav__item--founders { display: none; }
+  body.ad-role-full .ad-nav__grp--founders { display: inline; }
+  body.ad-role-full .ad-nav__item--founders { display: flex; }
 
   .ad-main { padding: clamp(24px,3vw,40px); min-width: 0; overflow-x: hidden; }
   .ad-h1 { font-size: clamp(26px,2.8vw,38px); color: var(--depth); margin: 0 0 22px; }
