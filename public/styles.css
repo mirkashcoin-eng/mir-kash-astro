@@ -665,7 +665,7 @@ img { display: block; max-width: 100%; }
 }
 .fa-loc__addr {
   display: block;
-  font-family: var(--serif);
+  font-family: var(--font);
   font-size: 13.5px;
   line-height: 1.45;
   color: var(--ink-mid);

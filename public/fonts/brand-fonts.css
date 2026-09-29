@@ -4,3 +4,7 @@
 @font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 300 400; font-display: swap; src: url('/fonts/brand/Brooklyn-Normal.woff2') format('woff2'); }
 @font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 500 600; font-display: swap; src: url('/fonts/brand/Brooklyn-SemiBold.woff2') format('woff2'); }
 @font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 700 900; font-display: swap; src: url('/fonts/brand/Brooklyn-Bold.woff2') format('woff2'); }
+
+/* DM Serif Display has one weight. Never let the browser fake a bold or italic of any brand face:
+   headings that ask for bold get the real Regular, not a smeared synthetic version. */
+html { font-synthesis: none; }
