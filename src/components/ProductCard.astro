@@ -1,34 +1,40 @@
 ---
 import type { Product } from '~/types/shopify';
 import { formatMoney } from '~/lib/markets';
-import { shopifyImage } from '~/lib/shopifyImage';
+import { isStudioHero, shopifyImage } from '~/lib/shopifyImage';
 
 interface Props {
   product: Product;
+  /** Show one colour of a multi-colour bag: that colour's photos, price and link (?color=). */
+  colour?: string;
 }
 
-const { product } = Astro.props;
+const { product, colour } = Astro.props;
 const { marketConfig } = Astro.locals;
-const price = formatMoney(product.priceRange.minVariantPrice, marketConfig.locale);
-const href = `${marketConfig.urlPrefix}/products/${product.handle}`;
-const imgSrc = product.featuredImage?.url ? shopifyImage(product.featuredImage.url, 600) : '';
-const imgAlt = product.featuredImage?.altText ?? product.title;
-
-const featuredUrl = product.featuredImage?.url;
-const altNode =
-  product.images?.edges?.find((e) => e.node.url !== featuredUrl)?.node ??
-  product.images?.edges?.[1]?.node ??
-  null;
+const imgs = (product.images?.edges ?? []).map((e) => e.node);
+const variant = colour
+  ? product.variants?.edges?.map((e) => e.node).find((v) => v.selectedOptions.some((o) => /colou?r/i.test(o.name) && o.value === colour))
+  : undefined;
+// A colour's photos are the ones whose alt text says "… in <Colour>" (same rule as Shop All and the product page).
+const tag = ` in ${(colour ?? '').toLowerCase()}`;
+const own = variant ? imgs.filter((i) => { const a = (i.altText ?? '').toLowerCase(); return a.endsWith(tag) || a.includes(tag + ','); }) : imgs;
+const primary = variant ? (variant.image ?? own[0] ?? product.featuredImage) : product.featuredImage;
+const altNode = own.find((i) => i.url !== primary?.url) ?? (variant ? null : imgs[1] ?? null);
+const price = formatMoney(variant?.price ?? product.priceRange.minVariantPrice, marketConfig.locale);
+const href = `${marketConfig.urlPrefix}/products/${product.handle}${variant ? `?color=${encodeURIComponent(variant.selectedOptions.find((o) => /colou?r/i.test(o.name))!.value)}` : ''}`;
+const imgSrc = primary?.url ? shopifyImage(primary.url, 600) : '';
+const imgAlt = primary?.altText ?? product.title;
 const hoverSrc = altNode ? shopifyImage(altNode.url, 600) : '';
 const hoverAlt = altNode?.altText ?? product.title;
 ---
 <a class="pr-card" href={href}>
   <div class="pr-img">
-    {imgSrc && <img class="pr-img__primary" src={imgSrc} alt={imgAlt} loading="lazy" />}
+    {imgSrc && <img class:list={['pr-img__primary', { 'pr-img__primary--zoom': isStudioHero(primary?.url) }]} src={imgSrc} alt={imgAlt} loading="lazy" />}
     {hoverSrc && <img class="pr-img__alt" src={hoverSrc} alt={hoverAlt} loading="lazy" aria-hidden="true" />}
   </div>
   <div class="pr-meta">
     <p class="pr-name">{product.title.toUpperCase()}</p>
+    {variant && <p class="pr-colour">{colour}</p>}
     <p class="pr-price">{price}</p>
   </div>
 </a>
@@ -50,6 +56,10 @@ const hoverAlt = altNode?.altText ?? product.title;
     transition: opacity .4s ease;
   }
   a.pr-card:hover .pr-img__alt { opacity: 1; }
+  /* Studio photos leave a lot of backdrop around the bag: zoom the main photo so the bag fills the tile.
+     The hover (lifestyle) photo is shown as shot. */
+  a.pr-card .pr-img__primary--zoom { transform: scale(1.35); }
+  a.pr-card .pr-colour { font-size: 11px; color: var(--ink-mid); margin: -1px 0 3px; }
   @media (prefers-reduced-motion: reduce) {
     a.pr-card .pr-img__alt { transition: none; }
   }

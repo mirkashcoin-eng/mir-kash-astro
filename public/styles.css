@@ -350,12 +350,12 @@ img { display: block; max-width: 100%; }
 .pr-card:hover .pr-img { filter: brightness(.96); }
 
 .pr-meta {
-  padding: 14px 18px 28px;
+  padding: 10px 2px 22px;
   background: var(--paper);
 }
 
 .pr-name {
-  font-size: 13.5px;
+  font-size: 11.5px;
   letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   font-weight: 500;
@@ -363,7 +363,7 @@ img { display: block; max-width: 100%; }
 }
 
 .pr-price {
-  font-size: 16px;
+  font-size: 13px;
   font-style: normal;
   letter-spacing: 0;
   color: var(--ink-mid);
@@ -822,7 +822,7 @@ img { display: block; max-width: 100%; }
   .pr-grid::-webkit-scrollbar { display: none; }
   .pr-card { flex: 0 0 43vw; scroll-snap-align: start; }
   .pr-img { aspect-ratio: 4 / 5.5; }
-  .pr-meta { padding: 10px 12px 20px; }
+  .pr-meta { padding: 8px 2px 16px; }
 
   .ed-grid { grid-template-columns: 1fr; }
   .ed-panel { aspect-ratio: 9 / 16; width: 100%; background-size: cover !important; background-image: var(--bg-m, var(--bg-d, none)); }

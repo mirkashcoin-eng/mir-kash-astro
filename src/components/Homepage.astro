@@ -5,7 +5,8 @@ import NavDrawer from './NavDrawer.astro';
 import SiteFooter from './SiteFooter.astro';
 import ProductRow from './ProductRow.astro';
 import EditorialPanel from './EditorialPanel.astro';
-import { getProductsByCollection, getAllProducts } from '~/lib/shopify/queries';
+import { getAllProducts } from '~/lib/shopify/queries';
+import type { Product } from '~/types/shopify';
 
 const { market, marketConfig } = Astro.locals;
 const country = marketConfig.countryCode;
@@ -15,32 +16,26 @@ const prefix = marketConfig.urlPrefix;
 // so the banner can't advertise the service to visitors the nav hides it from.
 const showHomeDemo = marketConfig.isDefault;
 
-const HOMEPAGE_COLLECTIONS = {
-  row1: 'first-scroller',
-  row2: 'second-scroller',
-  row3: 'third-scroller',
-};
-
-const [row1Raw, row2Raw, row3Raw] = await Promise.all([
-  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row1, 4),
-  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row2, 4),
-  getProductsByCollection(market, country, HOMEPAGE_COLLECTIONS.row3, 4),
-]);
-
-let ROW_1 = row1Raw;
-let ROW_2 = row2Raw;
-let ROW_3 = row3Raw;
-
-// Fallback: if a scroller's collection is missing/empty on this store, fill it from the
-// catalogue so no row is ever blank (cycles if the store has fewer than 12 products).
-if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
-  const allProducts = await getAllProducts(market, country, 24);
-  const pick = (start: number, n: number) =>
-    allProducts.length ? Array.from({ length: n }, (_, i) => allProducts[(start + i) % allProducts.length]) : [];
-  if (ROW_1.length === 0) ROW_1 = pick(0, 4);
-  if (ROW_2.length === 0) ROW_2 = pick(4, 4);
-  if (ROW_3.length === 0) ROW_3 = pick(8, 4);
-}
+// The three product rows: one colour of a bag per card. (These were Shopify collections of the old
+// one-colour listings; a collection can't pick a colour of the new one-per-bag products, so the picks live here.)
+const HOME_ROWS: [string, string][][] = [
+  [['carla-mini-crossbody-bag', 'Taupe'], ['braidey-shoulder-bag', 'Silver'], ['kelly-crystal-clutch', 'Silver'], ['gigi-mini-bag', 'Coral Pink']],
+  [['gigi-mini-bag', 'Olive Green'], ['trapees-shoulder-bag', 'Black'], ['weaver-tote-bag', 'Navy'], ['tory-structured-bag', 'Black']],
+  [['braidey-shoulder-bag', 'Cherry Red'], ['carla-mini-crossbody-bag', 'Plum'], ['tory-structured-bag', 'Oat'], ['bucky-bucket-bag', 'Tan']],
+];
+const allProducts = await getAllProducts(market, country, 48);
+const byHandle = new Map(allProducts.map((p) => [p.handle, p]));
+const hasColour = (p: Product, c: string) => p.variants?.edges?.some((e) => e.node.selectedOptions.some((o) => /colou?r/i.test(o.name) && o.value === c));
+// A pick whose bag or colour isn't in this store is skipped, and the row is topped up with other bags so it stays full.
+const used = new Set<string>();
+const [ROW_1, ROW_2, ROW_3] = HOME_ROWS.map((row) => {
+  const cards: { product: Product; colour?: string }[] = row
+    .filter(([h, c]) => byHandle.has(h) && hasColour(byHandle.get(h)!, c))
+    .map(([h, c]) => ({ product: byHandle.get(h)!, colour: c }));
+  cards.forEach((x) => used.add(x.product.handle));
+  for (const p of allProducts) { if (cards.length >= 4) break; if (!used.has(p.handle)) { used.add(p.handle); cards.push({ product: p }); } }
+  return cards;
+});
 ---
 <BrandTicker />
 <SiteHeader />
@@ -50,7 +45,7 @@ if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
   <h1 class="sr-only">Vegan Leather Handbags, Made Slowly</h1>
 
   <section class="hero">
-    <a class="hero-img" href={`${prefix}/products/gigi-olive`} aria-label="Shop GIGI Olive">
+    <a class="hero-img" href={`${prefix}/products/gigi-mini-bag?color=Olive%20Green`} aria-label="Shop GIGI Olive">
       <picture>
         <source media="(max-width: 768px)" srcset="/home/m1.avif" />
         <img src="/home/d1.avif" alt="Mir Kash" />
@@ -61,24 +56,24 @@ if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
   <ProductRow products={ROW_1} />
 
   <section class="ed-grid">
-    <EditorialPanel image="/home/d2.avif" imageMobile="/home/m2.avif" title="Capsule" cta="Shop now" href={`${prefix}/products/tory-bag-black`} />
-    <EditorialPanel image="/home/d3.avif" imageMobile="/home/m3.avif" title="For this" emphasis="summer" cta="Shop now" href={`${prefix}/products/bucky-bag-tan`} />
+    <EditorialPanel image="/home/d2.avif" imageMobile="/home/m2.avif" title="Capsule" cta="Shop now" href={`${prefix}/products/tory-structured-bag?color=Black`} />
+    <EditorialPanel image="/home/d3.avif" imageMobile="/home/m3.avif" title="For this" emphasis="summer" cta="Shop now" href={`${prefix}/products/bucky-bucket-bag?color=Tan`} />
   </section>
 
   <ProductRow products={ROW_2} />
 
   <section class="ed-grid">
-    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="The Woven Edit" cta="Shop now" href={`${prefix}/products/weaver-tote-cherry-red`} />
-    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" href={`${prefix}/products/braidey-cherry-red`} />
+    <EditorialPanel image="/home/d4.avif" imageMobile="/home/m4.avif" title="The Woven Edit" cta="Shop now" href={`${prefix}/products/weaver-tote-bag?color=Cherry%20Red`} />
+    <EditorialPanel image="/home/d5.avif" imageMobile="/home/m5.avif" href={`${prefix}/products/braidey-shoulder-bag?color=Cherry%20Red`} />
   </section>
 
   <ProductRow products={ROW_3} />
 
   <section class="full-banner" style="--bg-d:url('/home/d6.avif'); --bg-m:url('/home/m6.avif');">
-    <a class="ed-cover" href={`${prefix}/products/braidey-metallic-silver`} aria-label="Shop now"></a>
+    <a class="ed-cover" href={`${prefix}/products/braidey-shoulder-bag?color=Silver`} aria-label="Shop now"></a>
     <div class="ed-text">
       <h2>Not leather. <em>Better.</em></h2>
-      <a href={`${prefix}/products/braidey-metallic-silver`}>Shop now</a>
+      <a href={`${prefix}/products/braidey-shoulder-bag?color=Silver`}>Shop now</a>
     </div>
   </section>
 
@@ -443,7 +438,7 @@ if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
   .pr-meta { background: var(--paper); }
   .pr-img { background: var(--cream); }
   .pr-name {
-    font-size: 13.5px;
+    font-size: 11.5px;
     letter-spacing: var(--tr-caps);
     text-transform: uppercase;
     font-weight: 500;
@@ -453,7 +448,7 @@ if (ROW_1.length === 0 || ROW_2.length === 0 || ROW_3.length === 0) {
     font-family: var(--font);
     font-style: normal;
     font-weight: 400;
-    font-size: 16px;
+    font-size: 13px;
     color: var(--ink-mid);
     letter-spacing: 0;
   }
