@@ -2,18 +2,43 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ProductPage from '~/components/ProductPage.astro';
 import { getProductByHandle } from '~/lib/shopify/queries';
+import { PRODUCT_REDIRECTS } from '~/data/product-redirects';
+import { absoluteUrl } from '~/lib/markets';
+import { productJsonLd, breadcrumbJsonLd, faqJsonLd } from '~/lib/product-jsonld';
+import { categoryOf, faqFor } from '~/lib/product-page';
 
 const { market, marketConfig } = Astro.locals;
 const handle = Astro.params.handle as string;
+
+// Colours used to be separate products ("braidey-nude", "braidey-cherry-red"…); each bag is now one
+// product with colour variants. Old handles 301 to the new one so inbound links, Google and ad
+// campaigns keep working. Query string is kept so ?variant= still lands on the right colour.
+// Only redirect once the new product actually exists in this store — until the catalog import has run, the old
+// listing keeps rendering, so the code and the import can go live in either order.
+const renamed = PRODUCT_REDIRECTS[handle];
+if (renamed && renamed !== handle) {
+  const target = await getProductByHandle(market, marketConfig.countryCode, renamed);
+  if (target) return Astro.redirect(`${marketConfig.urlPrefix}/products/${renamed}${Astro.url.search}`, 301);
+}
+
 const product = await getProductByHandle(market, marketConfig.countryCode, handle);
 if (!product) return Astro.redirect(`${marketConfig.urlPrefix}/shop`);
+
+// Shopify's own SEO title / description win (that is what the catalog import fills in); the product name and
+// body text are only the fallback.
+const seoTitle = product.seo?.title?.trim() || `${product.title} — Mir Kash`;
+const seoDescription = product.seo?.description?.trim() || product.description;
+const canonical = absoluteUrl(`${marketConfig.urlPrefix}/products/${handle}`);
+const category = categoryOf(product.productType);
+const faqLd = faqJsonLd(faqFor(product, marketConfig));
 ---
 <BaseLayout
-  title={`${product.title} — Mir Kash`}
-  description={product.description}
+  title={seoTitle}
+  description={seoDescription}
   path={`/products/${handle}`}
   image={product.images?.edges?.[0]?.node?.url}
   type="product"
+  jsonLd={[productJsonLd(product, marketConfig, canonical, seoDescription), breadcrumbJsonLd(product, marketConfig, category), ...(faqLd ? [faqLd] : [])]}
 >
   <ProductPage product={product} />
 </BaseLayout>

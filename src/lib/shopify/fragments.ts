@@ -26,7 +26,9 @@ export const PRODUCT_FRAGMENT = /* GraphQL */ `
     productType
     tags
     featuredImage { ...ImageFields }
-    images(first: 3) {
+    sizeOrder: metafield(namespace: "custom", key: "size_order") { value }
+    # 40, not 3: Shop All shows one card per colour and picks each colour's own photos by alt text.
+    images(first: 40) {
       edges { node { ...ImageFields } }
     }
     variants(first: 25) {
@@ -63,7 +65,9 @@ export const COLLECTION_FRAGMENT = /* GraphQL */ `
   }
 `;
 
-// Richer single-product fragment for the PDP: full image set, options, html body.
+// Richer single-product fragment for the PDP: full image set, options, html body, SEO fields and the
+// custom.* metafields (each needs a Storefront-visible definition in Shopify, or it comes back null).
+// images(first: 50): one product now holds every colour's photos (a bag with 3 colours × ~8 shots).
 export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
   fragment ProductPageFields on Product {
     id
@@ -76,8 +80,29 @@ export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
     productType
     tags
     options { name values }
+    seo { title description }
+    storySlides: metafield(namespace: "custom", key: "story_slides") { value }
+    productDetails: metafield(namespace: "custom", key: "product_details") { value }
+    careGuide: metafield(namespace: "custom", key: "care_guide") { value }
+    shippingReturn: metafield(namespace: "custom", key: "shipping_return") { value }
+    dimensions: metafield(namespace: "custom", key: "dimensions") { value }
+    materialName: metafield(namespace: "custom", key: "material_name") { value }
+    materialStory: metafield(namespace: "custom", key: "material_story") { value }
+    warranty: metafield(namespace: "custom", key: "warranty") { value }
+    featureCards: metafield(namespace: "custom", key: "feature_cards") { value }
+    fullbleedImage: metafield(namespace: "custom", key: "fullbleed_image") { value }
+    # custom.reels = videos uploaded in Shopify admin (list of files). Shopify serves several mp4 sizes + a cover image.
+    reels: metafield(namespace: "custom", key: "reels") {
+      references(first: 10) { nodes { ... on Video { sources { url mimeType height } previewImage { url } } } }
+    }
+    tagline: metafield(namespace: "custom", key: "tagline") { value }
+    faq: metafield(namespace: "custom", key: "faq") { value }
+    sizeGroup: metafield(namespace: "custom", key: "size_group") { value }
+    carryOptions: metafield(namespace: "shopify", key: "carry-options") {
+      references(first: 10) { nodes { ... on Metaobject { handle } } }
+    }
     featuredImage { ...ImageFields }
-    images(first: 10) {
+    images(first: 50) {
       edges { node { ...ImageFields } }
     }
     variants(first: 100) {
@@ -85,6 +110,7 @@ export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
         node {
           id
           title
+          sku
           availableForSale
           price { ...MoneyFields }
           compareAtPrice { ...MoneyFields }

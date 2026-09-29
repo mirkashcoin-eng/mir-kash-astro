@@ -1,11 +1,14 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import ShippingReturnsContent from '~/components/legal/ShippingReturnsContent.astro';
+import { RETURN_DAYS } from '~/lib/merchant-policy';
 import { getMarketBySlug } from '~/lib/markets';
 
 const market = getMarketBySlug(Astro.params.locale!);
 if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
-<BaseLayout title="Shipping &amp; Returns — Mir Kash" path="/pages/shipping-returns" description="Mir Kash Shipping and Returns — delivery timelines, free shipping across India, and our 15-day return policy.">
+<BaseLayout title="Shipping &amp; Returns — Mir Kash" path="/pages/shipping-returns" description={Astro.locals.marketConfig.store === 'india'
+  ? `Mir Kash Shipping and Returns: free shipping across India, delivery in 7–10 working days, and our ${RETURN_DAYS.india}-day return policy.`
+  : `Mir Kash Shipping and Returns: tracked express from Hong Kong, duties and import taxes included, and our ${RETURN_DAYS.global}-day return policy.`}>
   <ShippingReturnsContent />
 </BaseLayout>

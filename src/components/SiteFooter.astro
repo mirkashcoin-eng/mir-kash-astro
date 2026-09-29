@@ -1,5 +1,6 @@
 ---
 import CountrySelector from './CountrySelector.astro';
+import { RETURN_DAYS } from '~/lib/merchant-policy';
 
 const { marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
@@ -20,7 +21,7 @@ const prefix = marketConfig.urlPrefix;
       </div>
       <div class="fi-col">
         <p class="fi-label">Order it. Try it.</p>
-        <p class="fi-val">14 days to decide.<br />No question returns.</p>
+        <p class="fi-val">{RETURN_DAYS[marketConfig.store]} days to decide.<br />Easy returns.</p>
       </div>
       <div class="fi-col">
         <p class="fi-label">Built to Last</p>
@@ -125,6 +126,8 @@ const prefix = marketConfig.urlPrefix;
   (function () {
     const cols = document.querySelectorAll('.fa-col');
     if (!cols.length) return;
+    // Mobile (the accordion layout, ≤768px in styles.css) starts with every section closed; desktop keeps them open.
+    if (window.matchMedia('(max-width: 768px)').matches) cols.forEach((d) => { (d as HTMLDetailsElement).open = false; });
     let syncing = false;
     cols.forEach((d) => {
       d.addEventListener('toggle', () => {
@@ -179,8 +182,8 @@ const prefix = marketConfig.urlPrefix;
   /* Make the footer self-contained: it carries the site theme variables itself,
      so it renders identically on pages (cart/checkout) that override :root. */
   .site-footer {
-    --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
-    --font: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+    --font: 'Brooklyn', -apple-system, 'Helvetica Neue', sans-serif;
     --cherry: #8B1A1A; --depth: #2C1A0E; --paper: #ffffff; --cream: #ffffff;
     --rule: #e4dfd7; --ink: #141414; --ink-mid: #6e6a64; --ink-soft: #a8a39c;
     --gutter: clamp(20px, 4vw, 56px);

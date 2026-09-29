@@ -1,0 +1,6 @@
+/* Mir Kash brand type (Brand Guidelines PDF, p.6): DM Serif Display for headings, Brooklyn for body text.
+   Self-hosted — no third-party request. No italic faces are loaded: the brand uses upright type only. */
+@font-face { font-family: 'DM Serif Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/brand/DMSerifDisplay-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 300 400; font-display: swap; src: url('/fonts/brand/Brooklyn-Normal.woff2') format('woff2'); }
+@font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 500 600; font-display: swap; src: url('/fonts/brand/Brooklyn-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Brooklyn'; font-style: normal; font-weight: 700 900; font-display: swap; src: url('/fonts/brand/Brooklyn-Bold.woff2') format('woff2'); }

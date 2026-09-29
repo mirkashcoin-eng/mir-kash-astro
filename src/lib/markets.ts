@@ -1,7 +1,9 @@
 import type { Store, MarketConfig } from '~/types/market';
 import type { Money } from '~/types/shopify';
 
-export const SITE_ORIGIN = 'https://mirkash.com';
+// The live host. mirkash.com 308-redirects to www, so canonical / hreflang / sitemap / JSON-LD must use www —
+// pointing them at the apex made every one of them a redirect (the Sept 2026 audit's hreflang errors).
+export const SITE_ORIGIN = 'https://www.mirkash.com';
 export const MARKET_COOKIE = 'market_locale';       // stores the chosen localeSlug ('' for India)
 export const MARKET_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -171,6 +173,11 @@ export function getAlternateUrl(pathname: string, target: MarketConfig): string 
   if (!target.urlPrefix) return bare || '/';
   return bare === '/' ? target.urlPrefix : target.urlPrefix + bare;
 }
+
+/** Root-only routes with no /en-xx counterpart under src/pages/[locale] — no hreflang alternates for these
+ *  (listing /en-us/try-at-home etc. as alternates pointed Google at 404s). */
+const ROOT_ONLY = [/^\/try-at-home(\/|$)/, /^\/checkout(\/|$)/, /^\/account(\/|$)/, /^\/private-viewing(\/|$)/, /^\/viewing(\/|$)/, /^\/admin(\/|$)/, /^\/go(\/|$)/];
+export const hasLocaleVersions = (path: string) => !ROOT_ONLY.some((re) => re.test(path));
 
 export function absoluteUrl(pathname: string): string {
   return SITE_ORIGIN + pathname;

@@ -7,12 +7,13 @@ import { getMarketBySlug } from '~/lib/markets';
 const market = getMarketBySlug(Astro.params.locale!);
 if (!market || market.isDefault) return new Response(null, { status: 404 });
 
+const { marketConfig } = Astro.locals;
 const cat = getCategory(Astro.params.category!);
 if (!cat) return new Response(null, { status: 404 });
 ---
 <BaseLayout
   title={cat.seoTitle}
-  description={cat.seoDescription}
+  description={`${cat.seoDescription} ${marketConfig.store === 'india' ? 'Free shipping across India.' : 'Ships internationally.'}`}
   path={`/shop/${cat.slug}`}
 >
   <CategoryPage slug={cat.slug} />

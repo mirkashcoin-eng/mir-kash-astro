@@ -1,9 +1,12 @@
 ---
 import SiteFooter from './SiteFooter.astro';
+import CountrySelector from './CountrySelector.astro';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { getAllProducts, getProductRecommendations } from '~/lib/shopify/queries';
 import { formatMoney } from '~/lib/markets';
 import type { Product, ProductDetail } from '~/types/shopify';
+import { carryWays, deliveryLines, dimensionsFor, faqFor, trustLine } from '~/lib/product-page';
+import { returnDaysFor, shippingFor } from '~/lib/merchant-policy';
 
 interface Props {
   product: ProductDetail;
@@ -23,23 +26,84 @@ const images = imgNodes.map((n) => ({
   full: shopifyImage(n.url, 1100),
   thumb: shopifyImage(n.url, 160),
   alt: n.altText ?? product.title,
+  colour: '', // filled in below, once the colour option values are known
 }));
 
 // Editorial sections (story slideshow · full-bleed · lookbook) reuse the product's
 // own gallery photos, cycling when there are fewer images than slots.
 const galleryFulls = images.map((i) => i.full);
 const pickImg = (i: number) => (galleryFulls.length ? galleryFulls[i % galleryFulls.length] : '');
-const storyImgArr = [0, 1, 2, 3].map(pickImg);
-const fullBleedImg = pickImg(1);
 
-// Shoppable reels — the brand's vertical videos (hosted on the Shopify CDN), same as mirkash.in.
-const REELS = [
-  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/9aec54c28a0b4e6ebc496c4fd9cfcb25/9aec54c28a0b4e6ebc496c4fd9cfcb25.HD-1080p-2.5Mbps-41014614.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/9aec54c28a0b4e6ebc496c4fd9cfcb25.thumbnail.0000000000_600x.jpg?v=1736928328' },
-  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/2dc16b90b6c84393a5f695adae892c15/2dc16b90b6c84393a5f695adae892c15.SD-480p-0.9Mbps-44607305.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/2dc16b90b6c84393a5f695adae892c15.thumbnail.0000000000_600x.jpg?v=1742590421' },
-  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/e23697e03d794e6ca9713f375825a876/e23697e03d794e6ca9713f375825a876.HD-1080p-7.2Mbps-44606795.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/e23697e03d794e6ca9713f375825a876.thumbnail.0000000000_600x.jpg?v=1742589749' },
-  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/34f18c8ed63946558f022c56a611ac85/34f18c8ed63946558f022c56a611ac85.HD-1080p-7.2Mbps-44606796.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/34f18c8ed63946558f022c56a611ac85.thumbnail.0000000000_600x.jpg?v=1742589749' },
-  { src: 'https://mirkash.in/cdn/shop/videos/c/vp/d6665fbc4f0c4e22a961f411bcd15963/d6665fbc4f0c4e22a961f411bcd15963.HD-1080p-7.2Mbps-44850754.mp4?v=0', poster: 'https://mirkash.in/cdn/shop/files/preview_images/d6665fbc4f0c4e22a961f411bcd15963.thumbnail.0000000000_600x.jpg?v=1742980518' },
+// Story copy is per product, from the custom.story_slides JSON metafield. No metafield
+// (or malformed JSON) → no slides → the whole section stays hidden.
+type StorySlide = { eyebrow?: string; title: string; body: string; image?: string };
+const metafieldSlides: StorySlide[] = (() => {
+  try {
+    const parsed = JSON.parse(product.storySlides?.value ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((s) => s && s.title && s.body) : [];
+  } catch {
+    return [];
+  }
+})();
+// `astro dev` only: placeholder slides so the section's layout can be previewed
+// before any product has the metafield. Never used in a production build.
+const DEV_PREVIEW = import.meta.env.DEV;
+const storySlides: StorySlide[] = metafieldSlides.length || !DEV_PREVIEW ? metafieldSlides : [
+  { eyebrow: 'Sample', title: 'Placeholder slide one', body: 'Preview copy shown only in local development. Real slides come from the custom.story_slides metafield.' },
+  { eyebrow: 'Sample', title: 'Placeholder slide two', body: 'Each slide pairs with the next photo from this product\'s gallery.' },
+  { eyebrow: 'Sample', title: 'Placeholder slide three', body: 'The counter and progress bars follow however many slides there are.' },
 ];
+// Each slide can carry its own close-up (custom.story_slides[].image); otherwise it borrows a gallery photo.
+const storyImgArr = storySlides.map((s, i) => (/^https:\/\//.test(s.image ?? '') ? shopifyImage(s.image!, 1100) : pickImg(i)));
+const fullBleedImg = pickImg(1); // dev-preview fallback only; production needs custom.fullbleed_image
+
+// Small JSON-in-a-metafield reader shared by the sections below. Bad or missing JSON → empty list → section hidden.
+const readList = <T,>(raw: string | undefined): T[] => {
+  try {
+    const parsed = JSON.parse(raw ?? '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+const mf = (m?: { value: string } | null) => (m?.value ?? '').trim();
+const toLines = (t: string) => t.split(/\r?\n/).map((l) => l.replace(/^[\s•\-–—*]+/, '').trim()).filter(Boolean);
+
+// Shoppable reels are per product: custom.reels = videos uploaded to the product in Shopify admin. None → no section.
+// The five brand clips below are a `astro dev`-only sample so the layout can be previewed; they are never shown in
+// production. (They used to be hard-wired for every product, on mirkash.in/cdn/… URLs that now 404 — the files
+// live on cdn.shopify.com.)
+type Reel = { src: string; poster?: string };
+const sampleReel = (id: string, file: string, v: string): Reel => ({
+  src: `https://cdn.shopify.com/videos/c/vp/${id}/${file}`,
+  poster: `https://cdn.shopify.com/s/files/1/0730/9774/0503/files/preview_images/${id}.thumbnail.0000000000_600x.jpg?v=${v}`,
+});
+const DEV_SAMPLE_REELS: Reel[] = [
+  sampleReel('9aec54c28a0b4e6ebc496c4fd9cfcb25', '9aec54c28a0b4e6ebc496c4fd9cfcb25.HD-1080p-2.5Mbps-41014614.mp4', '1736928328'),
+  sampleReel('2dc16b90b6c84393a5f695adae892c15', '2dc16b90b6c84393a5f695adae892c15.SD-480p-0.9Mbps-44607305.mp4', '1742590421'),
+  sampleReel('e23697e03d794e6ca9713f375825a876', 'e23697e03d794e6ca9713f375825a876.HD-1080p-7.2Mbps-44606795.mp4', '1742589749'),
+  sampleReel('34f18c8ed63946558f022c56a611ac85', '34f18c8ed63946558f022c56a611ac85.HD-1080p-7.2Mbps-44606796.mp4', '1742589749'),
+  sampleReel('d6665fbc4f0c4e22a961f411bcd15963', 'd6665fbc4f0c4e22a961f411bcd15963.HD-1080p-7.2Mbps-44850754.mp4', '1742980518'),
+];
+// custom.reels holds videos uploaded in Shopify admin. Pick the mp4 closest to 720p (sharp enough, light on mobile).
+const metafieldReels: Reel[] = (product.reels?.references?.nodes ?? [])
+  .map((v) => {
+    const mp4 = (v.sources ?? []).filter((s) => s.mimeType === 'video/mp4')
+      .sort((a, b) => Math.abs((a.height ?? 0) - 720) - Math.abs((b.height ?? 0) - 720))[0];
+    return mp4 ? { src: mp4.url, poster: v.previewImage?.url ? shopifyImage(v.previewImage.url, 600) : undefined } : null;
+  })
+  .filter((r): r is Reel => !!r);
+const reels: Reel[] = metafieldReels.length ? metafieldReels : DEV_PREVIEW ? DEV_SAMPLE_REELS : [];
+
+// Feature cards (Material / Packaging / Ethics…) from custom.feature_cards.
+type FeatureCard = { eyebrow?: string; title: string; body: string };
+const metafieldCards = readList<FeatureCard>(product.featureCards?.value).filter((c) => c && c.title && c.body);
+const featureCards: FeatureCard[] = metafieldCards.length || !DEV_PREVIEW ? metafieldCards : [
+  { eyebrow: 'Sample', title: 'Placeholder card', body: 'Preview copy shown only in local development. Real cards come from the custom.feature_cards metafield.' },
+];
+
+// Full-bleed editorial image: custom.fullbleed_image (https URL). Falls back to the gallery only in `astro dev`.
+const fullbleedUrl = /^https:\/\//.test(mf(product.fullbleedImage)) ? mf(product.fullbleedImage) : '';
 
 // ── Options & variants ───────────────────────────────────────────────────────
 const isRealOption = (name: string, values: string[]) =>
@@ -61,8 +125,39 @@ const variantData = variants.map((v) => ({
   options: Object.fromEntries(v.selectedOptions.map((o) => [o.name, o.value])),
   image: v.image ? shopifyImage(v.image.url, 1100) : null,
 }));
-const firstVariantId = variants[0]?.id ?? '';
-const startPrice = formatMoney(product.priceRange.minVariantPrice, marketConfig.locale);
+// Open on the variant a link points at (?variant=<numeric id> from Google Shopping, or ?color=Nude), else the first.
+const qp = Astro.url.searchParams;
+const wantId = qp.get('variant');
+const wantColour = (qp.get('color') || qp.get('colour') || '').toLowerCase();
+const startVariant =
+  (wantId && variants.find((v) => v.id.endsWith('/' + wantId))) ||
+  (wantColour && variants.find((v) => v.selectedOptions.some((o) => /colou?r/i.test(o.name) && o.value.toLowerCase() === wantColour))) ||
+  variants[0];
+const startSel: Record<string, string> = Object.fromEntries((startVariant?.selectedOptions ?? []).map((o) => [o.name, o.value]));
+const startOf = (opt: { name: string; values: string[] }) => startSel[opt.name] ?? opt.values[0];
+const firstVariantId = startVariant?.id ?? '';
+const startPrice = startVariant ? formatMoney(startVariant.price, marketConfig.locale) : formatMoney(product.priceRange.minVariantPrice, marketConfig.locale);
+
+// One product now holds every colour's photos. Photos are tagged by colour through their alt text
+// ("Braidey Shoulder Bag in Nude, view 3" → Nude), which the catalog import writes. Show only the selected
+// colour's shots; anything untagged is shared. Filtering only switches on when at least two colours have photos
+// of their own — otherwise (old-style listings, hand-edited alt text) every photo stays visible.
+const colourOpt = optionGroups.find((o) => o.isColor);
+const startColour = colourOpt ? startOf(colourOpt) : '';
+function colourOfAlt(alt: string): string {
+  const a = alt.toLowerCase();
+  let best = '';
+  for (const v of colourOpt?.values ?? []) {
+    const k = ` in ${v.toLowerCase()}`;
+    if ((a.endsWith(k) || a.includes(k + ',')) && v.length > best.length) best = v;
+  }
+  return best;
+}
+images.forEach((i) => { i.colour = colourOfAlt(i.alt); });
+const colourGallery = new Set(images.map((i) => i.colour).filter(Boolean)).size >= 2;
+const hiddenAt = (i: number) => colourGallery && !!images[i].colour && images[i].colour !== startColour;
+const firstVisible = Math.max(0, images.findIndex((_, i) => !hiddenAt(i)));
+const visibleCount = images.filter((_, i) => !hiddenAt(i)).length;
 
 // Colours are modelled as SEPARATE products (e.g. "Carla - Plum", "Carla - Taupe"),
 // each with its own photos. So a colour swatch should navigate to that colour's product
@@ -84,8 +179,11 @@ function siblingHandle(colour: string): string | null {
 }
 type ColourEntry = { value: string; href: string | null; active: boolean };
 const colourNav: Record<string, ColourEntry[]> = {};
+// New one-product-per-bag listings (they carry custom.size_group) switch colour in place — never jump to the old
+// colour-per-listing products, which stay live until they're set to Draft.
+const isConsolidated = Boolean((product.sizeGroup?.value ?? '').trim());
 for (const opt of optionGroups) {
-  if (!opt.isColor) continue;
+  if (!opt.isColor || isConsolidated) continue;
   const entries: ColourEntry[] = opt.values.map((v) => {
     const h = siblingHandle(v);
     return { value: v, href: h ? `${prefix}/products/${h}` : null, active: h === product.handle };
@@ -172,14 +270,60 @@ const hexFor = (raw: string) => {
   return '#bdb5a8';
 };
 
-const clientData = { variants: variantData, options: optionGroups.map((o) => ({ name: o.name, isColor: o.isColor })) };
+const clientData = { variants: variantData, options: optionGroups.map((o) => ({ name: o.name, isColor: o.isColor })), colourGallery };
 
-// Temporarily hidden until real content is ready — flip to true to bring these
-// editorial sections back on every product page.
-const SHOW_FEATURES = false;
-const SHOW_STORY = false;
-const SHOW_FULLBLEED = false;
-const SHOW_REELS = false;
+// Hidden in production until real content is ready. Shown under `astro dev` so the
+// full page can be reviewed locally. The story section also needs per-product slides.
+// Every editorial section is now data-driven: it appears on a product only when that product has the content.
+const SHOW_FEATURES = featureCards.length > 0;
+const SHOW_STORY = storySlides.length > 0;
+const SHOW_FULLBLEED = Boolean(fullbleedUrl) || DEV_PREVIEW;
+const SHOW_REELS = reels.length > 0;
+
+// Accordions read the product's own metafields, in the order of brand-wiki/PRODUCT-PAGE-STRUCTURE.md:
+// Details & Size · Material (the reveal) · Care · Shipping & Returns · Warranty. Generic fallbacks only for old listings.
+const FALLBACK_DETAILS = ['Fully vegan', 'Comes with a dust bag'];
+const shipTerms = shippingFor(marketConfig.countryCode);
+const returnsLine = `Returns within ${returnDaysFor(marketConfig.countryCode)} days of delivery, unused, with the dust bag and box`;
+const FALLBACK_SHIPPING = marketConfig.store === 'india'
+  ? ['Free shipping across India', returnsLine]
+  : [
+      shipTerms.cost === 0 ? 'Free delivery' : 'Tracked express from Hong Kong, charged by region at checkout',
+      'Duties and import taxes are included in the price',
+      returnsLine,
+    ];
+const detailLines = toLines(mf(product.productDetails));
+const dimensionLine = dimensionsFor(mf(product.dimensions), marketConfig);
+const careLines = toLines(mf(product.careGuide));
+const detailsList = [
+  ...(detailLines.length ? detailLines : FALLBACK_DETAILS),
+  ...(dimensionLine && !detailLines.some((l) => /\bcm\b/i.test(l)) ? [`Dimensions: ${dimensionLine}`] : []),
+];
+const shippingList = toLines(mf(product.shippingReturn));
+// If the text already ends by pointing to the Returns page (India's wording), that sentence becomes the link;
+// otherwise the page adds "Visit our Returns page for more information."
+const shipLines = shippingList.length ? shippingList : FALLBACK_SHIPPING;
+const returnsRef = shipLines.at(-1)?.match(/^(.*?\.\s+)?([^.]*?)Returns page([^.]*\.?)$/);
+if (returnsRef) shipLines.splice(-1, 1, ...(returnsRef[1] ? [returnsRef[1].trim()] : []));
+type Accordion = { title: string; lines?: string[]; text?: string; sub?: { title: string; lines: string[] }; link?: { href: string; before: string; label: string; after: string } };
+const accordions: Accordion[] = [
+  // Details, size and care in one dropdown (decided 29 Sep): details → dimensions → a "Care" sub-list.
+  { title: 'Product Details & Care', lines: detailsList, ...(careLines.length ? { sub: { title: 'Care', lines: careLines } } : {}) },
+  ...(mf(product.materialName) && mf(product.materialStory) ? [{ title: mf(product.materialName), text: mf(product.materialStory) }] : []),
+  { title: 'Shipping & Returns', lines: shipLines,
+    link: { href: `${prefix}/pages/shipping-returns`, label: 'Returns page',
+            ...(returnsRef ? { before: returnsRef[2], after: returnsRef[3] } : { before: 'Visit our ', after: ' for more information.' }) } },
+  { title: '1-Year Warranty', text: mf(product.warranty) || 'Every Mir Kash bag is covered against manufacturing defects for one year from purchase.',
+    link: { href: `${prefix}/pages/shipping-returns`, before: 'Read the full ', label: 'warranty terms', after: '.' } },
+];
+
+// Buying-area extras: one-line hook, ways to carry, per-country trust + delivery lines, breadcrumb category.
+const tagline = mf(product.tagline);
+const ways = carryWays(product, detailLines);
+const trust = trustLine(marketConfig);
+const delivery = deliveryLines(marketConfig);
+const maxDays = shipTerms.handlingDays[1] + shipTerms.transitDays[1];
+const faq = faqFor(product, marketConfig);
 ---
 
 <header class="hdr">
@@ -193,6 +337,7 @@ const SHOW_REELS = false;
     </nav>
     <a href={homeHref} class="hdr__logo"><img src="/mir-kash-logo.webp" alt="Mir Kash" /></a>
     <div class="hdr__right">
+      <CountrySelector variant="header" />
       <a class="hdr__btn hdr__bag" href={cartHref} aria-label="Bag">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
         <span class="bag-count">0</span>
@@ -207,7 +352,7 @@ const SHOW_REELS = false;
     <!-- LEFT: thumbnails -->
     <aside class="pdp__thumbs" id="thumbStrip">
       {images.map((img, i) => (
-        <button class={`thumb${i === 0 ? ' is-active' : ''}`} data-gidx={i} aria-label={`View image ${i + 1}`}>
+        <button class={`thumb${i === firstVisible ? ' is-active' : ''}${hiddenAt(i) ? ' is-off' : ''}`} data-gidx={i} data-colour={img.colour} aria-label={`View image ${i + 1}`}>
           <img src={img.thumb} alt={img.alt} loading="lazy" />
         </button>
       ))}
@@ -216,17 +361,18 @@ const SHOW_REELS = false;
     <!-- CENTER: image stack -->
     <div class="pdp__images" id="mainGallery">
       {images.map((img, i) => (
-        <div class="gimg" data-gidx={i}>
-          <img src={img.full} alt={img.alt} loading={i === 0 ? 'eager' : 'lazy'} />
+        <div class={`gimg${hiddenAt(i) ? ' is-off' : ''}`} data-gidx={i} data-colour={img.colour}>
+          <img src={img.full} alt={img.alt} loading={i === firstVisible ? 'eager' : 'lazy'} />
         </div>
       ))}
     </div>
 
     <!-- RIGHT: sticky info -->
     <div class="pdp__info">
-      <div class="bc"><a href={shopHref}>Shop</a><span class="sep">/</span>Bags</div>
       <h1 class="info-name">{product.title}</h1>
+      {tagline && <p class="info-hook">{tagline}</p>}
       <p class="info-price" id="infoPrice">{startPrice}</p>
+      {ways.length > 0 && <ul class="ways" aria-label="Ways to carry">{ways.map((w) => <li>{w}</li>)}</ul>}
       <div class="info-desc" set:html={product.descriptionHtml || product.description}></div>
 
       {optionGroups.map((opt) => (
@@ -243,10 +389,10 @@ const SHOW_REELS = false;
           </div>
         ) : opt.isColor ? (
           <div class="sw-group">
-            <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{opt.values[0]}</em></p>
+            <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{startOf(opt)}</em></p>
             <div class="sw-row">
               {opt.values.map((v, i) => (
-                <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
+                <button class={`swatch${v === startOf(opt) ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
               ))}
             </div>
           </div>
@@ -255,7 +401,7 @@ const SHOW_REELS = false;
             <p class="size-label">{opt.name}:</p>
             <div class="size-row">
               {opt.values.map((v, i) => (
-                <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
+                <button class={`size-btn${v === startOf(opt) ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
               ))}
             </div>
           </div>
@@ -269,42 +415,22 @@ const SHOW_REELS = false;
         </div>
       </div>
 
-      <p class="trust">Free Shipping &nbsp;·&nbsp; 1-Year Warranty &nbsp;·&nbsp; Easy Returns</p>
+      <div class="trust-block">
+        <p class="trust">{trust.map((x) => <span class="trust__item">{x}</span>)}</p>
+        <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span> · {delivery.returns}</p>
+      </div>
 
       <div>
+      {accordions.map((a) => (
         <div class="acc-item">
-          <button class="acc-btn">Product Details &amp; Care <span class="acc-icon">+</span></button>
+          <button class="acc-btn">{a.title} <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
-            <ul>
-              <li>Made from cruelty-free vegan leather with gold-tone hardware</li>
-              <li>Considered, functional interior</li>
-              <li>Comes with a protective dust bag</li>
-              <li>Wipe clean with a soft, dry cloth; store in the dust bag when not in use</li>
-            </ul>
+            {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
+            {a.sub && <><p class="acc-sub">{a.sub.title}</p><ul>{a.sub.lines.map((l) => <li>{l}</li>)}</ul></>}
+            {a.link && <p class="acc-link">{a.link.before}<a href={a.link.href}>{a.link.label}</a>{a.link.after}</p>}
           </div></div>
         </div>
-        <div class="acc-item">
-          <button class="acc-btn">Shipping &amp; Returns <span class="acc-icon">+</span></button>
-          <div class="acc-body"><div class="acc-inner">
-            <ul>
-              <li>Free shipping across India on all orders</li>
-              <li>International shipping calculated at checkout</li>
-              <li>Returns within 14 days of delivery, in original condition</li>
-            </ul>
-          </div></div>
-        </div>
-        <div class="acc-item">
-          <button class="acc-btn">1-Year Warranty <span class="acc-icon">+</span></button>
-          <div class="acc-body"><div class="acc-inner">
-            Every Mir Kash bag is covered against manufacturing defects for one year from purchase.
-          </div></div>
-        </div>
-        <div class="acc-item">
-          <button class="acc-btn">Orchardcraft™ Apple Leather <span class="acc-icon">+</span></button>
-          <div class="acc-body"><div class="acc-inner">
-            Derived from the peel and core of apples from the food industry in South Tyrol, Italy — no animal hides, and it grows more beautiful with age.
-          </div></div>
-        </div>
+      ))}
       </div>
     </div>
   </section>
@@ -312,11 +438,11 @@ const SHOW_REELS = false;
   <!-- ══ MOBILE GALLERY ══ -->
   <div class="mob-gal" id="mobGal">
     <div class="mob-gal__track" id="mobTrack">
-      {images.map((img) => (
-        <div class="mob-gal__slide"><img src={img.full} alt={img.alt} /></div>
+      {images.map((img, i) => (
+        <div class={`mob-gal__slide${hiddenAt(i) ? ' is-off' : ''}`} data-colour={img.colour}><img src={img.full} alt={img.alt} /></div>
       ))}
     </div>
-    <span class="mob-ctr" id="mobCtr">1 / {images.length}</span>
+    <span class="mob-ctr" id="mobCtr">1 / {visibleCount}</span>
   </div>
 
   <!-- ══ MOBILE INFO ══ -->
@@ -325,8 +451,9 @@ const SHOW_REELS = false;
       <h1 class="info-name" style="margin:0;font-size:clamp(1.5rem,5vw,1.85rem)">{product.title}</h1>
       <p id="mobPrice" style="font-size:15px;font-weight:500;flex-shrink:0;margin-left:12px">{startPrice}</p>
     </div>
-    <div class="bc" style="margin-bottom:14px"><a href={shopHref}>Shop</a><span class="sep">/</span>Bags</div>
-    <div class="info-desc" style="border:none;padding:0;margin-bottom:20px" set:html={product.description}></div>
+    {tagline && <p class="info-hook" style="margin-top:0">{tagline}</p>}
+    {ways.length > 0 && <ul class="ways" aria-label="Ways to carry">{ways.map((w) => <li>{w}</li>)}</ul>}
+    <div class="info-desc" style="border:none;padding:0;margin-bottom:20px" set:html={product.descriptionHtml || product.description}></div>
 
     {optionGroups.map((opt) => (
       colourNav[opt.name] ? (
@@ -342,10 +469,10 @@ const SHOW_REELS = false;
         </div>
       ) : opt.isColor ? (
         <div class="sw-group">
-          <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{opt.values[0]}</em></p>
+          <p class="sw-label">{opt.name} — <em class="opt-val" data-optval={opt.name}>{startOf(opt)}</em></p>
           <div class="sw-row">
             {opt.values.map((v, i) => (
-              <button class={`swatch${i === 0 ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
+              <button class={`swatch${v === startOf(opt) ? ' is-active' : ''}`} style={`--c:${hexFor(v)}`} data-opt={opt.name} data-name={v} aria-label={v}></button>
             ))}
           </div>
         </div>
@@ -354,71 +481,43 @@ const SHOW_REELS = false;
           <p class="size-label" style="margin-top:4px">{opt.name}:</p>
           <div class="size-row">
             {opt.values.map((v, i) => (
-              <button class={`size-btn${i === 0 ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
+              <button class={`size-btn${v === startOf(opt) ? ' is-active' : ''}`} data-opt={opt.name} data-name={v}>{v}</button>
             ))}
           </div>
         </div>
       )
     ))}
 
-    <p class="trust">Free Shipping &nbsp;·&nbsp; 1-Year Warranty &nbsp;·&nbsp; Easy Returns</p>
+    <div class="trust-block">
+      <p class="trust">{trust.map((x) => <span class="trust__item">{x}</span>)}</p>
+      <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span> · {delivery.returns}</p>
+    </div>
 
     <div class="mob-acc">
-      <div class="acc-item">
-        <button class="acc-btn">Product Details &amp; Care <span class="acc-icon">+</span></button>
-        <div class="acc-body"><div class="acc-inner">
-          <ul>
-            <li>Made from cruelty-free vegan leather with gold-tone hardware</li>
-            <li>Considered, functional interior</li>
-            <li>Comes with a protective dust bag</li>
-            <li>Wipe clean with a soft, dry cloth; store in the dust bag when not in use</li>
-          </ul>
-        </div></div>
-      </div>
-      <div class="acc-item">
-        <button class="acc-btn">Shipping &amp; Returns <span class="acc-icon">+</span></button>
-        <div class="acc-body"><div class="acc-inner">
-          <ul>
-            <li>Free shipping across India on all orders</li>
-            <li>International shipping calculated at checkout</li>
-            <li>Returns within 14 days of delivery, in original condition</li>
-          </ul>
-        </div></div>
-      </div>
-      <div class="acc-item">
-        <button class="acc-btn">1-Year Warranty <span class="acc-icon">+</span></button>
-        <div class="acc-body"><div class="acc-inner">
-          Every Mir Kash bag is covered against manufacturing defects for one year from purchase.
-        </div></div>
-      </div>
-      <div class="acc-item">
-        <button class="acc-btn">Orchardcraft™ Apple Leather <span class="acc-icon">+</span></button>
-        <div class="acc-body"><div class="acc-inner">
-          Derived from the peel and core of apples from the food industry in South Tyrol, Italy — no animal hides, and it grows more beautiful with age.
-        </div></div>
-      </div>
+      {accordions.map((a) => (
+        <div class="acc-item">
+          <button class="acc-btn">{a.title} <span class="acc-icon">+</span></button>
+          <div class="acc-body"><div class="acc-inner">
+            {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
+            {a.sub && <><p class="acc-sub">{a.sub.title}</p><ul>{a.sub.lines.map((l) => <li>{l}</li>)}</ul></>}
+            {a.link && <p class="acc-link">{a.link.before}<a href={a.link.href}>{a.link.label}</a>{a.link.after}</p>}
+          </div></div>
+        </div>
+      ))}
     </div>
   </div>
 
-  <!-- ══ FEATURES ══ — hidden via SHOW_FEATURES -->
+  <!-- ══ FEATURES ══ — from custom.feature_cards; hidden when a product has none -->
   {SHOW_FEATURES && (
-    <section class="features reveal">
+    <section class="features reveal" aria-label="At a glance">
       <div class="feat-grid">
-        <div class="feat">
-          <p class="feat__eye">Craft</p>
-          <h3 class="feat__title">Handmade in Jaipur</h3>
-          <p class="feat__body">Every Carry-All is stitched by hand at our Jaipur atelier — no shortcuts, no compromises. Artisans cut, stitch, and finish each piece one at a time, with the same care on the first bag as the ten-thousandth.</p>
-        </div>
-        <div class="feat">
-          <p class="feat__eye">Material</p>
-          <h3 class="feat__title">Apple Leather</h3>
-          <p class="feat__body">Our Orchardcraft™ apple leather is derived from the peel and core of apples leftover from the food industry in South Tyrol. It carries a natural grain and requires no animal hides — and only grows more beautiful with time.</p>
-        </div>
-        <div class="feat">
-          <p class="feat__eye">Ethics</p>
-          <h3 class="feat__title">Cruelty-Free Always</h3>
-          <p class="feat__body">Every material, every stitch, every finish is entirely animal-free. Not as a trend — but as a founding commitment. Mir Kash will never use animal leather or exotic skins, ever.</p>
-        </div>
+        {featureCards.map((c) => (
+          <div class="feat">
+            {c.eyebrow && <p class="feat__eye">{c.eyebrow}</p>}
+            <h3 class="feat__title">{c.title}</h3>
+            <p class="feat__body">{c.body}</p>
+          </div>
+        ))}
       </div>
     </section>
   )}
@@ -429,42 +528,23 @@ const SHOW_REELS = false;
     <div class="story__left">
       <div class="story__slides">
 
-        <div class="s-slide is-active">
-          <p class="s-slide__eye">Inside</p>
-          <h3 class="s-slide__title">Organized at its heart</h3>
-          <p class="s-slide__body">The double-zip system opens fully flat to reveal a structured interior: suede-lined main compartment, a flat slip pocket, and a magnetic key fob — everything where you expect it.</p>
-        </div>
-
-        <div class="s-slide">
-          <p class="s-slide__eye">Structure</p>
-          <h3 class="s-slide__title">A silhouette that holds</h3>
-          <p class="s-slide__body">A semi-rigid base keeps the bag upright and the silhouette crisp, even after a full day of use. The Carry-All never sags, never collapses — it arrives looking exactly as you left it.</p>
-        </div>
-
-        <div class="s-slide">
-          <p class="s-slide__eye">Hardware</p>
-          <h3 class="s-slide__title">Gold that doesn't fade</h3>
-          <p class="s-slide__body">All metal components — zippers, rings, and base feet — are 14k gold-plated brass. Solid enough to last a decade. Beautiful enough to notice from across a room.</p>
-        </div>
-
-        <div class="s-slide">
-          <p class="s-slide__eye">Carry</p>
-          <h3 class="s-slide__title">Made for your hand</h3>
-          <p class="s-slide__body">The top handle is padded and shaped to sit comfortably in a relaxed grip. Compact enough to tuck under an arm. Structured enough to set on a table and stay standing.</p>
-        </div>
+        {storySlides.map((s, i) => (
+          <div class={`s-slide${i === 0 ? ' is-active' : ''}`}>
+            {s.eyebrow && <p class="s-slide__eye">{s.eyebrow}</p>}
+            <h3 class="s-slide__title">{s.title}</h3>
+            <p class="s-slide__body">{s.body}</p>
+          </div>
+        ))}
 
       </div>
 
       <div class="story__foot">
         <div class="prog-bars" id="progBars">
-          <div class="prog-bar active"></div>
-          <div class="prog-bar"></div>
-          <div class="prog-bar"></div>
-          <div class="prog-bar"></div>
+          {storySlides.map((_, i) => <div class={`prog-bar${i === 0 ? ' active' : ''}`}></div>)}
         </div>
         <div class="story-nav">
           <button class="story-nav__btn" id="storyPrev" aria-label="Previous">‹</button>
-          <span class="story-nav__ctr" id="storyCtr">1 / 4</span>
+          <span class="story-nav__ctr" id="storyCtr">1 / {storySlides.length}</span>
           <button class="story-nav__btn" id="storyNext" aria-label="Next">›</button>
           <button class="story-nav__pause" id="storyPause" aria-label="Pause">⏸</button>
         </div>
@@ -472,19 +552,19 @@ const SHOW_REELS = false;
     </div>
 
     <div class="story__right">
-      <img class="story__img" id="storyImg" src={storyImgArr[0]} alt={product.title} />
+      <img class="story__img" id="storyImg" src={storyImgArr[0]} alt={`${product.title}: ${storySlides[0]?.title ?? ''}`} />
     </div>
   </section>
   )}
 
-  <!-- ══ FULL-BLEED ══ — hidden via SHOW_FULLBLEED until content is ready -->
+  <!-- ══ FULL-BLEED ══ — custom.fullbleed_image; hidden when a product has none -->
   {SHOW_FULLBLEED && (
   <div class="full-bleed reveal">
-    <img src={fullBleedImg} alt={product.title} />
+    <img src={fullbleedUrl || fullBleedImg} alt={product.title} />
   </div>
   )}
 
-  <!-- ══ REELS ══ — hidden via SHOW_REELS until content is ready -->
+  <!-- ══ REELS ══ — this product's own custom.reels; hidden when a product has none -->
   {SHOW_REELS && (
   <section class="reels reveal">
     <div class="reels__head">
@@ -492,7 +572,7 @@ const SHOW_REELS = false;
       <h2 class="reels__title">Mir Kash in motion</h2>
     </div>
     <div class="reels__track" id="reelsTrack">
-      {REELS.map((r) => (
+      {reels.map((r) => (
         <div class="reel">
           <video class="reel__video" src={r.src} poster={r.poster} muted loop playsinline preload="metadata"></video>
           <button class="reel__sound" type="button" aria-label="Toggle sound">
@@ -500,6 +580,21 @@ const SHOW_REELS = false;
             <svg class="i-sound" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
           </button>
         </div>
+      ))}
+    </div>
+  </section>
+  )}
+
+  <!-- ══ FAQ ══ — the bag's own custom.faq (also published as FAQPage schema) -->
+  {faq.length > 0 && (
+  <section class="faq reveal">
+    <h2 class="faq__title">Questions</h2>
+    <div class="faq__list">
+      {faq.map((f) => (
+        <details class="faq__item">
+          <summary>{f.q}</summary>
+          <p>{f.a}</p>
+        </details>
       ))}
     </div>
   </section>
@@ -574,7 +669,26 @@ const SHOW_REELS = false;
     }
   }
 
-  function resolveVariant() {
+  // Colour-tagged photos: show only the selected colour's shots (plus any untagged, shared ones).
+  const colourName = (data.options || []).find((o) => o.isColor)?.name;
+  function applyColourGallery() {
+    if (!data.colourGallery || !colourName || !selected[colourName]) return;
+    const c = selected[colourName];
+    document.querySelectorAll('#mainGallery .gimg, #thumbStrip .thumb, #mobTrack .mob-gal__slide').forEach((el) => {
+      const ec = el.dataset.colour || '';
+      el.classList.toggle('is-off', !!ec && ec !== c);
+    });
+    const firstThumb = document.querySelector('#thumbStrip .thumb:not(.is-off)');
+    document.querySelectorAll('#thumbStrip .thumb').forEach((t) => t.classList.toggle('is-active', t === firstThumb));
+    const track = document.getElementById('mobTrack');
+    const ctr = document.getElementById('mobCtr');
+    if (track) {
+      track.scrollLeft = 0;
+      if (ctr) ctr.textContent = '1 / ' + track.querySelectorAll('.mob-gal__slide:not(.is-off)').length;
+    }
+  }
+
+  function resolveVariant(initial) {
     const match = variants.find((v) => optionNames.every((n) => !selected[n] || v.options[n] === selected[n])) || variants[0];
     if (!match) return;
     state.variantId = match.id;
@@ -590,7 +704,9 @@ const SHOW_REELS = false;
       btn.textContent = match.available ? 'Buy Now' : 'Sold Out';
       btn.dataset.label = btn.textContent;
     });
-    showVariantImage(match.image);
+    applyColourGallery();
+    // On first paint the server already opened the right photos; only scroll after a deliberate change.
+    if (!initial) showVariantImage(match.image);
   }
 
   // One handler for every option button (colour swatch or pill), desktop + mobile.
@@ -608,7 +724,7 @@ const SHOW_REELS = false;
 
   // Initialise from the first active button of each option.
   document.querySelectorAll('[data-opt][data-name].is-active').forEach((b) => { selected[b.dataset.opt] = b.dataset.name; });
-  resolveVariant();
+  resolveVariant(true);
 
   // Add to bag — checkout:true => Buy Now (go to Shopify checkout); false => stay on page
   async function addItem(btn) {
@@ -691,12 +807,20 @@ const SHOW_REELS = false;
   const mobTrack = document.getElementById('mobTrack');
   const mobCtr = document.getElementById('mobCtr');
   if (mobTrack && mobCtr) {
-    const total = mobTrack.children.length;
     mobTrack.addEventListener('scroll', () => {
+      const total = mobTrack.querySelectorAll('.mob-gal__slide:not(.is-off)').length;
       const idx = Math.round(mobTrack.scrollLeft / mobTrack.clientWidth) + 1;
       mobCtr.textContent = `${idx} / ${total}`;
     }, { passive: true });
   }
+
+  // "Order today, arrives by …": recomputed in the browser so a cached page never shows a stale date.
+  document.querySelectorAll('.js-arrives').forEach((el) => {
+    const d = new Date();
+    let left = Number(el.dataset.maxdays) || 0;
+    while (left > 0) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) left--; }
+    try { el.textContent = 'Order today, arrives by ' + new Intl.DateTimeFormat(el.dataset.locale || undefined, { weekday: 'short', day: 'numeric', month: 'short' }).format(d); } catch {}
+  });
 
   // Accordions
   document.querySelectorAll('.acc-item .acc-btn').forEach((btn) => {
@@ -859,7 +983,7 @@ const SHOW_REELS = false;
 
 <style is:global>
   :root {
-    --serif: 'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cherry: #8B1A1A; --earth: #C8895A; --depth: #2C1A0E;
     --paper: #ffffff; --rule: #e4dfd7; --mid: #6e6a64;
     --hdr-h: 56px;
@@ -887,6 +1011,7 @@ const SHOW_REELS = false;
   .pdp { display: grid; grid-template-columns: 70px 1fr 550px; align-items: start; }
   .pdp__thumbs { position: sticky; top: var(--offset); height: calc(100dvh - var(--offset)); overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 4px; padding: 16px 8px; border-right: 1px solid var(--rule); }
   .pdp__thumbs::-webkit-scrollbar { display: none; }
+  .is-off { display: none !important; } /* photos of a colour that isn't selected */
   .thumb { flex-shrink: 0; width: 54px; aspect-ratio: 3/4; overflow: hidden; border: 1.5px solid transparent; background: var(--paper); transition: border-color .2s; padding: 0; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb.is-active { border-color: var(--depth); }
@@ -924,7 +1049,26 @@ const SHOW_REELS = false;
   .btn-add { background: #fff; color: var(--depth); }
   .btn-add:hover:not(:disabled) { background: var(--depth); color: #fff; }
   .btn-atc.is-added { background: #3D6B4F; border-color: #3D6B4F; color: #fff; }
-  .trust { text-align: center; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); font-weight: 500; padding: 18px 0; border-bottom: 1px solid var(--rule); margin-bottom: 4px; white-space: nowrap; }
+  .trust-block { padding: 16px 0 14px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; text-align: center; }
+  .trust { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; column-gap: 1.6em; row-gap: 2px; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; line-height: 1.8; }
+  .trust__item { white-space: nowrap; }
+  .trust-sub { margin-top: 6px; font-size: 12px; color: var(--mid); }
+  .info-hook { font-size: 14px; line-height: 1.5; color: var(--mid); margin: -2px 0 12px; }
+  .ways { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: -14px 0 22px; }
+  .ways li { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--rule); border-radius: 99px; padding: 5px 11px; color: var(--depth); }
+  .bc a { color: inherit; } .bc a:hover { color: var(--cherry); }
+
+  /* ══ FAQ ══ */
+  .faq { padding: clamp(3rem, 6vw, 5rem) var(--gutter, clamp(20px,4vw,56px)); border-top: 1px solid var(--rule); background: #fff; }
+  .faq__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); color: var(--depth); text-align: center; margin-bottom: clamp(1.4rem, 3vw, 2.2rem); }
+  .faq__list { max-width: 760px; margin: 0 auto; }
+  .faq__item { border-bottom: 1px solid var(--rule); }
+  .faq__item summary { list-style: none; cursor: pointer; padding: 18px 28px 18px 2px; position: relative; font-size: 15px; color: var(--depth); }
+  .faq__item summary::-webkit-details-marker { display: none; }
+  .faq__item summary::after { content: '+'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); color: var(--mid); font-size: 18px; }
+  .faq__item[open] summary::after { content: '–'; }
+  .faq__item summary:hover { color: var(--cherry); }
+  .faq__item p { padding: 0 2px 20px; font-size: 14px; line-height: 1.8; color: var(--mid); max-width: 680px; }
 
   .acc-item { border-bottom: 1px solid var(--rule); }
   .acc-btn { width: 100%; padding: 18px 2px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: .01em; color: var(--depth); text-align: left; transition: color .2s; }
@@ -938,6 +1082,10 @@ const SHOW_REELS = false;
   .acc-body { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
   .acc-item.is-open .acc-body { max-height: 500px; }
   .acc-inner { padding: 0 2px 18px; font-size: 13px; line-height: 1.85; color: var(--mid); }
+  .acc-sub { margin: 16px 0 6px; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--depth); font-weight: 500; }
+  .acc-link { margin-top: 10px; }
+  .acc-link a { color: var(--depth); text-decoration: underline; text-underline-offset: 3px; }
+  .acc-link a:hover { color: var(--cherry); }
   .acc-inner ul { list-style: disc; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
 
   .mob-gal { display: none; position: relative; background: #fff; }
@@ -949,14 +1097,15 @@ const SHOW_REELS = false;
   .mob-info { display: none; padding: 22px 20px 0; }
   .mob-acc { margin: 22px 0 6px; }
 
-  .features { background: #fff; border-top: 1px solid var(--rule); padding: clamp(3rem, 7vw, 6rem) var(--gutter, clamp(20px,4vw,56px)); }
-  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2rem, 5vw, 5rem); max-width: 1200px; margin: 0 auto; }
-  .feat__eye { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--earth); font-weight: 600; margin-bottom: 14px; }
-  .feat__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.2rem, 1.8vw, 1.5rem); line-height: 1.25; margin-bottom: 12px; }
+  .features { background: #F5EEE3; border-top: 1px solid var(--rule); padding: clamp(1.75rem, 3.5vw, 2.75rem) var(--gutter, clamp(20px,4vw,56px)); }
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1.5rem, 4vw, 4rem); max-width: 1200px; margin: 0 auto; }
+  .feat { padding: 0; }
+  .feat__eye { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--earth); font-weight: 600; margin-bottom: 8px; }
+  .feat__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.15rem, 1.6vw, 1.4rem); line-height: 1.25; margin-bottom: 8px; }
   .feat__body { font-size: 13.5px; line-height: 1.8; color: #555; }
 
   /* ══ FEATURE STORY SLIDESHOW ══ */
-  .story { display: grid; grid-template-columns: 1fr 1fr; min-height: 72vh; border-top: 1px solid var(--rule); }
+  .story { display: grid; grid-template-columns: 1fr 1fr; height: clamp(420px, 56vh, 600px); border-top: 1px solid var(--rule); }
   .story__left { background: #fff; padding: clamp(3rem, 6vw, 5rem) clamp(2.5rem, 5vw, 5rem); display: flex; flex-direction: column; justify-content: space-between; }
   .story__slides { flex: 1; display: flex; align-items: center; }
   .s-slide { display: none; animation: fadeIn .45s ease; }
@@ -1074,8 +1223,9 @@ const SHOW_REELS = false;
     .mob-gal { display: block; }
     .mob-info { display: block; }
     .mob-bar { display: flex; }
-    .feat-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .feat-grid { grid-template-columns: 1fr; gap: 1.5rem; }
     .story { grid-template-columns: 1fr; }
+    .story { height: auto; }
     .story__right { aspect-ratio: 4/3; order: -1; }
     .reel { width: 66vw; max-width: 300px; }
     .rel-card { width: 52vw; max-width: 240px; }
@@ -1090,7 +1240,6 @@ const SHOW_REELS = false;
     .rel-card__add::before { content: '+'; font-size: 15px; font-weight: 300; line-height: 1; transform: translateY(-1px); }
     .rel-card__add.is-added { background: #3D6B4F; }
     .rel-card__add.is-added::before { content: '✓'; font-size: 12px; color: #fff; transform: none; }
-    .trust { white-space: normal; }
     .full-bleed { aspect-ratio: 4/5; }
     body { padding-bottom: 80px; }
   }

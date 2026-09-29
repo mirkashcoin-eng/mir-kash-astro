@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://mirkash.com/sitemap.xml
+Sitemap: https://www.mirkash.com/sitemap.xml

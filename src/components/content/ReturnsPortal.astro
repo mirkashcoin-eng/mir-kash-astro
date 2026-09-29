@@ -1,7 +1,10 @@
 ---
 import LegalPage from '../LegalPage.astro';
+import { RETURN_DAYS } from '~/lib/merchant-policy';
+
+const days = RETURN_DAYS[Astro.locals.marketConfig.store];
 ---
-<LegalPage eyebrow="Returns" heading="Start a return" lede="14 days from delivery. Enter your order details and our team will take it from there.">
+<LegalPage eyebrow="Returns" heading="Start a return" lede={`${days} days from delivery. Enter your order details and our team will take it from there.`}>
   <form class="rp-form" id="returnForm">
     <label class="rp-field">
       <span>Order number</span>

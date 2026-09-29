@@ -37,10 +37,10 @@ export const CATEGORIES: Category[] = [
     h1: ['Crossbody', 'Bags'],
     collection: 'crossbody-bags',
     match: /cross\s*body/i,
-    sub: 'The bag you forget you are wearing. Worn long across the body and sized for a phone, a cardholder and keys — cut from premium vegan leather and finished by hand.',
-    seoTitle: 'Crossbody Bags — Vegan Leather Crossbody Bags | Mir Kash',
+    sub: 'The bag you forget you are wearing. Worn long across the body, with room for your phone, cards and keys, from the Carla with its fold-out pocket to the Bucky and its scarf.',
+    seoTitle: 'Vegan Leather Crossbody Bags | Mir Kash',
     seoDescription:
-      'Shop Mir Kash crossbody bags in premium vegan leather. Adjustable and detachable straps, hands-free all day, cruelty-free and 100% animal leather-free.',
+      'Shop Mir Kash vegan leather crossbody bags: light, easy to wear, and made slowly to be carried for years, not seasons.',
   },
   {
     slug: 'shoulder-bags',
@@ -49,10 +49,10 @@ export const CATEGORIES: Category[] = [
     h1: ['Shoulder', 'Bags'],
     collection: 'shoulder-bags',
     match: /shoulder/i,
-    sub: 'Structured shapes that sit on the shoulder and stay there. The hand-braided Braidey, the sculptural Trapees — both cut from premium vegan leather.',
-    seoTitle: 'Shoulder Bags — Vegan Leather Shoulder Bags | Mir Kash',
+    sub: 'Shapes that sit on the shoulder and stay there. The braided Braidey in apple leather, the trapeze-shaped Trapees, the Tory with its heart charm.',
+    seoTitle: 'Vegan Leather Shoulder Bags | Mir Kash',
     seoDescription:
-      'Shop Mir Kash shoulder bags in premium vegan leather. The hand-braided Braidey and structured Trapees — detachable straps, cruelty-free, animal leather-free.',
+      'Shop Mir Kash vegan leather shoulder bags, from the braided Braidey to the sculpted Trapees. Made slowly, worn for years.',
   },
   {
     slug: 'clutches',
@@ -61,10 +61,10 @@ export const CATEGORIES: Category[] = [
     h1: ['Evening', 'Clutches'],
     collection: 'clutches',
     match: /clutch/i,
-    sub: 'Evening bags built to catch light — apple leather, rhinestone and crystal, sized for a phone, a card and a lip balm.',
-    seoTitle: 'Clutches — Vegan Leather Evening Clutch Bags | Mir Kash',
+    sub: 'Evening bags built to catch light: rhinestones on apple leather and satin, sized for a phone, a card and a lipstick. Spare stones in every box.',
+    seoTitle: 'Rhinestone Evening Clutches | Mir Kash',
     seoDescription:
-      'Shop Mir Kash clutches for evenings and weddings. Apple leather and crystal-embellished evening bags, cruelty-free and 100% animal leather-free.',
+      'Shop Mir Kash clutches set with rhinestones, for parties, weddings and nights out. Spare stones come in every box.',
   },
   {
     slug: 'mini-bags',
@@ -73,10 +73,10 @@ export const CATEGORIES: Category[] = [
     h1: ['Mini', 'Bags'],
     collection: 'mini-bags',
     match: /mini/i,
-    sub: 'Petite by design. Room for a phone, a card and a key — and a structured base that holds its shape whether the bag is full or empty.',
-    seoTitle: 'Mini Bags — Small Vegan Leather Bags | Mir Kash',
+    sub: 'Small by design, with room for a phone, a card and a key. In vegan leather, velvet and rhinestones.',
+    seoTitle: 'Vegan Leather Mini Bags | Mir Kash',
     seoDescription:
-      'Shop Mir Kash mini bags in soft vegan leather. Petite silhouettes for evenings and everyday, cruelty-free and 100% animal leather-free.',
+      'Shop Mir Kash mini bags in vegan leather, velvet and rhinestones: small in size, with room for your phone and essentials.',
   },
   {
     slug: 'tote-bags',
@@ -87,10 +87,10 @@ export const CATEGORIES: Category[] = [
     // below is what actually populates this page.
     collection: 'tote-bags',
     match: /tote/i,
-    sub: 'Lattice-worked vegan leather over a structured base. Roomy enough for a 13-inch laptop, light enough to carry through the whole day.',
-    seoTitle: 'Tote Bags — Vegan Leather Work Totes | Mir Kash',
+    sub: 'The Weaver, in textured apple leather. Room for a 13-inch laptop, long handles, and light enough to carry through the whole day.',
+    seoTitle: 'Vegan Leather Tote Bags | Mir Kash',
     seoDescription:
-      'Shop Mir Kash tote bags in lattice-worked vegan leather. Fits a 13-inch laptop, structured base, cruelty-free and 100% animal leather-free.',
+      'Shop the Mir Kash apple leather tote: long handles, zipped pockets and room for a 13-inch laptop and your whole day.',
   },
 ];
 

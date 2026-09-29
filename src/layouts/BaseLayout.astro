@@ -1,5 +1,5 @@
 ---
-import { SITE_ORIGIN, absoluteUrl, listMarkets } from '~/lib/markets';
+import { SITE_ORIGIN, absoluteUrl, listMarkets, hasLocaleVersions } from '~/lib/markets';
 
 interface Props {
   title: string;
@@ -8,15 +8,18 @@ interface Props {
   fontsHref?: string;
   image?: string;
   type?: string;
+  /** Extra schema.org objects for this page (product, breadcrumbs…). */
+  jsonLd?: object[];
 }
 
 const {
   title,
-  description = 'Mir Kash — luxury vegan handbags. Made slowly. Worn forever. Hurts nothing.',
+  description = 'Mir Kash makes vegan leather handbags for women: apple leather, velvet and rhinestone pieces, made slowly and built to last for years.',
   path,
   fontsHref,
   image,
   type = 'website',
+  jsonLd = [],
 } = Astro.props;
 const { market, marketConfig } = Astro.locals;
 // Captured server-side from the request headers, so it survives blocked or failed
@@ -39,7 +42,7 @@ const canonical = absoluteUrl(marketConfig.urlPrefix + (path === '/' ? '' : path
 // need SITE_ORIGIN prepended.
 const ogImage = image ? (image.startsWith('http') ? image : absoluteUrl(image)) : absoluteUrl('/og-default.jpg');
 
-// Jost is self-hosted via /fonts/jost.css (imported in styles.css) — no Google Fonts request.
+// Brand fonts (DM Serif Display + Brooklyn) are self-hosted via /fonts/brand-fonts.css (imported in styles.css).
 const fontsUrl = fontsHref ?? '';
 // Cache-bust the static stylesheet per deploy so design changes reach browsers immediately.
 const buildId = (typeof process !== 'undefined' ? process.env.VERCEL_GIT_COMMIT_SHA : undefined)?.slice(0, 8) || 'dev';
@@ -89,14 +92,14 @@ const orgJsonLd = {
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#2C1A0E" />
 
-    {listMarkets().map((m) => (
+    {hasLocaleVersions(path) && listMarkets().map((m) => (
       <link
         rel="alternate"
         hreflang={m.hreflang}
         href={absoluteUrl(m.urlPrefix + (path === '/' ? '' : path) || '/')}
       />
     ))}
-    <link rel="alternate" hreflang="x-default" href={absoluteUrl(path === '/' ? '/' : path)} />
+    {hasLocaleVersions(path) && <link rel="alternate" hreflang="x-default" href={absoluteUrl(path === '/' ? '/' : path)} />}
 
     <meta property="og:locale" content={marketConfig.locale} />
     <meta property="og:site_name" content="Mir Kash" />
@@ -153,9 +156,11 @@ const orgJsonLd = {
       </>
     )}
 
+    <link rel="preload" href="/fonts/brand/Brooklyn-Normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href={`/styles.css?v=${buildId}`} />
 
     <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
+    {jsonLd.map((obj) => <script type="application/ld+json" set:html={JSON.stringify(obj)} />)}
 
     <script define:vars={{ market }}>
       window.__MARKET__ = market;

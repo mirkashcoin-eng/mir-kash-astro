@@ -8,6 +8,8 @@ import {
   marketCookieValue,
 } from '~/lib/markets';
 
+interface Props { variant?: 'footer' | 'header' }
+const { variant = 'footer' } = Astro.props;
 const pathname = Astro.url.pathname;
 const current = Astro.locals.marketConfig ?? getMarketByPath(pathname);
 
@@ -22,10 +24,10 @@ const options = MARKETS.map((m) => ({
   active: m.localeSlug === current.localeSlug,
 }));
 ---
-<div class="country-select" data-current={current.localeSlug}>
+<div class={`country-select country-select--${variant}`} data-current={current.localeSlug}>
   <button class="country-select__btn" aria-haspopup="listbox" aria-expanded="false" type="button">
     <span class="country-select__flag" aria-hidden="true">{current.flag}</span>
-    <span class="country-select__label">{current.countryName} ({current.currencySymbol} {current.currency})</span>
+    <span class="country-select__label">{variant === 'header' ? current.currency : `${current.countryName} (${current.currencySymbol} ${current.currency})`}</span>
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
   <ul class="country-select__menu" role="listbox">
@@ -60,6 +62,9 @@ const options = MARKETS.map((m) => ({
     opacity: 0; pointer-events: none; transform: translateY(6px);
     transition: opacity .2s ease, transform .2s ease; z-index: 250;
   }
+  .country-select--header .country-select__menu { bottom: auto; top: calc(100% + 10px); transform: translateY(-6px); }
+  .country-select--header .country-select__btn { color: var(--depth, #2C1A0E); }
+  @media (max-width: 600px) { .country-select--header .country-select__label { display: none; } .country-select--header .country-select__menu { right: -40px; } }
   .country-select.is-open .country-select__menu { opacity: 1; pointer-events: auto; transform: translateY(0); }
   .country-select__menu li a {
     display: flex; align-items: center; gap: 10px; padding: 9px 16px;
@@ -74,6 +79,9 @@ const options = MARKETS.map((m) => ({
 
 <script define:vars={{ MARKET_COOKIE, maxAge: MARKET_COOKIE_MAX_AGE }}>
   document.querySelectorAll('.country-select').forEach((root) => {
+    // This script is inlined once per selector on the page (header + footer); bind each selector only once.
+    if (root.dataset.bound) return;
+    root.dataset.bound = '1';
     const btn = root.querySelector('.country-select__btn');
     if (!btn) return;
     btn.addEventListener('click', (e) => {

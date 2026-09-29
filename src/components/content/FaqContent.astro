@@ -1,6 +1,14 @@
 ---
 import SiteHeader from '../SiteHeader.astro';
 import SiteFooter from '../SiteFooter.astro';
+import { RETURN_DAYS, RETURN_OFFICES } from '~/lib/merchant-policy';
+
+// Orders and returns answers follow each store's policy (brand-wiki/SHIPPING-RETURNS-POLICY.md).
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const india = marketConfig.store === 'india';
+const days = RETURN_DAYS[marketConfig.store];
+const office = india ? RETURN_OFFICES.mumbai : RETURN_OFFICES.hongkong;
 
 const GROUPS = [
   {
@@ -20,9 +28,18 @@ const GROUPS = [
   {
     cat: 'Orders',
     items: [
-      { q: 'Where do you ship?', a: `<p>Worldwide.</p>` },
-      { q: 'How much does shipping cost?', a: `<p>Free across India and Hong Kong. For all other countries, shipping costs are calculated at checkout.</p>` },
-      { q: 'How long does delivery take?', a: `<p>Most orders arrive within 2 weeks. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do what we can.</p>` },
+      ...(india
+        ? [
+            { q: 'Where do you ship?', a: `<p>Across India, from India. For orders outside India, visit <a href="https://www.mirkash.com">mirkash.com</a>.</p>` },
+            { q: 'How much does shipping cost?', a: `<p>Nothing. Shipping is free across India, and all prices include GST.</p>` },
+            { q: 'How long does delivery take?', a: `<p>Orders are delivered within 7&ndash;10 working days of purchase. If you need delivery earlier, please send us a message on WhatsApp or write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing your order.</p>` },
+          ]
+        : [
+            { q: 'Where do you ship?', a: `<p>Worldwide, from Hong Kong, by tracked express.</p>` },
+            { q: 'How much does shipping cost?', a: `<p>Free in Hong Kong, and charged by region elsewhere, shown in your currency at checkout. See <a href="${prefix}/pages/shipping-returns">Shipping &amp; Returns</a> for the rates.</p>` },
+            { q: 'How long does delivery take?', a: `<p>Orders leave within 1&ndash;3 business days and arrive within 10 business days of shipping, depending on your country. If your order is time-sensitive, write to us at <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it.</p>` },
+            { q: 'Will I pay customs duties?', a: `<p>Duties and import taxes are included in the price at checkout; however, if additional charges are imposed at the receiving country&rsquo;s customs, the customer is liable to pay them.</p>` },
+          ]),
       { q: 'Can I track my order?', a: `<p>Yes. You&rsquo;ll receive a tracking link once your order is dispatched.</p>` },
     ],
   },
@@ -31,8 +48,8 @@ const GROUPS = [
     items: [
       {
         q: 'What&rsquo;s your return policy?',
-        a: `<p>You can return your bag within 14 days of delivery for a full refund. The bag must be unused and in its original packaging, dust bag included. Once we receive and inspect the bag, refunds are processed within 14 working days.</p>
-            <p><a href="/pages/returns-portal">Start a return or exchange &rarr;</a></p>`,
+        a: `<p>Returns are accepted within ${days} days of delivery if the bag is unused, with its dust bag and Mir Kash box. Return shipping is paid by the customer: send it to our ${office.city} office. Refunds of the item price are issued within 14 days of receiving the return.</p>
+            <p><a href="${prefix}/pages/returns-portal">Start a return &rarr;</a></p>`,
       },
       { q: 'What does the warranty cover?', a: `<p>Manufacturing defects &mdash; stitching, hardware, structural issues. It does not cover wear from regular use, accidental damage, or misuse.</p>` },
       { q: 'What happens if something goes wrong under warranty?', a: `<p>Get in touch. We&rsquo;ll assess it and either repair or replace it.</p>` },
@@ -128,7 +145,6 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
 <SiteFooter />
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
   body { background: #fff; }
   .hdr-menu-btn { display: none; }
@@ -137,7 +153,7 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
   .faq {
-    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #463d34; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
     background: #fff; color: var(--depth);
   }
@@ -150,10 +166,10 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .faq-hero__h { font-size: clamp(36px,5vw,64px); line-height: 1.02; color: #fff; margin: 14px 0 30px; }
   .faq-search { display: flex; align-items: center; gap: 10px; max-width: 540px; margin: 0 auto; background: #fff; border-radius: 999px; padding: 6px 6px 6px 22px; }
   .faq-search__ic { color: var(--mid); flex: none; }
-  .faq-search input { flex: 1; border: none; outline: none; background: none; font-family: 'Jost', sans-serif; font-size: 15px; color: var(--depth); padding: 13px 0; min-width: 0; }
+  .faq-search input { flex: 1; border: none; outline: none; background: none; font-family: 'Brooklyn', sans-serif; font-size: 15px; color: var(--depth); padding: 13px 0; min-width: 0; }
   .faq-search input::placeholder { color: var(--faint); }
   .faq-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
-  .faq-search button { flex: none; background: var(--depth); color: #fff; border: none; border-radius: 999px; padding: 13px 26px; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: background .2s; }
+  .faq-search button { flex: none; background: var(--depth); color: #fff; border: none; border-radius: 999px; padding: 13px 26px; font-family: 'Brooklyn', sans-serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: background .2s; }
   .faq-search button:hover { background: var(--cherry); }
 
   /* Body — left topics rail, centre accordions, right help card */
@@ -166,7 +182,7 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .faq-stick { position: sticky; top: 24px; }
   .faq-side__lbl { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); margin: 0 0 16px; }
   .faq-nav { display: flex; flex-direction: column; gap: 2px; }
-  .faq-nav button { text-align: left; font-family: 'Jost', sans-serif; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--mid); background: none; border: none; border-left: 2px solid var(--rule); padding: 11px 0 11px 16px; cursor: pointer; transition: color .2s, border-color .2s; }
+  .faq-nav button { text-align: left; font-family: 'Brooklyn', sans-serif; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--mid); background: none; border: none; border-left: 2px solid var(--rule); padding: 11px 0 11px 16px; cursor: pointer; transition: color .2s, border-color .2s; }
   .faq-nav button:hover { color: var(--depth); }
   .faq-nav button.on { color: var(--depth); border-left-color: var(--cherry); }
 
@@ -197,7 +213,7 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
   .faq-help { background: var(--cream); border-radius: 3px; padding: 30px 26px; display: flex; flex-direction: column; align-items: flex-start; }
   .faq-help__h { font-size: clamp(22px,2.2vw,27px); color: var(--depth); margin: 0 0 10px; line-height: 1.08; }
   .faq-help__p { font-size: 13.5px; line-height: 1.65; color: var(--mid); margin: 0 0 22px; }
-  .faq-help__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 13px 26px; transition: background .25s; }
+  .faq-help__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Brooklyn', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 13px 26px; transition: background .25s; }
   .faq-help__btn:hover { background: var(--cherry); }
   .faq-help__link { margin-top: 16px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--depth); text-decoration: none; border-bottom: 1px solid var(--depth); padding-bottom: 2px; transition: color .2s, border-color .2s; }
   .faq-help__link:hover { color: var(--cherry); border-color: var(--cherry); }

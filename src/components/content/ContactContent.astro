@@ -73,7 +73,6 @@ const LOCATIONS = [
 <SiteFooter />
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
   body { background: #fff; }
   .hdr-menu-btn { display: none; }
@@ -82,7 +81,7 @@ const LOCATIONS = [
   .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
   .ct {
-    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #463d34; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
     background: #fff; color: var(--depth);
   }
@@ -101,9 +100,9 @@ const LOCATIONS = [
   .ct-field { display: flex; flex-direction: column; gap: 8px; }
   .ct-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 600; }
   .ct-field span em { font-style: normal; color: var(--faint); font-weight: 400; letter-spacing: 0; text-transform: none; }
-  .ct-field input, .ct-field textarea { font-family: 'Jost', sans-serif; font-size: 14.5px; color: var(--depth); background: #fff; border: 1px solid var(--rule); padding: 13px 14px; resize: vertical; transition: border-color .2s; }
+  .ct-field input, .ct-field textarea { font-family: 'Brooklyn', sans-serif; font-size: 14.5px; color: var(--depth); background: #fff; border: 1px solid var(--rule); padding: 13px 14px; resize: vertical; transition: border-color .2s; }
   .ct-field input:focus, .ct-field textarea:focus { outline: none; border-color: var(--depth); }
-  .ct-submit { align-self: flex-start; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border: none; padding: 15px 34px; cursor: pointer; transition: background .25s; margin-top: 4px; }
+  .ct-submit { align-self: flex-start; background: var(--depth); color: #fff; font-family: 'Brooklyn', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border: none; padding: 15px 34px; cursor: pointer; transition: background .25s; margin-top: 4px; }
   .ct-submit:hover { background: var(--cherry); }
 
   .ct-info-col { border-left: 1px solid var(--rule); padding-left: clamp(24px,3vw,44px); }
@@ -120,7 +119,7 @@ const LOCATIONS = [
   .ct-loc__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px,3vw,44px); max-width: 980px; margin: 0 auto; }
   .ct-place { text-align: center; padding: clamp(24px,3vw,36px) 20px; background: #fff; border: 1px solid var(--rule); }
   .ct-place__city { font-size: clamp(24px,2.6vw,32px); color: var(--depth); margin: 0 0 14px; line-height: 1.1; }
-  .ct-place__country { display: block; font-family: 'Jost', sans-serif; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin-top: 6px; }
+  .ct-place__country { display: block; font-family: 'Brooklyn', sans-serif; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin-top: 6px; }
   .ct-place__addr { font-style: normal; display: flex; flex-direction: column; gap: 3px; font-size: 14px; line-height: 1.6; color: var(--mid); }
 
   @media (max-width: 860px) {

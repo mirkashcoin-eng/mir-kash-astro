@@ -1,34 +1,55 @@
 ---
 import SiteHeader from '../SiteHeader.astro';
 import SiteFooter from '../SiteFooter.astro';
+import { GLOBAL_ZONES, RETURN_DAYS, RETURN_OFFICES } from '~/lib/merchant-policy';
+
+// Policy text per store: must match the product-page dropdown, Shopify's policy pages and Merchant Center
+// (brand-wiki/SHIPPING-RETURNS-POLICY.md). Numbers come from src/lib/merchant-policy.ts.
+const { marketConfig } = Astro.locals;
+const prefix = marketConfig.urlPrefix;
+const india = marketConfig.store === 'india';
+const days = RETURN_DAYS[marketConfig.store];
+const office = india ? RETURN_OFFICES.mumbai : RETURN_OFFICES.hongkong;
+const WORDS: Record<number, string> = { 7: 'Seven', 14: 'Fourteen', 15: 'Fifteen' };
+const daysWord = WORDS[days] ?? String(days);
+const range = (r: [number, number]) => `${r[0]}–${r[1]}`;
+const rates = GLOBAL_ZONES.map((z) => `<li><strong>${z.zone}:</strong> ${z.cost === 0 ? 'free' : `USD ${z.cost}`}, ${range(z.transitDays)} business days after dispatch</li>`).join('');
+
+const HERO_SUB = india
+  ? `We&rsquo;d rather you take your time than take a chance. Free shipping across India, ${daysWord.toLowerCase()} days to decide, and a full year of warranty behind every bag.`
+  : `We&rsquo;d rather you take your time than take a chance. Tracked express from Hong Kong, duties and import taxes included at checkout, ${daysWord.toLowerCase()} days to decide, and a full year of warranty behind every bag.`;
 
 const PILLARS = [
-  {
-    n: '01', title: 'Delivered, worldwide',
-    body: 'Free shipping across India and Hong Kong; calculated at checkout everywhere else. Most orders arrive within two weeks, with a tracking link the moment it&rsquo;s dispatched.',
-  },
-  {
-    n: '02', title: 'Fourteen days to decide',
-    body: 'Live with it first. Return your bag within 14 days of delivery for a full refund &mdash; unused, in its original packaging. No long explanations needed.',
-  },
-  {
-    n: '03', title: 'A full year, covered',
-    body: 'Every Mir Kash bag carries a one-year warranty against manufacturing defects. If something isn&rsquo;t right, we&rsquo;ll repair or replace it.',
-  },
+  india
+    ? { n: '01', title: 'Free across India',
+        body: 'Free shipping across India, and every price includes GST. Orders are delivered within 7&ndash;10 working days of purchase, with a tracking link the moment it&rsquo;s dispatched.' }
+    : { n: '01', title: 'Delivered, worldwide',
+        body: 'Ships from Hong Kong by tracked express. Orders leave within 1&ndash;3 business days and arrive within 10 business days of shipping, depending on your country. Duties and import taxes are included at checkout.' },
+  { n: '02', title: `${daysWord} days to decide`,
+    body: `Return your bag within ${days} days of delivery if it&rsquo;s unused, with its dust bag and Mir Kash box. The item price is refunded within 14 days of us receiving it.` },
+  { n: '03', title: 'A full year, covered',
+    body: 'Every Mir Kash bag carries a one-year warranty against manufacturing defects. If something isn&rsquo;t right, we&rsquo;ll repair or replace it.' },
 ];
 
 const DETAILS = [
   {
     q: 'Shipping — the details',
-    a: `<p>We ship worldwide. Shipping is <strong>free across Hong Kong and India</strong>; for all other destinations it&rsquo;s calculated at checkout based on your location.</p>
-        <p>Most orders arrive within <strong>2 weeks</strong>. During busy periods, allow a little extra time. If your order is time-sensitive, write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it and we&rsquo;ll do our best to prioritise it.</p>
-        <p>Once dispatched, you&rsquo;ll receive a tracking link by email. International orders may be subject to customs duties on arrival &mdash; these are set by your local customs authority and are the customer&rsquo;s responsibility.</p>`,
+    a: india
+      ? `<p>Shipping is <strong>free across India</strong>, and all prices include GST.</p>
+         <p>Orders are delivered within <strong>7&ndash;10 working days</strong> of purchase. If you need delivery earlier, please send us a message on WhatsApp or write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing your order.</p>
+         <p>Once dispatched, you&rsquo;ll receive a tracking link by email.</p>`
+      : `<p>Every order ships from <strong>Hong Kong by tracked express</strong>. Orders leave within <strong>1&ndash;3 business days</strong> and arrive within <strong>10 business days</strong> of the shipping date, depending on your country. Shipping is free in Hong Kong and charged by region elsewhere, shown in your currency at checkout:</p>
+         <ul>${rates}</ul>
+         <p><strong>Duties and import taxes are included in the price at checkout</strong>; however, if additional charges are imposed at the receiving country&rsquo;s customs, the customer is liable to pay them.</p>
+         <p>Once dispatched, you&rsquo;ll receive a tracking link by email. If your order is time-sensitive, write to <a href="mailto:order@mirkash.com">order@mirkash.com</a> before placing it.</p>`,
   },
   {
     q: 'Returns — the details',
-    a: `<p>You have <strong>14 days from delivery</strong> to return your bag for a full refund. To be eligible, it must be unused and returned in its original packaging &mdash; box, dust bag, and all inserts included. Items showing signs of use can&rsquo;t be accepted.</p>
-        <p>Return shipping is borne by the customer; we recommend a tracked, insured service, as we can&rsquo;t take responsibility for items lost on the way back.</p>
-        <p>Start a return via our <a href="/pages/returns-portal">returns portal</a> or email <a href="mailto:order@mirkash.com">order@mirkash.com</a> with your order number. Once we receive and inspect the bag, your refund is processed within <strong>14 working days</strong> to your original payment method. We don&rsquo;t offer direct exchanges &mdash; simply return your order and place a new one.</p>`,
+    a: `<p>Returns are accepted within <strong>${days} days of delivery</strong> if the bag is unused, with its dust bag and Mir Kash box. Items showing signs of use can&rsquo;t be accepted.</p>
+        <p>Return shipping is paid by the customer; we recommend a tracked service. Send it to our ${office.city} office: <strong>${office.address}</strong>.</p>
+        <p>Start a return via our <a href="${prefix}/pages/returns-portal">returns portal</a> or email <a href="mailto:order@mirkash.com">order@mirkash.com</a> with your order number. Refunds of the item price are issued within <strong>14 days</strong> of receiving the return, to your original payment method.</p>`
+      + (india ? '' : `
+        <p>Shipping fees and duties already paid to customs are not refunded. If your bag arrives faulty or is the wrong item, we&rsquo;ll send you a prepaid return label. Limited-edition and hand-painted pieces are final sale.</p>`),
   },
   {
     q: 'Warranty — the details',
@@ -44,7 +65,7 @@ const DETAILS = [
   <section class="sr-hero">
     <p class="sr-eyebrow">Our promise</p>
     <h1 class="sr-display sr-hero__h">Order it. Try it. Keep it only if you <em>love</em> it.</h1>
-    <p class="sr-hero__sub">We&rsquo;d rather you take your time than take a chance. Free delivery to India &amp; Hong Kong, fourteen days to decide, and a full year of warranty behind every bag.</p>
+    <p class="sr-hero__sub" set:html={HERO_SUB}></p>
   </section>
 
   <!-- ── Three pillars ── -->
@@ -79,7 +100,7 @@ const DETAILS = [
     <p class="sr-eyebrow sr-eyebrow--rose">Returns portal</p>
     <h2 class="sr-display sr-cta__h">Need to return something?</h2>
     <p class="sr-cta__p">It takes a minute &mdash; enter your order number and email, and we&rsquo;ll take it from there.</p>
-    <a class="sr-cta__btn" href="/pages/returns-portal">Start a return</a>
+    <a class="sr-cta__btn" href={`${prefix}/pages/returns-portal`}>Start a return</a>
     <p class="sr-cta__note">Any questions? <a href="mailto:order@mirkash.com">order@mirkash.com</a></p>
   </section>
 </main>
@@ -87,7 +108,6 @@ const DETAILS = [
 <SiteFooter />
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
   body { background: #fff; }
   .hdr-menu-btn { display: none; }
@@ -96,12 +116,12 @@ const DETAILS = [
   .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
   .sr {
-    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #40382f; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
     background: #fff; color: var(--depth);
   }
   .sr-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
-  .sr em { font-style: italic; color: var(--cherry); }
+  .sr em { font-style: normal; color: var(--cherry); }
   .sr-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0 0 18px; }
   .sr-eyebrow--rose { color: #e7b7ae; }
 
@@ -134,6 +154,7 @@ const DETAILS = [
   @keyframes srIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   .sr-a p { font-size: 14.5px; line-height: 1.85; color: var(--ink); margin: 0 0 14px; }
   .sr-a p:last-child { margin-bottom: 0; }
+  .sr-a ul { margin: 0 0 14px; padding-left: 18px; font-size: 14.5px; line-height: 1.85; color: var(--ink); }
   .sr-a strong { font-weight: 600; color: var(--depth); }
   .sr-a a { color: var(--cherry); text-decoration: none; border-bottom: 1px solid rgba(139,26,26,.35); transition: border-color .2s; }
   .sr-a a:hover { border-color: var(--cherry); }
@@ -142,7 +163,7 @@ const DETAILS = [
   .sr-cta { background: var(--depth); color: #fff; text-align: center; padding: clamp(52px,6.5vw,96px) 24px; }
   .sr-cta__h { font-size: clamp(28px,3.4vw,44px); color: #fff; margin: 12px 0 12px; }
   .sr-cta__p { font-size: 15px; line-height: 1.7; color: rgba(255,255,255,.72); max-width: 46ch; margin: 0 auto 28px; }
-  .sr-cta__btn { display: inline-block; background: #fff; color: var(--depth); font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 16px 38px; transition: background .25s, color .25s; }
+  .sr-cta__btn { display: inline-block; background: #fff; color: var(--depth); font-family: 'Brooklyn', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 16px 38px; transition: background .25s, color .25s; }
   .sr-cta__btn:hover { background: var(--cherry); color: #fff; }
   .sr-cta__note { font-size: 13px; color: rgba(255,255,255,.6); margin: 24px 0 0; }
   .sr-cta__note a { color: #e7b7ae; text-decoration: none; }

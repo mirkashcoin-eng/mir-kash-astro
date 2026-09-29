@@ -112,7 +112,6 @@ const STEPS = [
 <SiteFooter />
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
   :root { --cherry: #8B1A1A; --depth: #2C1A0E; }
   body { background: #fff; }
   .hdr-menu-btn { display: none; }
@@ -121,12 +120,12 @@ const STEPS = [
   .site-header--minimal .hdr-right { grid-column: 3; justify-self: end; gap: 14px; }
 
   .mt {
-    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cream: #F6F1E9; --ink: #463d34; --mid: #6a655d; --faint: #a79f92; --rule: #e2dac9;
     background: #fff; color: var(--depth);
   }
   .mt-display { font-family: var(--serif); font-weight: 300; letter-spacing: 0; }
-  .mt em { font-style: italic; color: var(--cherry); }
+  .mt em { font-style: normal; color: var(--cherry); }
   .mt-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); font-weight: 600; margin: 0; }
   .mt-eyebrow--light { color: rgba(255,255,255,.85); }
 
@@ -173,7 +172,7 @@ const STEPS = [
   .mt-craft .mt-eyebrow { text-align: center; }
   .mt-craft__h { font-size: clamp(30px,4vw,50px); color: var(--depth); margin: 12px 0 18px; }
   .mt-craft__body { font-size: 15.5px; line-height: 1.85; color: var(--mid); margin: 0 0 32px; }
-  .mt-craft__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 15px 34px; transition: background .25s; }
+  .mt-craft__btn { display: inline-block; background: var(--depth); color: #fff; font-family: 'Brooklyn', sans-serif; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; text-decoration: none; padding: 15px 34px; transition: background .25s; }
   .mt-craft__btn:hover { background: var(--cherry); }
 
   /* Reveal on scroll */

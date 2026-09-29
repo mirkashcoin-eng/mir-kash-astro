@@ -1,4 +1,5 @@
 ---
+import CountrySelector from './CountrySelector.astro';
 
 const { marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
@@ -39,6 +40,7 @@ if (marketConfig.isDefault) navItems.push({ word: 'Try at Home', href: `${prefix
       </a>
 
       <div class="hdr-right">
+        <CountrySelector variant="header" />
         <a class="hdr-icon-btn hdr-account" href="/account" aria-label="Account">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
           <span class="hdr-account__dot" aria-hidden="true"></span>

@@ -24,30 +24,57 @@ function normalizeCat(productType: string, tags: string[]): string {
   return 'handbags';
 }
 
-const lightProducts = products.map((p) => ({
-  handle: p.handle,
-  name: p.title.toUpperCase(),
-  price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
-  variantId: p.variants?.edges?.[0]?.node.id ?? '',
-  cat: normalizeCat(p.productType || '', p.tags),
-  material: p.tags.find((t) => /leather|cactus|apple|rattan/i.test(t)) ?? '',
-  badge: p.tags.includes('best-seller')
-    ? 'Best Seller'
-    : p.tags.includes('new')
-    ? 'New'
-    : p.tags.includes('selling-fast')
-    ? 'Selling Fast'
-    : null,
-  image: p.featuredImage ? shopifyImage(p.featuredImage.url, 600) : null,
-  imageAlt: p.featuredImage?.altText ?? p.title,
-  hoverImage: (() => {
-    const node =
-      p.images?.edges?.find((e) => e.node.url !== p.featuredImage?.url)?.node ??
-      p.images?.edges?.[1]?.node ??
-      null;
-    return node ? shopifyImage(node.url, 600) : null;
-  })(),
-}));
+const badgeOf = (tags: string[]) =>
+  tags.includes('best-seller') ? 'Best Seller' : tags.includes('new') ? 'New' : tags.includes('selling-fast') ? 'Selling Fast' : null;
+
+// Shop All shows EVERY colour of every bag as its own card (one product per bag, colours as variants).
+// Only the consolidated listings are split — they carry custom.size_order and colour-tagged photo alt text
+// ("… in Nude, view 2"). Older colour-per-product listings still render as one card each.
+type Card = {
+  handle: string; href: string; name: string; colour: string; price: string; amount: number; variantId: string;
+  cat: string; badge: string | null; image: string | null; imageAlt: string; hoverImage: string | null;
+  size: number; order: number; available: boolean;
+};
+const cards: Card[] = [];
+products.forEach((p, pi) => {
+  const imgs = (p.images?.edges ?? []).map((e) => e.node);
+  const size = Number(p.sizeOrder?.value) || 99;
+  const base = { handle: p.handle, cat: normalizeCat(p.productType || '', p.tags), badge: badgeOf(p.tags), size };
+  const colourVariants = (p.variants?.edges ?? []).map((e) => e.node)
+    .map((v) => ({ v, colour: v.selectedOptions.find((o) => /colou?r/i.test(o.name))?.value ?? '' }))
+    .filter((x) => x.colour);
+  if (p.sizeOrder?.value && colourVariants.length > 1) {
+    colourVariants.forEach(({ v, colour }, vi) => {
+      const tag = ` in ${colour.toLowerCase()}`;
+      const own = imgs.filter((i) => { const a = (i.altText ?? '').toLowerCase(); return a.endsWith(tag) || a.includes(tag + ','); });
+      const primary = v.image ?? own[0] ?? p.featuredImage;
+      const hover = own.find((i) => i.url !== primary?.url) ?? null;
+      cards.push({
+        ...base,
+        href: `${marketConfig.urlPrefix}/products/${p.handle}?color=${encodeURIComponent(colour)}`,
+        name: p.title.toUpperCase(), colour,
+        price: formatMoney(v.price, marketConfig.locale), amount: Number(v.price.amount) || 0,
+        variantId: v.id, available: v.availableForSale,
+        image: primary ? shopifyImage(primary.url, 600) : null, imageAlt: primary?.altText ?? `${p.title} in ${colour}`,
+        hoverImage: hover ? shopifyImage(hover.url, 600) : null,
+        order: pi * 100 + vi,
+      });
+    });
+  } else {
+    const hoverNode = imgs.find((i) => i.url !== p.featuredImage?.url) ?? imgs[1] ?? null;
+    cards.push({
+      ...base,
+      href: `${marketConfig.urlPrefix}/products/${p.handle}`,
+      name: p.title.toUpperCase(), colour: '',
+      price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale), amount: Number(p.priceRange.minVariantPrice.amount) || 0,
+      variantId: p.variants?.edges?.[0]?.node.id ?? '', available: p.availableForSale,
+      image: p.featuredImage ? shopifyImage(p.featuredImage.url, 600) : null, imageAlt: p.featuredImage?.altText ?? p.title,
+      hoverImage: hoverNode ? shopifyImage(hoverNode.url, 600) : null,
+      order: pi * 100,
+    });
+  }
+});
+const lightProducts = cards;
 ---
 <BrandTicker />
 <SiteHeader />
@@ -60,6 +87,23 @@ const lightProducts = products.map((p) => ({
       <a href={homeHref}>Home</a><span class="sep">/</span>Shop All
     </p>
   </nav>
+
+  <div class="shop-bar">
+    <p class="shop-bar__count" id="shopCount">{lightProducts.length} pieces</p>
+    <div class="shop-bar__sort">
+      <button class="fb-sort" id="sortBtn" type="button" aria-haspopup="true" aria-expanded="false">
+        Sort: <span id="sortLabel">Featured</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="fb-sort-menu" id="sortMenu" role="menu">
+        <button type="button" data-sort="featured" class="is-active">Featured</button>
+        <button type="button" data-sort="size-asc">Size: small to large</button>
+        <button type="button" data-sort="size-desc">Size: large to small</button>
+        <button type="button" data-sort="price-asc">Price: low to high</button>
+        <button type="button" data-sort="price-desc">Price: high to low</button>
+      </div>
+    </div>
+  </div>
 
   <section class="shop-grid" id="shopGrid"></section>
   <div class="grid-sentinel" id="gridSentinel" aria-hidden="true"></div>
@@ -96,7 +140,7 @@ const lightProducts = products.map((p) => ({
     const card = document.createElement('a');
     card.className = 'shop-card';
     card.dataset.cat = p.cat;
-    card.href = `${marketPrefix}/products/${p.handle}`;
+    card.href = p.href;
 
     const badgeCls = p.badge === 'New' ? 'shop-card__badge--new' : '';
     const badgeHtml = p.badge
@@ -130,7 +174,8 @@ const lightProducts = products.map((p) => ({
       </div>
       <div class="shop-card__meta">
         <p class="shop-card__name">${p.name}</p>
-        <p class="shop-card__price">${p.price}</p>
+        ${p.colour ? `<p class="shop-card__colour">${p.colour}</p>` : ''}
+        <p class="shop-card__price">${p.available ? p.price : 'Sold out'}</p>
       </div>
     `;
 
@@ -150,7 +195,7 @@ const lightProducts = products.map((p) => ({
       e.stopPropagation();
       if (qa.dataset.busy === '1') return;
       // No variant id (or single-option lookup needed) → send them to the product page.
-      if (!p.variantId) { window.location.href = `${marketPrefix}/products/${p.handle}`; return; }
+      if (!p.variantId || !p.available) { window.location.href = p.href; return; }
       const original = qa.dataset.label || qa.textContent;
       qa.dataset.label = original;
       qa.dataset.busy = '1';
@@ -172,7 +217,7 @@ const lightProducts = products.map((p) => ({
       } catch {
         qa.textContent = original;
         qa.dataset.busy = '';
-        window.location.href = `${marketPrefix}/products/${p.handle}`;
+        window.location.href = p.href;
       }
     });
 
@@ -184,10 +229,17 @@ const lightProducts = products.map((p) => ({
   let renderIndex = 0;
   let currentFilter = 'all';
 
+  let currentSort = 'featured';
+  const SORTS = {
+    featured: (a, b) => a.order - b.order,
+    'size-asc': (a, b) => a.size - b.size || a.order - b.order,
+    'size-desc': (a, b) => (b.size === 99 ? 0 : b.size) - (a.size === 99 ? 0 : a.size) || a.order - b.order,
+    'price-asc': (a, b) => a.amount - b.amount || a.order - b.order,
+    'price-desc': (a, b) => b.amount - a.amount || a.order - b.order,
+  };
   function getFiltered() {
-    return currentFilter === 'all'
-      ? CATALOG.slice()
-      : CATALOG.filter(p => p.cat === currentFilter);
+    const items = currentFilter === 'all' ? CATALOG.slice() : CATALOG.filter(p => p.cat === currentFilter);
+    return items.sort(SORTS[currentSort] || SORTS.featured);
   }
 
   function renderBatch() {
@@ -220,6 +272,23 @@ const lightProducts = products.map((p) => ({
 
   resetGrid();
 
+  // Sort menu
+  const sortBtn = document.getElementById('sortBtn');
+  const sortMenu = document.getElementById('sortMenu');
+  sortBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = sortMenu.classList.toggle('is-open');
+    sortBtn.classList.toggle('is-open', open);
+    sortBtn.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', () => { sortMenu?.classList.remove('is-open'); sortBtn?.classList.remove('is-open'); });
+  sortMenu?.querySelectorAll('[data-sort]').forEach((b) => b.addEventListener('click', () => {
+    currentSort = b.dataset.sort;
+    sortMenu.querySelectorAll('[data-sort]').forEach((x) => x.classList.toggle('is-active', x === b));
+    document.getElementById('sortLabel').textContent = b.textContent;
+    resetGrid();
+  }));
+
   const sentinel = document.getElementById('gridSentinel');
   if (sentinel) {
     const io = new IntersectionObserver((entries) => {
@@ -236,11 +305,11 @@ const lightProducts = products.map((p) => ({
 <style is:global>
   /* ══════════════════════════════════════
      SHOP V2 — brand-aligned redesign
-     Cherry-red signature · serif/sans pair · Orchardcraft story
+     Cherry-red signature · serif/sans pair · Italian apple leather story
      ══════════════════════════════════════ */
 
   :root {
-    --serif:        'Jost', -apple-system, 'Helvetica Neue', sans-serif;
+    --serif:        'DM Serif Display', Georgia, 'Times New Roman', serif;
     --cherry:       #8B1A1A;
     --plum:         #5C2D3E;
     --earth:        #C8895A;
@@ -857,6 +926,12 @@ const lightProducts = products.map((p) => ({
     font-family: inherit;
     letter-spacing: 0;
   }
+
+  .shop-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px var(--gutter) 0; position: relative; }
+  .shop-bar__count { font-size: 11px; letter-spacing: var(--tr-caps); text-transform: uppercase; color: var(--ink-mid); font-weight: 500; }
+  .shop-bar__sort { position: relative; }
+  .shop-bar .fb-sort-menu { right: 0; }
+  .shop-card__colour { font-size: 12.5px; color: var(--ink-mid); margin-top: -3px; }
 
   .shop-grid {
     display: grid;

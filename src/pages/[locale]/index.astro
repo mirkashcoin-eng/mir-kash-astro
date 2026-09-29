@@ -6,6 +6,6 @@ import { getMarketBySlug } from '~/lib/markets';
 const market = getMarketBySlug(Astro.params.locale!);
 if (!market || market.isDefault) return new Response(null, { status: 404 });
 ---
-<BaseLayout title="Mir Kash" path="/">
+<BaseLayout title="Mir Kash | Vegan Leather Handbags for Women, Made Slowly" description={`Mir Kash makes vegan leather handbags for women, from apple leather shoulder bags to rhinestone clutches, built to last for years. ${market.store === 'india' ? 'Free shipping across India.' : 'Ships internationally.'}`} path="/">
   <Homepage />
 </BaseLayout>

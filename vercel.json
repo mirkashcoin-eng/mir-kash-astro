@@ -1,23 +1,74 @@
 {
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "crons": [
-    { "path": "/api/cron/reconcile-orders", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/whatsapp", "schedule": "0 4 * * *" }
+    {
+      "path": "/api/cron/reconcile-orders",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/whatsapp",
+      "schedule": "0 4 * * *"
+    }
   ],
   "rewrites": [
-    { "source": "/__/auth/:path*", "destination": "https://mir-kash-web.firebaseapp.com/__/auth/:path*" },
-    { "source": "/__/firebase/:path*", "destination": "https://mir-kash-web.firebaseapp.com/__/firebase/:path*" }
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://mir-kash-web.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/__/firebase/:path*",
+      "destination": "https://mir-kash-web.firebaseapp.com/__/firebase/:path*"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(self \"https://mirkash.whereby.com\"), microphone=(self \"https://mirkash.whereby.com\"), geolocation=(), interest-cohort=()" },
-        { "key": "Content-Security-Policy", "value": "object-src 'none'; base-uri 'self'; frame-ancestors 'self'" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self \"https://mirkash.whereby.com\"), microphone=(self \"https://mirkash.whereby.com\"), geolocation=(), interest-cohort=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+        }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/pages/our-story-1",
+      "destination": "/pages/about",
+      "permanent": true
+    },
+    {
+      "source": "/pages/our-story",
+      "destination": "/pages/about",
+      "permanent": true
+    },
+    {
+      "source": "/:locale(en-[a-z]{2})/pages/our-story-1",
+      "destination": "/:locale/pages/about",
+      "permanent": true
+    },
+    {
+      "source": "/:locale(en-[a-z]{2})/pages/our-story",
+      "destination": "/:locale/pages/about",
+      "permanent": true
     }
   ]
 }
