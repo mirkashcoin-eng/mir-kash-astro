@@ -933,7 +933,7 @@ const lightProducts = cards;
   .shop-bar .fb-sort-menu { right: 0; }
   .shop-card__colour { font-size: 11px; color: var(--ink-mid); margin-top: -1px; }
 
-  /* Big photo boxes: 2 across on phones with a slim gap, 3 across from tablet up. */
+  /* 2 across on phones (slim gap), 3 on tablets, 4 on desktop. */
   .shop-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));   /* minmax: long one-line names must not widen a column */
@@ -942,6 +942,7 @@ const lightProducts = cards;
     padding: 18px 10px 48px;
   }
   @media (min-width: 640px)  { .shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 12px; padding: 24px var(--gutter) 60px; } }
+  @media (min-width: 1024px) { .shop-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
   .shop-card { cursor: pointer; background: var(--paper); position: relative; }
   .shop-card__img-wrap {
