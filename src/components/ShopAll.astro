@@ -92,12 +92,12 @@ const lightProducts = cards;
     <p class="shop-bar__count" id="shopCount">{lightProducts.length} pieces</p>
     <div class="shop-bar__sort">
       <button class="fb-sort" id="sortBtn" type="button" aria-haspopup="true" aria-expanded="false">
-        Sort: <span id="sortLabel">Featured</span>
+        Sort: <span id="sortLabel">Size: small to large</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div class="fb-sort-menu" id="sortMenu" role="menu">
-        <button type="button" data-sort="featured" class="is-active">Featured</button>
-        <button type="button" data-sort="size-asc">Size: small to large</button>
+        <button type="button" data-sort="size-asc" class="is-active">Size: small to large</button>
+        <button type="button" data-sort="featured">Featured</button>
         <button type="button" data-sort="size-desc">Size: large to small</button>
         <button type="button" data-sort="price-asc">Price: low to high</button>
         <button type="button" data-sort="price-desc">Price: high to low</button>
@@ -229,7 +229,7 @@ const lightProducts = cards;
   let renderIndex = 0;
   let currentFilter = 'all';
 
-  let currentSort = 'featured';
+  let currentSort = 'size-asc';   // default: smallest bag first (custom.size_order = size group × 10 + rank)
   const SORTS = {
     featured: (a, b) => a.order - b.order,
     'size-asc': (a, b) => a.size - b.size || a.order - b.order,
