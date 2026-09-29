@@ -102,8 +102,11 @@ const featureCards: FeatureCard[] = metafieldCards.length || !DEV_PREVIEW ? meta
   { eyebrow: 'Sample', title: 'Placeholder card', body: 'Preview copy shown only in local development. Real cards come from the custom.feature_cards metafield.' },
 ];
 
-// Full-bleed editorial image: custom.fullbleed_image (https URL). Falls back to the gallery only in `astro dev`.
-const fullbleedUrl = /^https:\/\//.test(mf(product.fullbleedImage)) ? mf(product.fullbleedImage) : '';
+// Full-bleed editorial image: custom.fullbleed_image (21:9, desktop) + custom.fullbleed_image_mobile (4:5, phones; optional —
+// without it phones crop the desktop image). https URLs. Falls back to the gallery only in `astro dev`.
+const httpsOr = (v: string) => (/^https:\/\//.test(v) ? v : '');
+const fullbleedUrl = httpsOr(mf(product.fullbleedImage));
+const fullbleedMobileUrl = httpsOr(mf(product.fullbleedImageMobile));
 
 // ── Options & variants ───────────────────────────────────────────────────────
 const isRealOption = (name: string, values: string[]) =>
@@ -557,10 +560,13 @@ const faq = faqFor(product, marketConfig);
   </section>
   )}
 
-  <!-- ══ FULL-BLEED ══ — custom.fullbleed_image; hidden when a product has none -->
+  <!-- ══ FULL-BLEED ══ — custom.fullbleed_image (21:9) + custom.fullbleed_image_mobile (4:5); hidden when a product has none -->
   {SHOW_FULLBLEED && (
   <div class="full-bleed reveal">
-    <img src={fullbleedUrl || fullBleedImg} alt={product.title} />
+    <picture>
+      {fullbleedMobileUrl && <source media="(max-width: 900px)" srcset={fullbleedMobileUrl} />}
+      <img src={fullbleedUrl || fullBleedImg} alt={product.title} loading="lazy" />
+    </picture>
   </div>
   )}
 
@@ -1105,7 +1111,8 @@ const faq = faqFor(product, marketConfig);
   .feat__body { font-size: 13.5px; line-height: 1.8; color: #555; }
 
   /* ══ FEATURE STORY SLIDESHOW ══ */
-  .story { display: grid; grid-template-columns: 1fr 1fr; height: clamp(420px, 56vh, 600px); border-top: 1px solid var(--rule); }
+  /* The image box is always 3:2 (slide images are 2400 × 1600), so the photo is never cropped differently per screen. */
+  .story { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--rule); }
   .story__left { background: #fff; padding: clamp(3rem, 6vw, 5rem) clamp(2.5rem, 5vw, 5rem); display: flex; flex-direction: column; justify-content: space-between; }
   .story__slides { flex: 1; display: flex; align-items: center; }
   .s-slide { display: none; animation: fadeIn .45s ease; }
@@ -1126,11 +1133,12 @@ const faq = faqFor(product, marketConfig);
   .story-nav__ctr { font-size: 12px; letter-spacing: .06em; color: var(--mid); font-weight: 500; }
   .story-nav__pause { width: 26px; height: 26px; background: var(--depth); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; transition: background .2s; }
   .story-nav__pause:hover { background: var(--cherry); }
-  .story__right { overflow: hidden; }
+  .story__right { overflow: hidden; aspect-ratio: 3/2; align-self: center; }
   .story__img { width: 100%; height: 100%; object-fit: cover; transition: opacity .45s ease; }
 
   /* ══ FULL-BLEED ══ */
-  .full-bleed { width: 100%; aspect-ratio: 16/7; overflow: hidden; background: var(--depth); }
+  .full-bleed { width: 100%; aspect-ratio: 21/9; overflow: hidden; background: var(--depth); }   /* desktop file: 2520 × 1080 */
+  .full-bleed picture { display: contents; }
   .full-bleed img { width: 100%; height: 100%; object-fit: cover; }
 
   /* ══ REELS ══ */
@@ -1226,7 +1234,7 @@ const faq = faqFor(product, marketConfig);
     .feat-grid { grid-template-columns: 1fr; gap: 1.5rem; }
     .story { grid-template-columns: 1fr; }
     .story { height: auto; }
-    .story__right { aspect-ratio: 4/3; order: -1; }
+    .story__right { order: -1; }
     .reel { width: 66vw; max-width: 300px; }
     .rel-card { width: 52vw; max-width: 240px; }
     /* No hover on touch — the add button becomes a small always-visible "+" pill,
@@ -1240,7 +1248,7 @@ const faq = faqFor(product, marketConfig);
     .rel-card__add::before { content: '+'; font-size: 15px; font-weight: 300; line-height: 1; transform: translateY(-1px); }
     .rel-card__add.is-added { background: #3D6B4F; }
     .rel-card__add.is-added::before { content: '✓'; font-size: 12px; color: #fff; transform: none; }
-    .full-bleed { aspect-ratio: 4/5; }
+    .full-bleed { aspect-ratio: 4/5; }   /* phone file: 1080 × 1350 */
     body { padding-bottom: 80px; }
   }
   @media (max-width: 1200px) and (min-width: 901px) {

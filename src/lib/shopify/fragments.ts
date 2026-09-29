@@ -91,6 +91,7 @@ export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
     warranty: metafield(namespace: "custom", key: "warranty") { value }
     featureCards: metafield(namespace: "custom", key: "feature_cards") { value }
     fullbleedImage: metafield(namespace: "custom", key: "fullbleed_image") { value }
+    fullbleedImageMobile: metafield(namespace: "custom", key: "fullbleed_image_mobile") { value }
     # custom.reels = videos uploaded in Shopify admin (list of files). Shopify serves several mp4 sizes + a cover image.
     reels: metafield(namespace: "custom", key: "reels") {
       references(first: 10) { nodes { ... on Video { sources { url mimeType height } previewImage { url } } } }

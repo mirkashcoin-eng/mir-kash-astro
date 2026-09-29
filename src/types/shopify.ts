@@ -88,7 +88,8 @@ export interface ProductDetail extends Product {
   featureCards?: Metafield;     // [{ eyebrow, title, body }, …]  (3 cards)
   // custom.reels: this product's own videos, uploaded in Shopify admin (list.file_reference → Video).
   reels?: { references?: { nodes: Array<{ sources?: Array<{ url: string; mimeType: string; height?: number | null }>; previewImage?: { url: string } | null }> } | null } | null;
-  fullbleedImage?: Metafield;   // https URL of the full-width editorial image
+  fullbleedImage?: Metafield;   // https URL of the full-width editorial image (21:9 desktop)
+  fullbleedImageMobile?: Metafield;   // https URL of its 4:5 phone version
   productDetails?: Metafield;   // one bullet per line
   careGuide?: Metafield;
   shippingReturn?: Metafield;   // one line per point, market-specific
