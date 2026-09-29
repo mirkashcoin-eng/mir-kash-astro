@@ -4,7 +4,7 @@ import SiteHeader from './SiteHeader.astro';
 import NavDrawer from './NavDrawer.astro';
 import SiteFooter from './SiteFooter.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
-import { isStudioHero, shopifyImage } from '~/lib/shopifyImage';
+import { shopifyImage } from '~/lib/shopifyImage';
 import { formatMoney } from '~/lib/markets';
 
 const { market, marketConfig } = Astro.locals;
@@ -33,7 +33,7 @@ const badgeOf = (tags: string[]) =>
 type Card = {
   handle: string; href: string; name: string; colour: string; price: string; amount: number; variantId: string;
   cat: string; badge: string | null; image: string | null; imageAlt: string; hoverImage: string | null;
-  size: number; order: number; available: boolean; zoom: boolean;
+  size: number; order: number; available: boolean;
 };
 const cards: Card[] = [];
 products.forEach((p, pi) => {
@@ -56,7 +56,7 @@ products.forEach((p, pi) => {
         price: formatMoney(v.price, marketConfig.locale), amount: Number(v.price.amount) || 0,
         variantId: v.id, available: v.availableForSale,
         image: primary ? shopifyImage(primary.url, 600) : null, imageAlt: primary?.altText ?? `${p.title} in ${colour}`,
-        hoverImage: hover ? shopifyImage(hover.url, 600) : null, zoom: isStudioHero(primary?.url),
+        hoverImage: hover ? shopifyImage(hover.url, 600) : null,
         order: pi * 100 + vi,
       });
     });
@@ -69,7 +69,7 @@ products.forEach((p, pi) => {
       price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale), amount: Number(p.priceRange.minVariantPrice.amount) || 0,
       variantId: p.variants?.edges?.[0]?.node.id ?? '', available: p.availableForSale,
       image: p.featuredImage ? shopifyImage(p.featuredImage.url, 600) : null, imageAlt: p.featuredImage?.altText ?? p.title,
-      hoverImage: hoverNode ? shopifyImage(hoverNode.url, 600) : null, zoom: isStudioHero(p.featuredImage?.url),
+      hoverImage: hoverNode ? shopifyImage(hoverNode.url, 600) : null,
       order: pi * 100,
     });
   }
@@ -160,7 +160,7 @@ const lightProducts = cards;
 
     card.innerHTML = `
       <div class="shop-card__img-wrap">
-        <div class="shop-card__img shop-card__img--primary${p.zoom ? ' shop-card__img--zoom' : ''}" style="${primaryStyle}">
+        <div class="shop-card__img shop-card__img--primary" style="${primaryStyle}">
           ${placeholderText}
         </div>
         <div class="shop-card__img shop-card__img--alt" style="${altStyle}"></div>
@@ -933,15 +933,15 @@ const lightProducts = cards;
   .shop-bar .fb-sort-menu { right: 0; }
   .shop-card__colour { font-size: 11px; color: var(--ink-mid); margin-top: -1px; }
 
+  /* Big photo boxes: 2 across on phones with a slim gap, 3 across from tablet up. */
   .shop-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));   /* minmax: long one-line names must not widen a column */
     background: var(--paper);
-    gap: 14px;
-    padding: 24px var(--gutter) 60px;
+    gap: 16px 6px;
+    padding: 18px 10px 48px;
   }
-  @media (min-width: 640px)  { .shop-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 1024px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 640px)  { .shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 12px; padding: 24px var(--gutter) 60px; } }
 
   .shop-card { cursor: pointer; background: var(--paper); position: relative; }
   .shop-card__img-wrap {
@@ -956,10 +956,7 @@ const lightProducts = cards;
     width: 100%; height: 100%;
     transition: opacity .35s ease;
   }
-  /* Studio photos leave a lot of backdrop around the bag: zoom the main photo so the bag fills the tile.
-     The hover (lifestyle) photo is shown as shot. */
   .shop-card__img--primary { opacity: 1; }
-  .shop-card__img--zoom { transform: scale(1.35); }
   .shop-card__img--alt     { opacity: 0; }
   .shop-card:hover .shop-card__img--primary { opacity: 0; }
   .shop-card:hover .shop-card__img--alt     { opacity: 1; }
@@ -1335,7 +1332,8 @@ const lightProducts = cards;
       color: #fff;
       transform: none;
     }
-    .shop-card__meta { padding: 8px 2px 16px; }
+    .shop-card__meta { padding: 8px 2px 4px; }
+    .shop-card__name { font-size: 10px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .ann-center .ann-serif { display: none; }
     .foot-brandline { padding: 48px 24px; }

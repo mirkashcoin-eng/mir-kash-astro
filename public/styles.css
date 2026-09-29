@@ -820,9 +820,10 @@ img { display: block; max-width: 100%; }
     scroll-padding-left: var(--gutter);
   }
   .pr-grid::-webkit-scrollbar { display: none; }
-  .pr-card { flex: 0 0 43vw; scroll-snap-align: start; }
+  .pr-card { flex: 0 0 46vw; min-width: 0; scroll-snap-align: start; }   /* min-width: one-line names must not widen a card */
   .pr-img { aspect-ratio: 4 / 5.5; }
   .pr-meta { padding: 8px 2px 16px; }
+  .pr-name { font-size: 10px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .ed-grid { grid-template-columns: 1fr; }
   .ed-panel { aspect-ratio: 9 / 16; width: 100%; background-size: cover !important; background-image: var(--bg-m, var(--bg-d, none)); }

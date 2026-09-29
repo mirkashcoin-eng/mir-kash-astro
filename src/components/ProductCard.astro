@@ -1,7 +1,7 @@
 ---
 import type { Product } from '~/types/shopify';
 import { formatMoney } from '~/lib/markets';
-import { isStudioHero, shopifyImage } from '~/lib/shopifyImage';
+import { shopifyImage } from '~/lib/shopifyImage';
 
 interface Props {
   product: Product;
@@ -29,7 +29,7 @@ const hoverAlt = altNode?.altText ?? product.title;
 ---
 <a class="pr-card" href={href}>
   <div class="pr-img">
-    {imgSrc && <img class:list={['pr-img__primary', { 'pr-img__primary--zoom': isStudioHero(primary?.url) }]} src={imgSrc} alt={imgAlt} loading="lazy" />}
+    {imgSrc && <img class="pr-img__primary" src={imgSrc} alt={imgAlt} loading="lazy" />}
     {hoverSrc && <img class="pr-img__alt" src={hoverSrc} alt={hoverAlt} loading="lazy" aria-hidden="true" />}
   </div>
   <div class="pr-meta">
@@ -56,9 +56,6 @@ const hoverAlt = altNode?.altText ?? product.title;
     transition: opacity .4s ease;
   }
   a.pr-card:hover .pr-img__alt { opacity: 1; }
-  /* Studio photos leave a lot of backdrop around the bag: zoom the main photo so the bag fills the tile.
-     The hover (lifestyle) photo is shown as shot. */
-  a.pr-card .pr-img__primary--zoom { transform: scale(1.35); }
   a.pr-card .pr-colour { font-size: 11px; color: var(--ink-mid); margin: -1px 0 3px; }
   @media (prefers-reduced-motion: reduce) {
     a.pr-card .pr-img__alt { transition: none; }
