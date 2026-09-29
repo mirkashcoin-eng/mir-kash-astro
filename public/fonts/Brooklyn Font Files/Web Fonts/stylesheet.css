@@ -1,0 +1,96 @@
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-Bold.eot');
+    src: url('Brooklyn-Bold.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-Bold.woff2') format('woff2'),
+        url('Brooklyn-Bold.woff') format('woff'),
+        url('Brooklyn-Bold.ttf') format('truetype'),
+        url('Brooklyn-Bold.svg#Brooklyn-Bold') format('svg');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-SemiBoldItalic.eot');
+    src: url('Brooklyn-SemiBoldItalic.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-SemiBoldItalic.woff2') format('woff2'),
+        url('Brooklyn-SemiBoldItalic.woff') format('woff'),
+        url('Brooklyn-SemiBoldItalic.ttf') format('truetype'),
+        url('Brooklyn-SemiBoldItalic.svg#Brooklyn-SemiBoldItalic') format('svg');
+    font-weight: 600;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Brooklyn Normal';
+    src: url('Brooklyn-Normal.eot');
+    src: url('Brooklyn-Normal.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-Normal.woff2') format('woff2'),
+        url('Brooklyn-Normal.woff') format('woff'),
+        url('Brooklyn-Normal.ttf') format('truetype'),
+        url('Brooklyn-Normal.svg#Brooklyn-Normal') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-HeavyItalic.eot');
+    src: url('Brooklyn-HeavyItalic.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-HeavyItalic.woff2') format('woff2'),
+        url('Brooklyn-HeavyItalic.woff') format('woff'),
+        url('Brooklyn-HeavyItalic.ttf') format('truetype'),
+        url('Brooklyn-HeavyItalic.svg#Brooklyn-HeavyItalic') format('svg');
+    font-weight: 900;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-BoldItalic.eot');
+    src: url('Brooklyn-BoldItalic.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-BoldItalic.woff2') format('woff2'),
+        url('Brooklyn-BoldItalic.woff') format('woff'),
+        url('Brooklyn-BoldItalic.ttf') format('truetype'),
+        url('Brooklyn-BoldItalic.svg#Brooklyn-BoldItalic') format('svg');
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-Heavy.eot');
+    src: url('Brooklyn-Heavy.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-Heavy.woff2') format('woff2'),
+        url('Brooklyn-Heavy.woff') format('woff'),
+        url('Brooklyn-Heavy.ttf') format('truetype'),
+        url('Brooklyn-Heavy.svg#Brooklyn-Heavy') format('svg');
+    font-weight: 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Brooklyn Normal';
+    src: url('Brooklyn-Italic.eot');
+    src: url('Brooklyn-Italic.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-Italic.woff2') format('woff2'),
+        url('Brooklyn-Italic.woff') format('woff'),
+        url('Brooklyn-Italic.ttf') format('truetype'),
+        url('Brooklyn-Italic.svg#Brooklyn-Italic') format('svg');
+    font-weight: normal;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Brooklyn';
+    src: url('Brooklyn-SemiBold.eot');
+    src: url('Brooklyn-SemiBold.eot?#iefix') format('embedded-opentype'),
+        url('Brooklyn-SemiBold.woff2') format('woff2'),
+        url('Brooklyn-SemiBold.woff') format('woff'),
+        url('Brooklyn-SemiBold.ttf') format('truetype'),
+        url('Brooklyn-SemiBold.svg#Brooklyn-SemiBold') format('svg');
+    font-weight: 600;
+    font-style: normal;
+}
+

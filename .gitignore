@@ -27,3 +27,9 @@ yarn-error.log*
 pnpm-debug.log*
 .vercel
 .env*
+
+# Local working folders (not part of the website)
+brand-wiki/
+Product images/
+Temp/
+AdilQadri/
