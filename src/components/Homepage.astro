@@ -665,16 +665,16 @@ const [ROW_1, ROW_2, ROW_3] = HOME_ROWS.map((row) => {
     margin: 0 0 18px;
   }
   .home-demo__h {
-    font-family: var(--serif);
+    font-family: var(--font);   /* Brooklyn: DM Serif Display reads too heavy here */
     font-weight: 300;
     font-style: normal;
-    font-size: clamp(30px, 3.6vw, 52px);
-    line-height: 1.06;
-    letter-spacing: -0.005em;
+    font-size: clamp(28px, 3.2vw, 46px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
     color: var(--depth);
     margin: 0 0 18px;
   }
-  .home-demo__h em { font-style: normal; color: var(--cherry); font-weight: 400; }
+  .home-demo__h em { font-style: normal; color: var(--cherry); font-weight: 300; }
   .home-demo__sub {
     font-family: var(--font);
     font-weight: 300;
@@ -745,7 +745,7 @@ const [ROW_1, ROW_2, ROW_3] = HOME_ROWS.map((row) => {
   .site-footer { background: var(--paper); color: var(--depth); }
 
   .site-footer .fi-heading {
-    font-family: var(--serif);
+    font-family: var(--font);
     font-weight: 300;
     font-style: normal;
     font-size: clamp(22px, 2.2vw, 32px);
