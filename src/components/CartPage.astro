@@ -1,4 +1,5 @@
 ---
+import LeafIcon from './LeafIcon.astro';
 import { getCart } from '~/lib/shopify/cart';
 import { getCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
@@ -52,6 +53,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
                 {line.variantTitle && !/default title/i.test(line.variantTitle) && (
                   <div class="c-meta">{line.variantTitle}</div>
                 )}
+                {line.material && <div class="c-material"><LeafIcon size={11} /> {line.material}</div>}
                 <div class="c-bottom">
                   <div class="qty-control" data-line-id={line.id}>
                     <button class="qty-control__btn" data-act="dec" aria-label="Decrease quantity">−</button>
@@ -222,6 +224,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
   .c-name { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 500; color: var(--depth); line-height: 1.3; }
   .c-name:hover { color: var(--cherry); }
   .c-meta { font-family: var(--font); font-size: 13px; color: var(--mid); margin-top: 3px; }
+  .c-material { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--mid); margin-top: 3px; }
   .c-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 14px; }
   .qty-control { display: flex; align-items: center; border: 1px solid var(--rule); height: 34px; }
   .qty-control__btn { width: 32px; height: 100%; background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--depth); font-size: 15px; transition: color .2s, background .2s; }

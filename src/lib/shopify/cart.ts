@@ -103,6 +103,7 @@ function normalize(cart: ShopifyCart | null | undefined): CartView | null {
     quantity: node.quantity,
     title: node.merchandise.product.title,
     variantTitle: node.merchandise.title,
+    material: node.merchandise.product.materialName?.value ?? '',
     handle: node.merchandise.product.handle,
     price: Number(node.merchandise.price.amount),
     // GROSS (price × qty), deliberately not node.cost.totalAmount — that one is net

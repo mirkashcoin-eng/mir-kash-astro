@@ -154,7 +154,7 @@ export const CART_FRAGMENT = /* GraphQL */ `
               title
               price { ...MoneyFields }
               image { ...ImageFields }
-              product { title handle }
+              product { title handle materialName: metafield(namespace: "custom", key: "material_name") { value } }
             }
           }
         }

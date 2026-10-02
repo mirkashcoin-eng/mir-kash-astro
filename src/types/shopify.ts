@@ -119,7 +119,7 @@ export interface ShopifyCartLine {
     title: string;
     price: Money;
     image: ShopifyImage | null;
-    product: { title: string; handle: string };
+    product: { title: string; handle: string; materialName?: { value: string } | null };
   };
 }
 
@@ -139,6 +139,7 @@ export interface CartLineView {
   quantity: number;
   title: string;
   variantTitle: string;
+  material: string;               // custom.material_name, e.g. "Italian apple leather" (shown with the leaf)
   handle: string;
   price: number;
   lineTotal: number;              // GROSS: price × quantity, before any discount
