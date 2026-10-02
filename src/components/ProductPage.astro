@@ -429,7 +429,7 @@ const faq = faqFor(product, marketConfig);
       <div>
       {accordions.map((a) => (
         <div class="acc-item">
-          <button class="acc-btn"><span class="acc-title">{a.title}{a.vegan && <LeafIcon />}</span> <span class="acc-icon">+</span></button>
+          <button class="acc-btn"><span class="acc-title">{a.vegan && <LeafIcon />}{a.title}</span> <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
             {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
             {a.sub && <><p class="acc-sub">{a.sub.title}</p><ul>{a.sub.lines.map((l) => <li>{l}</li>)}</ul></>}
@@ -502,7 +502,7 @@ const faq = faqFor(product, marketConfig);
     <div class="mob-acc">
       {accordions.map((a) => (
         <div class="acc-item">
-          <button class="acc-btn"><span class="acc-title">{a.title}{a.vegan && <LeafIcon />}</span> <span class="acc-icon">+</span></button>
+          <button class="acc-btn"><span class="acc-title">{a.vegan && <LeafIcon />}{a.title}</span> <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
             {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
             {a.sub && <><p class="acc-sub">{a.sub.title}</p><ul>{a.sub.lines.map((l) => <li>{l}</li>)}</ul></>}
