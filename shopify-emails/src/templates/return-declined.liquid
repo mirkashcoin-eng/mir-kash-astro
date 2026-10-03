@@ -1,0 +1,31 @@
+---
+name: Return request declined
+section: Returns
+subject: About your return request for order {{ order.name }}
+---
+{%- capture email_title -%}We can't accept this return{%- endcapture -%}
+{%- capture email_preheader -%}About your return request for order {{ order.name }}.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+{%- assign mk_order_url = order.customer_order_url | default: order.order_status_url -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if return.decline.note != blank -%}
+    {{ return.decline.note }}
+  {%- elsif return.decline.reason == 'return_period_ended' -%}
+    We're sorry: we can only accept returns within {{ mk_return_days }} days of delivery, and this request came in after that.
+  {%- elsif return.decline.reason == 'final_sale' -%}
+    We're sorry: this piece was a final sale, so it can't be returned.
+  {%- else -%}
+    We're sorry: this piece isn't eligible for a return.
+  {%- endif -%}
+</p>
+<p style="%%p%%">If you think we've got this wrong, write to us at <a href="mailto:{{ mk_returns_email }}" style="%%link%%">{{ mk_returns_email }}</a> and we'll take another look.</p>
+
+{%- assign mk_button_url = mk_order_url | default: mk_site -%}
+{%- assign mk_button_label = 'View your order' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Return summary' -%}
+{% render 'section-start' %}
+{% render 'return-items' %}
+{% render 'section-end' %}

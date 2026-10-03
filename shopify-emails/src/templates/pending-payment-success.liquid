@@ -1,0 +1,25 @@
+---
+name: Payment success
+section: Orders
+subject: Payment received for order {{ order.name }}
+---
+{%- capture email_title -%}We've received your payment{%- endcapture -%}
+{%- capture email_preheader -%}Thank you. Order {{ order.name }} is paid and there's nothing more you need to do.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+<!-- body -->
+<p style="%%p%%">Thank you. Your payment for order {{ order.name }} has come through, and there's nothing more you need to do.</p>
+
+{%- assign mk_button_url = order_status_url | default: mk_site -%}
+{%- assign mk_button_label = 'View your order' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Your order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+{% render 'section-end' %}
+
+{%- assign mk_section = 'Delivery details' -%}
+{% render 'section-start' %}
+{% render 'addresses' %}
+{% render 'section-end' %}

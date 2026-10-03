@@ -1,0 +1,23 @@
+{
+  "financial_status": "paid",
+  "discount_applications": [
+    {
+      "target_selection": "all",
+      "title": "WELCOME10",
+      "total_allocated_amount": 251990
+    }
+  ],
+  "total_discounts": 251990,
+  "total_price": 2267910,
+  "total_outstanding": 0,
+  "transactions": [
+    {
+      "kind": "sale",
+      "status": "success",
+      "amount": 2267910,
+      "gateway": "cashfree",
+      "gateway_display_name": "Cashfree",
+      "payment_details": {}
+    }
+  ]
+}

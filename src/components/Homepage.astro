@@ -5,16 +5,13 @@ import NavDrawer from './NavDrawer.astro';
 import SiteFooter from './SiteFooter.astro';
 import ProductRow from './ProductRow.astro';
 import EditorialPanel from './EditorialPanel.astro';
+import ViewingPrompt from './ViewingPrompt.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
 import type { Product } from '~/types/shopify';
 
 const { market, marketConfig } = Astro.locals;
 const country = marketConfig.countryCode;
 const prefix = marketConfig.urlPrefix;
-// Try at Home is Mumbai-only. Rendered on the India storefront but hidden until
-// /api/geo confirms Mumbai (see BaseLayout) — the same data-geo gate the nav uses,
-// so the banner can't advertise the service to visitors the nav hides it from.
-const showHomeDemo = marketConfig.isDefault;
 
 // The three product rows: one colour of a bag per card. (These were Shopify collections of the old
 // one-colour listings; a collection can't pick a colour of the new one-per-bag products, so the picks live here.)
@@ -77,23 +74,11 @@ const [ROW_1, ROW_2, ROW_3] = HOME_ROWS.map((row) => {
     </div>
   </section>
 
-  {showHomeDemo && (
-    <section class="home-demo" data-geo="demo" hidden>
-      <div class="home-demo__text">
-        <p class="home-demo__eyebrow">Mumbai &middot; Private Try at Home</p>
-        <h2 class="home-demo__h">Try at home. <em>No pressure.</em></h2>
-        <p class="home-demo__sub">We bring up to six bags to your door, so you can see them in your own light before you decide. Complimentary, and Mumbai only.</p>
-        <a class="home-demo__cta" href={`${prefix}/try-at-home`}>Book a Try at Home <span aria-hidden="true">&rarr;</span></a>
-      </div>
-      <a class="home-demo__img" href={`${prefix}/try-at-home`} aria-label="Book a Try at Home">
-        <img src="/ed-tophandle.jpeg" alt="A Mir Kash bag, tried at home" loading="lazy" />
-      </a>
-    </section>
-  )}
-
+  <div data-vp-sentinel aria-hidden="true"></div>
 </main>
 
 <SiteFooter />
+<ViewingPrompt page="home" />
 
 <style is:global>
   /* ══════════════════════════════════════
@@ -635,76 +620,6 @@ const [ROW_1, ROW_2, ROW_3] = HOME_ROWS.map((row) => {
     .manifesto { padding: 72px 24px; }
     .manifesto__body { font-size: 26px; max-width: 18ch; }
     .manifesto__built { font-size: 10.5px; gap: 12px; }
-  }
-
-  /* ══════════════════════════════════════
-     HOME DEMO INVITE (Mumbai) — split band
-     ══════════════════════════════════════ */
-  /* display:grid would otherwise beat the UA stylesheet's [hidden] rule and the
-     banner would show to every visitor, geo gate or not. */
-  .home-demo[hidden] { display: none; }
-  .home-demo {
-    display: grid;
-    grid-template-columns: 1.02fr 0.98fr;
-    align-items: stretch;
-    background: var(--cream);
-    border-top: 1px solid var(--rule);
-  }
-  .home-demo__text {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: clamp(48px, 6vw, 104px) clamp(28px, 5vw, 84px);
-  }
-  .home-demo__eyebrow {
-    font-size: 11px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--cherry);
-    margin: 0 0 18px;
-  }
-  .home-demo__h {
-    font-family: var(--font);   /* Brooklyn: DM Serif Display reads too heavy here */
-    font-weight: 300;
-    font-style: normal;
-    font-size: clamp(28px, 3.2vw, 46px);
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    color: var(--depth);
-    margin: 0 0 18px;
-  }
-  .home-demo__h em { font-style: normal; color: var(--cherry); font-weight: 300; }
-  .home-demo__sub {
-    font-family: var(--font);
-    font-weight: 300;
-    font-size: clamp(15px, 1.3vw, 18px);
-    line-height: 1.6;
-    color: var(--ink-mid);
-    max-width: 40ch;
-    margin: 0 0 30px;
-  }
-  .home-demo__cta {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--depth);
-    color: #fff;
-    padding: 15px 32px;
-    font-size: 11px;
-    letter-spacing: var(--tr-caps);
-    text-transform: uppercase;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background .25s ease;
-  }
-  .home-demo__cta:hover { background: var(--cherry); }
-  .home-demo__img { display: block; overflow: hidden; min-height: 340px; }
-  .home-demo__img img { width: 100%; height: 100%; object-fit: cover; }
-  @media (max-width: 820px) {
-    .home-demo { grid-template-columns: 1fr; }
-    .home-demo__img { min-height: 260px; order: -1; }
   }
 
   /* ══════════════════════════════════════

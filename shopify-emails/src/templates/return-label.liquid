@@ -1,0 +1,21 @@
+---
+name: Return label
+section: Returns
+subject: Your return label for order {{ order.name }}
+---
+{%- capture email_title -%}Your return label is ready{%- endcapture -%}
+{%- capture email_preheader -%}Print it, attach it to the parcel, and hand it to the courier.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+<!-- body -->
+<p style="%%p%%">Here's your return label. Three steps and it's on its way back to us:</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr><td width="28" style="%%p%%;color:#3D6B4F;vertical-align:top;">1</td><td style="%%p%%">Pack the bag unused, in its dust bag and Mir Kash box.</td></tr>
+  <tr><td width="28" style="%%p%%;color:#3D6B4F;vertical-align:top;">2</td><td style="%%p%%">Print the label and attach it to the parcel, covering any old labels.</td></tr>
+  <tr><td width="28" style="%%p%%;color:#3D6B4F;vertical-align:top;">3</td><td style="%%p%%">Hand the parcel to the courier named on the label.</td></tr>
+</table>
+
+{%- assign mk_button_url = return_label.public_file_url -%}
+{%- assign mk_button_label = 'Print return label' -%}
+{% render 'button' %}
+
+<p style="%%small%%;margin:20px 0 0;">Questions about your return? Write to us at <a href="mailto:{{ mk_returns_email }}" style="%%link%%">{{ mk_returns_email }}</a>.</p>

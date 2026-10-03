@@ -1,0 +1,6 @@
+{%- comment -%} How to pack and where to send a return (store policy: brand-wiki/SHIPPING-RETURNS-POLICY.md). {%- endcomment -%}
+{%- capture mk_callout_body -%}
+  Pack the bag unused, in its dust bag and Mir Kash box, and send it by a tracked service to:<br><strong>Mir Kash Returns, {{ mk_return_address }}</strong><br>We'll refund the item price to your original payment method within 14 days of receiving it.
+{%- endcapture -%}
+{%- assign mk_callout_title = 'Sending it back' -%}
+{% render 'callout' %}

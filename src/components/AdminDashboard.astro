@@ -29,6 +29,7 @@
       <button class="ad-nav__item" data-view="orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></button>
       <button class="ad-nav__item" data-view="fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></button>
       <button class="ad-nav__item" data-view="demos">Try at Home <span class="ad-nav__n" id="nDemos"></span></button>
+      <button class="ad-nav__item" data-view="viewings">Private Viewings <span class="ad-nav__n" id="nViewings"></span></button>
       <button class="ad-nav__item" data-view="affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></button>
       <button class="ad-nav__item" data-view="newsletter">Newsletter <span class="ad-nav__n" id="nNews"></span></button>
       <span class="ad-nav__grp ad-nav__grp--founders">Admin</span>
@@ -59,6 +60,7 @@
       <section class="ad-view" data-view="overview" hidden>
         <h1 class="ad-display ad-h1">Overview</h1>
         <div class="ad-kpis" id="kpis"></div>
+        <div id="promptBody"></div>
         <div id="productsBody"></div>
         <div id="countryBody"></div>
         <div class="ad-panel">
@@ -92,6 +94,10 @@
       <section class="ad-view" data-view="demos" hidden>
         <h1 class="ad-display ad-h1">Try at Home bookings</h1>
         <div class="ad-panel"><div class="ad-scroll" id="allDemos"></div></div>
+      </section>
+      <section class="ad-view" data-view="viewings" hidden>
+        <h1 class="ad-display ad-h1">Private Viewing bookings</h1>
+        <div class="ad-panel"><div class="ad-scroll" id="allViewings"></div></div>
       </section>
       <section class="ad-view" data-view="affiliates" hidden>
         <h1 class="ad-display ad-h1">Affiliates</h1>
@@ -158,6 +164,7 @@
   (function () {
     var ABANDONED = [];
     var DEMOS = [];
+    var VIEWINGS = [];
     var PEOPLE = [];
     var ORDERS = [];
     var AFFILIATES = [];
@@ -229,6 +236,22 @@
         return '<tr data-idx="' + i + '"><td class="nm">' + esc(d.customer || 'Guest') + '</td><td>' + demoPill(d.status) + '</td><td>' + esc(d.date || '—') + (d.slot ? '<div class="sub">' + esc(d.slot) + '</div>' : '') + '</td><td>' + esc(d.bags || '—') + '</td><td class="sub">' + contact(d.email, d.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
       }).join('') + '</tbody></table>';
     }
+    function viewingPill(status) {
+      if (status === 'completed') return '<span class="ad-pill ad-pill--done">Completed</span>';
+      if (status === 'confirmed') return '<span class="ad-pill ad-pill--good">Confirmed</span>';
+      return '<span class="ad-pill ad-pill--wait">Requested</span>';
+    }
+    // "Customer" here is whoever booked — there's no shipping-address name on a Private
+    // Viewing draft order (unlike demos), only email/phone, so that's the display name.
+    // r.name is the Shopify draft order's own number (e.g. "#D123"), not a person.
+    function viewingWho(v) { return v.email || v.phone || 'Guest'; }
+    function viewingsTable(viewings) {
+      if (!viewings.length) return '<p class="ad-note ad-pad">No Private Viewing bookings yet.</p>';
+      return '<table class="ad-table ad-table--click"><thead><tr><th>Customer</th><th>Status</th><th>Date &amp; slot</th><th>Bags</th><th>Location</th><th>Contact</th><th></th></tr></thead><tbody>' + viewings.map(function (v, i) {
+        var loc = [v.city, v.country].filter(Boolean).join(', ');
+        return '<tr data-idx="' + i + '"><td class="nm">' + esc(viewingWho(v)) + '<div class="sub">' + esc(v.name || '') + '</div></td><td>' + viewingPill(v.status) + '</td><td>' + esc(v.date || '—') + (v.slot ? '<div class="sub">' + esc(v.slot) + '</div>' : '') + '</td><td>' + esc(v.bags || '—') + '</td><td class="sub">' + (loc ? esc(loc) : '—') + '</td><td class="sub">' + contact(v.email, v.phone) + '</td><td class="r"><span class="ad-rowview">View →</span></td></tr>';
+      }).join('') + '</tbody></table>';
+    }
     function subscribersTable(subs) {
       if (!subs) return '<p class="ad-note ad-pad">Newsletter signups aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p>';
       if (!subs.length) return '<p class="ad-note ad-pad">No newsletter signups yet.</p>';
@@ -288,6 +311,7 @@
       setBadge('nPeople', unreadCount('people', PEOPLE, function (p) { return p.lastSeen || p.firstSeen; }));
       setBadge('nOrders', unreadCount('orders', ORDERS, byCreated));
       setBadge('nDemos', unreadCount('demos', DEMOS, byCreated));
+      setBadge('nViewings', unreadCount('viewings', VIEWINGS, byCreated));
       setBadge('nAff', unreadCount('affiliates', AFFILIATES, function (a) { return a.createdAt; }));
       setBadge('nNews', unreadCount('newsletter', SUBSCRIBERS || [], function (s) { return s.createdAt; }));
       // Fulfilment is a work queue, not a feed: the badge is how much is waiting
@@ -350,6 +374,8 @@
       FUNNEL_DAILY = data.funnelDaily || {};
       var demos = data.demos || [];
       DEMOS = demos;
+      var viewings = data.viewings || [];
+      VIEWINGS = viewings;
       PEOPLE = data.people || [];
       AFFILIATES = data.affiliates || [];
       SUBSCRIBERS = ('subscribers' in data) ? data.subscribers : [];
@@ -372,9 +398,11 @@
       $('ovOrders').innerHTML = ordersTable(orders.slice(0, 8));
       $('allOrders').innerHTML = ordersTable(orders);
       $('allDemos').innerHTML = demosTable(demos);
+      $('allViewings').innerHTML = viewingsTable(viewings);
       $('allSubs').innerHTML = subscribersTable(SUBSCRIBERS);
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
+      renderPrompt(data.prompt);
       renderProducts(data.products);
       renderCountries(PEOPLE);
       renderAffiliates(data.affiliates);
@@ -800,6 +828,31 @@
       renderAffiliates(AFFILIATES);
       switchView('affiliates');
       stampUpdated();
+    }
+
+    // ── Booking prompt (Try at Home / Private Viewing dialog) ─────────────────
+    // Counts are impressions: the dialog shows at most once per visit per page kind, so
+    // "saw it" ≈ visits that reached it. Closed + went ahead needn't add to 100% — the
+    // rest left the page without doing either.
+    function pct(n, d) { return d ? Math.round((n / d) * 100) : 0; }
+    function renderPrompt(p) {
+      var body = $('promptBody'); if (!body) return;
+      if (!p || !p.all || !p.all.shown) { body.innerHTML = ''; return; }
+      var a = p.all;
+      var rows = hbarRow('Saw it', String(a.shown), 100, '') +
+        hbarRow('Closed it', a.dismiss + ' · ' + pct(a.dismiss, a.shown) + '%', pct(a.dismiss, a.shown), '') +
+        hbarRow('Went ahead', a.click + ' · ' + pct(a.click, a.shown) + '%', pct(a.click, a.shown), '');
+      var splits = [
+        ['Homepage', p.byPage.home], ['Shop All', p.byPage.shop], ['Product pages', p.byPage.product],
+        ['Try at Home offer', p.byOffer.tryhome], ['Private Viewing offer', p.byOffer.viewing],
+      ].filter(function (x) { return x[1].shown; });
+      var max = splits.reduce(function (m, x) { return Math.max(m, x[1].shown); }, 1);
+      var splitRows = splits.map(function (x) {
+        var c = x[1];
+        return hbarRow(x[0], c.shown + ' saw · ' + pct(c.dismiss, c.shown) + '% closed · ' + pct(c.click, c.shown) + '% went ahead', (c.shown / max) * 100, '');
+      }).join('');
+      body.innerHTML = hbars('Booking prompt', 'last ' + p.days + ' days · went ahead = tapped Book', rows) +
+        (splitRows ? hbars('Booking prompt by page and offer', 'saw · closed · went ahead', splitRows) : '');
     }
 
     // ── Most-viewed products ──────────────────────────────────────────────────
@@ -1490,6 +1543,119 @@
       if (k) k.addEventListener('click', function () { doDemoAction(idx, { action: 'complete' }, k); });
     }
 
+    // ── Private Viewing detail + confirm/complete ─────────────────────────────
+    // Parallel to the home-demo drawer above — kept as its own block rather than a
+    // shared helper, since a viewing has no shipping address but does have a
+    // city/country and a host join link the demo drawer has no equivalent of.
+    function confirmViewingMsg(r) {
+      var d = fmtISO(r.confirmedDate), t = fmt12(r.confirmedTime);
+      var whenTxt = (d || r.date || '') + (t ? ' at ' + t : (r.slot ? ' (' + r.slot + ')' : ''));
+      var loc = [r.city, r.country].filter(Boolean).join(', ');
+      var subject = 'Your Mir Kash Private Viewing is confirmed';
+      var body = 'Hi there,\n\nYour Mir Kash Private Viewing is confirmed for ' + whenTxt + '.\n\n' +
+        (loc ? 'Location: ' + loc + '\n' : '') +
+        (r.bags ? "Bags we'll show: " + r.bags + '\n' : '') +
+        '\nWe look forward to meeting you online. Just reply to this email or call us if anything changes.\n\nWarmly,\nMir Kash';
+      var wa = 'Hi there, your Mir Kash Private Viewing is confirmed for ' + whenTxt + '.' +
+        (loc ? ' Location: ' + loc + '.' : '') + ' See you then! — Mir Kash';
+      return { subject: subject, body: body, wa: wa };
+    }
+    function buildViewingDrawer(r) {
+      var status = r.status || 'requested';
+      var bagsList = (r.bags || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var telDigits = (r.phone || '').replace(/[^0-9]/g, '');
+      var m = confirmViewingMsg(r);
+      var notify = '';
+      if (r.email) notify += '<a class="ad-dbtn ad-dbtn--fill" href="mailto:' + esc(r.email) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body) + '">Email confirmation</a>';
+      if (telDigits) notify += '<a class="ad-dbtn ad-dbtn--wa" href="https://wa.me/' + telDigits + '?text=' + encodeURIComponent(m.wa) + '" target="_blank" rel="noopener">WhatsApp</a>';
+      // The whole point of this feature: a one-click way for the admin to actually
+      // get on the call as host, once the viewing is confirmed and a room exists.
+      var hostBtn = (status === 'confirmed' && r.hostRoomUrl) ? '<a class="ad-dbtn ad-dbtn--fill" href="' + esc(r.hostRoomUrl) + '" target="_blank" rel="noopener">Join as host →</a>' : '';
+
+      var actionSect;
+      if (status === 'requested') {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirm this Private Viewing</h3>' +
+          '<p class="ad-reqnote">Requested: ' + esc(r.date || '—') + (r.slot ? ' · ' + esc(r.slot) : '') + '</p>' +
+          '<div class="ad-form"><label class="ad-flabel">Date<input class="ad-finput" type="date" id="viewingDate"></label>' +
+          '<label class="ad-flabel">Time<input class="ad-finput" type="time" id="viewingTime"></label></div>' +
+          '<button class="ad-dbtn ad-dbtn--fill ad-dbtn--wide" id="viewingConfirm" type="button">Confirm booking</button>' +
+          '<p class="ad-actmsg" id="viewingMsg"></p></div>';
+      } else if (status === 'confirmed') {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirmed for</h3>' +
+          '<p class="ad-confirmed">' + esc(fmtISO(r.confirmedDate)) + ' · ' + esc(fmt12(r.confirmedTime)) + '</p>' +
+          (hostBtn ? '<div class="ad-dactions">' + hostBtn + '</div>' : '') +
+          '<p class="ad-note ad-notifynote">Send the customer their confirmation:</p>' +
+          '<div class="ad-dactions">' + notify + '</div>' +
+          '<button class="ad-dbtn ad-dbtn--wide" id="viewingComplete" type="button">Mark Private Viewing complete</button>' +
+          '<p class="ad-actmsg" id="viewingMsg"></p></div>';
+      } else {
+        actionSect =
+          '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Private Viewing completed</h3>' +
+          '<p class="ad-confirmed">' + (r.confirmedDate ? esc(fmtISO(r.confirmedDate)) + (r.confirmedTime ? ' · ' + esc(fmt12(r.confirmedTime)) : '') : 'Marked complete') + '</p>' +
+          (notify ? '<div class="ad-dactions">' + notify + '</div>' : '') + '</div>';
+      }
+
+      var footer = [];
+      if (r.adminUrl) footer.push('<a class="ad-dbtn" href="' + esc(r.adminUrl) + '" target="_blank" rel="noopener">Open in Shopify →</a>');
+      if (telDigits) footer.push('<a class="ad-dbtn" href="tel:+' + telDigits + '">Call</a>');
+
+      var location = [r.city, r.country].filter(Boolean).join(', ');
+
+      return '' +
+        '<div class="ad-dhead">' + viewingPill(status) +
+          '<h2 class="ad-display ad-dtitle">' + esc(viewingWho(r)) + '</h2>' +
+          '<p class="ad-dmeta">' + esc(r.name) + ' · Booked ' + when(r.createdAt) + '</p>' +
+        '</div>' +
+        actionSect +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Contact</h3>' +
+          '<div class="ad-drow"><span class="ad-dk">Email</span><span class="ad-dvv">' + (r.email ? esc(r.email) : '<span class="ad-dv">—</span>') + '</span></div>' +
+          '<div class="ad-drow"><span class="ad-dk">Phone</span><span class="ad-dvv">' + (r.phone ? esc(r.phone) : '<span class="ad-dv">—</span>') + '</span></div>' +
+        '</div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Requested slot</h3><p class="ad-daddr">' + esc(r.date || '—') + (r.slot ? '<br>' + esc(r.slot) : '') + '</p></div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Bags to show</h3>' + (bagsList.length ? '<ul class="ad-baglist">' + bagsList.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>' : '<p class="ad-dv">—</p>') + '</div>' +
+        '<div class="ad-dsect"><h3 class="ad-dh3">Location</h3><p class="ad-daddr">' + (location ? esc(location) : '<span class="ad-dv">—</span>') + '</p></div>' +
+        (footer.length ? '<div class="ad-dactions">' + footer.join('') + '</div>' : '');
+    }
+    function viewingMsg(t) { var el = $('viewingMsg'); if (el) el.textContent = t || ''; }
+    async function doViewingAction(idx, payload, btn) {
+      var r = VIEWINGS[idx]; if (!r) return;
+      viewingMsg('Saving…'); if (btn) btn.disabled = true;
+      var headers = await authHeaders();
+      if (!headers) { viewingMsg('Session expired — reload and sign in again.'); if (btn) btn.disabled = false; return; }
+      headers['Content-Type'] = 'application/json';
+      try {
+        var resp = await fetch('/api/admin/viewing', { method: 'POST', headers: headers, body: JSON.stringify(Object.assign({ id: r.id }, payload)) });
+        var res = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !res || !res.ok) { viewingMsg((res && res.error) || 'Could not save — try again.'); if (btn) btn.disabled = false; return; }
+        if (payload.action === 'confirm') { r.status = 'confirmed'; r.confirmedDate = res.confirmedDate; r.confirmedTime = res.confirmedTime; }
+        else if (payload.action === 'complete') { r.status = 'completed'; }
+        $('allViewings').innerHTML = viewingsTable(VIEWINGS);
+        openViewingDrawer(idx);
+      } catch (e) { viewingMsg('Network error — try again.'); if (btn) btn.disabled = false; }
+    }
+    function wireViewingActions(idx) {
+      var c = $('viewingConfirm');
+      if (c) c.addEventListener('click', function () {
+        var date = ($('viewingDate') || {}).value || '';
+        var time = ($('viewingTime') || {}).value || '';
+        if (!date || !time) { viewingMsg('Pick a date and time first.'); return; }
+        doViewingAction(idx, { action: 'confirm', date: date, time: time }, c);
+      });
+      var k = $('viewingComplete');
+      if (k) k.addEventListener('click', function () { doViewingAction(idx, { action: 'complete' }, k); });
+    }
+    function openViewingDrawer(idx) {
+      var r = VIEWINGS[idx];
+      if (!r) return;
+      $('drawerBody').innerHTML = buildViewingDrawer(r);
+      $('drawerBody').scrollTop = 0;
+      $('drawer').hidden = false;
+      document.body.style.overflow = 'hidden';
+      wireViewingActions(idx);
+    }
+
     function openDrawer(kind, idx) {
       var r = DEMOS[idx];
       if (!r) return;
@@ -1506,6 +1672,10 @@
     $('allDemos').addEventListener('click', function (e) {
       var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
       if (tr) openDrawer('demo', Number(tr.getAttribute('data-idx')));
+    });
+    $('allViewings').addEventListener('click', function (e) {
+      var tr = e.target.closest ? e.target.closest('tr[data-idx]') : null;
+      if (tr) openViewingDrawer(Number(tr.getAttribute('data-idx')));
     });
     $('drawerClose').addEventListener('click', closeDrawer);
     $('drawerScrim').addEventListener('click', closeDrawer);

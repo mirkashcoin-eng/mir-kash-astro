@@ -1,12 +1,10 @@
 import type { APIRoute } from 'astro';
+import { MUMBAI_AREA } from '~/lib/cities';
 
 export const prerender = false;
 
-// Cities of the Mumbai Metropolitan Region — a visitor here can book a home demo.
-const MUMBAI_AREA = [
-  'mumbai', 'navi mumbai', 'thane', 'kalyan', 'dombivli', 'mira', 'bhayandar',
-  'vasai', 'virar', 'ulhasnagar', 'panvel', 'badlapur', 'ambernath', 'ambarnath',
-];
+// MUMBAI_AREA: cities of the Mumbai Metropolitan Region — a visitor here can book a
+// home demo. Shared with the booking forms' city check (src/lib/cities.ts).
 
 // Tells the storefront whether the visitor is in the Mumbai area (from Vercel's
 // edge geolocation of their IP), so Try at Home shows only for them. Pages are

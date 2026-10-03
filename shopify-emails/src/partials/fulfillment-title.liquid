@@ -1,0 +1,13 @@
+{%- comment -%}
+  Picks the headline for a shipping-stage email from how much of the order this fulfillment covers.
+  Needs: mk_stage, e.g. 'is on its way' (it follows "Your order", "Some of your order" …).
+{%- endcomment -%}
+{%- if fulfillment.item_count == item_count -%}
+  {%- capture email_title -%}Your order {{ mk_stage }}{%- endcapture -%}
+{%- elsif fulfillment_status == 'fulfilled' -%}
+  {%- capture email_title -%}The rest of your order {{ mk_stage }}{%- endcapture -%}
+{%- elsif fulfillment.item_count > 1 -%}
+  {%- capture email_title -%}Some of your order {{ mk_stage }}{%- endcapture -%}
+{%- else -%}
+  {%- capture email_title -%}One piece from your order {{ mk_stage }}{%- endcapture -%}
+{%- endif -%}

@@ -1,0 +1,19 @@
+{%- comment -%} The products in a return (return.line_items). {%- endcomment -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for line_item in return.line_items %}
+  {%- comment -%} line_item.title is "Product - Variant": drop the variant, it's shown underneath. {%- endcomment -%}
+  {%- assign mk_variant_suffix = ' - ' | append: line_item.variant_title -%}
+  {%- assign mk_item_title = line_item.title | remove: mk_variant_suffix -%}
+  {%- if line_item.image %}{% capture mk_item_image %}{{ line_item | img_url: '240x', format: 'jpg' }}{% endcapture %}{% else %}{% assign mk_item_image = '' %}{% endif -%}
+  {%- capture mk_item_meta -%}
+    {%- if line_item.variant_title != 'Default Title' and line_item.variant_title != blank %}{{ line_item.variant_title }}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif -%}
+    Qty {{ line_item.quantity }}
+  {%- endcapture -%}
+  {%- assign mk_item_note = '' -%}
+  {%- capture mk_item_price -%}
+    {%- if line_item.original_line_price != line_item.final_line_price %}<span style="%%strike%%">{{ line_item.original_line_price | money }}</span><br>{% endif -%}
+    {%- if line_item.final_line_price > 0 %}{{ line_item.final_line_price | money }}{% else %}Free{% endif -%}
+  {%- endcapture -%}
+  {% render 'item-row' %}
+{%- endfor %}
+</table>

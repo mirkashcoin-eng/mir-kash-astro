@@ -1,0 +1,26 @@
+---
+name: Payment error
+section: Orders
+subject: Your payment for order {{ order_name }} didn't go through
+---
+{%- capture email_title -%}Your payment didn't go through{%- endcapture -%}
+{%- capture email_preheader -%}We couldn't take the payment for order {{ order_name }}. You can try again in a minute.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">We couldn't take the payment for order {{ order_name }}, so it's on hold for now. You can try again with the same card or a different one.</p>
+
+{%- assign mk_button_url = checkout_payment_collection_url | default: mk_site -%}
+{%- assign mk_button_label = 'Try again' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Your order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="%%total-label%%;color:#8B1A1A;font-weight:600;">Amount due</td>
+    <td style="%%total-value%%;color:#8B1A1A;font-weight:600;">{{ total_outstanding | money_with_currency }}</td>
+  </tr>
+</table>
+{% render 'section-end' %}

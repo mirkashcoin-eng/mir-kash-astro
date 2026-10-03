@@ -1,0 +1,28 @@
+---
+name: Gift card created
+section: Gift cards
+subject: Your {{ gift_card.balance | money_without_trailing_zeros }} Mir Kash gift card
+---
+{%- capture email_title -%}Your gift card is ready{%- endcapture -%}
+{%- capture email_preheader -%}A {{ gift_card.balance | money_without_trailing_zeros }} Mir Kash gift card, ready to use.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Gift card' -%}
+<!-- body -->
+<p style="%%p%%">Your {{ gift_card.balance | money_without_trailing_zeros }} Mir Kash gift card is active. Keep this email: open the card below to see its number, and enter it at checkout.</p>
+{%- if gift_card.expires_on != blank %}
+<p style="%%p%%">It can be used until {{ gift_card.expires_on | date: '%-d %B %Y' }}.</p>
+{%- endif %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
+  <tr>
+    <td class="mk-serif" style="%%code%%">{{ gift_card.balance | money_without_trailing_zeros }}</td>
+  </tr>
+</table>
+
+{%- assign mk_button_url = gift_card.url -%}
+{%- assign mk_button_label = 'View your gift card' -%}
+{% render 'button' %}
+{%- if gift_card.pass_url != blank %}
+  {%- assign mk_button2_url = gift_card.pass_url -%}
+  {%- assign mk_button2_label = 'Add to Apple Wallet' -%}
+  {% render 'button-secondary' %}
+{%- endif %}

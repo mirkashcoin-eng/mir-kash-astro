@@ -1,0 +1,16 @@
+---
+name: Customer marketing confirmation
+section: Email marketing
+subject: Confirm your Mir Kash subscription
+---
+{%- capture email_title -%}One last step{%- endcapture -%}
+{%- capture email_preheader -%}Confirm you'd like to hear from us.{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">Confirm you'd like to hear from Mir Kash about new bags and the stories behind them.</p>
+
+{%- assign mk_button_url = customer.subscribe_url -%}
+{%- assign mk_button_label = 'Confirm subscription' -%}
+{% render 'button' %}
+
+<p style="%%small%%;margin:24px 0 0;">If you didn't sign up, you don't need to do anything. We won't email you again.</p>

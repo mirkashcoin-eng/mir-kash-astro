@@ -1,0 +1,26 @@
+---
+name: Draft order invoice
+section: Orders
+subject: Your Mir Kash invoice {{ name }}
+---
+{%- capture email_title -%}Complete your purchase{%- endcapture -%}
+{%- capture email_preheader -%}Your invoice for {{ total_price | money_with_currency }} is ready.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Invoice ' | append: name -%}
+<!-- body -->
+{%- if custom_message != blank %}
+<p style="%%p%%">{{ custom_message }}</p>
+{%- endif %}
+<p style="%%p%%">
+  Your invoice is ready. Complete your purchase whenever you're ready
+  {%- if reserve_inventory_until != blank %}: we're holding {% if item_count > 1 %}these pieces{% else %}this piece{% endif %} for you until <strong>{{ reserve_inventory_until | date: '%-d %B, %-I:%M %p' }}</strong>{% endif %}.
+</p>
+
+{%- assign mk_button_url = invoice_url -%}
+{%- assign mk_button_label = 'Complete your purchase' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Your order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+{% render 'section-end' %}

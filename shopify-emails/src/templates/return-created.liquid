@@ -1,0 +1,42 @@
+---
+name: Return created
+section: Returns
+subject: Your return for order {{ order.name }}
+---
+{%- assign mk_delivery = return.deliveries | first -%}
+{%- assign mk_label_url = mk_delivery.return_label.public_file_url -%}
+{%- capture email_title -%}
+  {%- if mk_label_url != blank -%}Your return label is ready{%- else -%}Your return is set up{%- endif -%}
+{%- endcapture -%}
+{%- capture email_preheader -%}Here's how to send your return for order {{ order.name }}.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if mk_label_url != blank -%}
+    We've set up your return. Print the label below and attach it to the parcel, covering any old labels.
+  {%- elsif mk_delivery.type == 'manual' -%}
+    We've set up your return. We've sent you a return label, or you'll have it soon. Once it arrives, attach it to the parcel and hand it to the courier.
+  {%- else -%}
+    We've set up your return. Here's how to send it back.
+  {%- endif -%}
+</p>
+
+{%- if mk_label_url != blank %}
+  {%- assign mk_button_url = mk_label_url -%}
+  {%- assign mk_button_label = 'Print return label' -%}
+  {%- assign mk_link_url = order.order_status_url -%}
+  {%- assign mk_link_label = 'view your order' -%}
+{%- else %}
+  {%- assign mk_button_url = order.order_status_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- if mk_label_url == blank and mk_delivery.type != 'manual' %}
+{% render 'return-send-to' %}
+{%- endif %}
+
+{%- assign mk_section = 'Returning' -%}
+{% render 'section-start' %}
+{% render 'return-items' %}
+{% render 'section-end' %}

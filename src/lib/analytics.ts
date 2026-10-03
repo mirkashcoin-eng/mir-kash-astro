@@ -44,6 +44,65 @@ export async function recordEvent(name: string, product?: string): Promise<void>
   } catch { /* best-effort analytics; never surface */ }
 }
 
+// Booking-prompt (Try at Home / Private Viewing dialog) counters, in the same daily doc.
+// Per event: a total plus a split by page kind and by offer, e.g. vp_shown, vp_shown_home,
+// vp_shown_tryhome. They are impressions, not unique people: the prompt itself shows at most
+// once per visit per page kind. `total` is untouched so the visitor funnel is unaffected.
+export const PROMPT_EVENTS = ['vp_shown', 'vp_dismiss', 'vp_click'] as const;
+export type PromptEvent = (typeof PROMPT_EVENTS)[number];
+export const PROMPT_PAGES = ['home', 'shop', 'product'] as const;
+export const PROMPT_OFFERS = ['tryhome', 'viewing'] as const;
+
+export async function recordPromptEvent(name: string, page: string, offer: string): Promise<void> {
+  if (!(PROMPT_EVENTS as readonly string[]).includes(name)) return;
+  const db = adminDb();
+  if (!db) return;
+  const inc = () => FieldValue.increment(1);
+  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
+  if ((PROMPT_PAGES as readonly string[]).includes(page)) fields[`${name}_${page}`] = inc();
+  if ((PROMPT_OFFERS as readonly string[]).includes(offer)) fields[`${name}_${offer}`] = inc();
+  try {
+    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
+  } catch { /* best-effort analytics; never surface */ }
+}
+
+export interface PromptCounts { shown: number; dismiss: number; click: number }
+export interface PromptStats {
+  days: number;
+  all: PromptCounts;
+  byPage: Record<(typeof PROMPT_PAGES)[number], PromptCounts>;
+  byOffer: Record<(typeof PROMPT_OFFERS)[number], PromptCounts>;
+}
+
+// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
+export async function getPromptStats(days = 30): Promise<PromptStats | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
+    const zero = (): PromptCounts => ({ shown: 0, dismiss: 0, click: 0 });
+    const out: PromptStats = {
+      days, all: zero(),
+      byPage: { home: zero(), shop: zero(), product: zero() },
+      byOffer: { tryhome: zero(), viewing: zero() },
+    };
+    snap.forEach((doc) => {
+      const v = doc.data() as Record<string, number>;
+      const add = (c: PromptCounts, suffix: string) => {
+        c.shown += Number(v[`vp_shown${suffix}`] || 0);
+        c.dismiss += Number(v[`vp_dismiss${suffix}`] || 0);
+        c.click += Number(v[`vp_click${suffix}`] || 0);
+      };
+      add(out.all, '');
+      for (const p of PROMPT_PAGES) add(out.byPage[p], `_${p}`);
+      for (const o of PROMPT_OFFERS) add(out.byOffer[o], `_${o}`);
+    });
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export interface ProductStat {
   id: string;
   title: string;

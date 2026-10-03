@@ -1,0 +1,27 @@
+{%- comment -%} Carrier, tracking number(s) and estimated delivery for this fulfillment. {%- endcomment -%}
+{%- assign mk_track_url = fulfillment.tracking_url | default: fulfillment.tracking_urls.first -%}
+{%- if fulfillment.tracking_numbers.size > 0 or fulfillment.estimated_delivery_at %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
+  <tr>
+    <td style="%%callout%%">
+      {%- if fulfillment.estimated_delivery_at != blank %}
+      <p style="%%label%%;margin:0 0 4px;">Estimated delivery</p>
+      <p class="mk-serif" style="%%h2%%;margin:0 0 14px;">{{ fulfillment.estimated_delivery_at | date: '%A, %-d %B' }}</p>
+      {%- endif %}
+      {%- if fulfillment.tracking_numbers.size > 0 %}
+      <p style="%%label%%;margin:0 0 4px;">{% if fulfillment.tracking_company != blank %}{{ fulfillment.tracking_company }} tracking{% else %}Tracking{% endif %}</p>
+      <p style="%%p-last%%;font-size:14px;">
+        {%- if fulfillment.tracking_numbers.size == 1 and mk_track_url != blank -%}
+          <a href="{{ mk_track_url }}" style="%%link%%">{{ fulfillment.tracking_numbers.first }}</a>
+        {%- else -%}
+          {%- for tracking_number in fulfillment.tracking_numbers -%}
+            {%- assign mk_url = fulfillment.tracking_urls[forloop.index0] -%}
+            {%- if mk_url != blank %}<a href="{{ mk_url }}" style="%%link%%">{{ tracking_number }}</a>{% else %}{{ tracking_number }}{% endif %}{% unless forloop.last %}<br>{% endunless -%}
+          {%- endfor -%}
+        {%- endif -%}
+      </p>
+      {%- endif %}
+    </td>
+  </tr>
+</table>
+{%- endif %}

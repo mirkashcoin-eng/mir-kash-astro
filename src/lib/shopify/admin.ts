@@ -615,14 +615,17 @@ export async function createDemoBooking(args: {
   address: string;
   area: string;
   zip: string;
+  /** Somewhere in the Mumbai area (Thane, Navi Mumbai, …); defaults to Mumbai. */
+  city?: string;
 }): Promise<DraftOrderResult | null> {
+  const city = args.city?.trim() || 'Mumbai';
   const parts = args.name.trim().split(/\s+/);
   const firstName = parts.shift() || args.name.trim() || 'Guest';
   const lastName = parts.join(' ') || firstName;
   const bagTitles = args.bags.map((b) => b.title).join(', ');
   const address1 = [args.address, args.area].filter(Boolean).join(', ');
   const note =
-    `HOME DEMO — ${args.date}, ${args.slot} · Mumbai\n` +
+    `HOME DEMO — ${args.date}, ${args.slot} · ${city}\n` +
     `Bags: ${bagTitles}\n` +
     `Contact: ${args.name} · ${args.phone} · ${args.email}`;
 
@@ -642,7 +645,7 @@ export async function createDemoBooking(args: {
       lastName,
       address1,
       address2: '',
-      city: 'Mumbai',
+      city,
       province: 'Maharashtra',
       zip: args.zip,
       phone: args.phone,
@@ -657,6 +660,62 @@ export async function createDemoBooking(args: {
   const errs = data?.draftOrderCreate?.userErrors;
   if (errs && errs.length) {
     console.error('[admin] createDemoBooking userErrors:', JSON.stringify(errs));
+    return null;
+  }
+  return shape(data?.draftOrderCreate?.draftOrder);
+}
+
+// ── Private Viewing booking (global, video call) ────────────────────────────────
+// Same tagged-draft-order pattern as the home-demo booking above, so the two
+// services get the same admin visibility. Nothing ships, so there's no
+// shippingAddress to fabricate — city/country are recorded in customAttributes
+// and the note only. `hostRoomUrl` is the advisor's join link (Whereby only
+// returns it when asked, via `fields:['hostRoomUrl']` in lib/whereby.ts) — it is
+// stored here and only here, never sent to the browser; the admin dashboard's
+// "Join as host" action is the one place it's read back.
+export async function createPrivateViewingBooking(args: {
+  bags: Array<{ variantId: string; title: string }>;
+  date: string;
+  slot: string;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  country: string;
+  roomId: string;
+  hostRoomUrl: string;
+}): Promise<DraftOrderResult | null> {
+  const bagTitles = args.bags.map((b) => b.title).join(', ');
+  const note =
+    `PRIVATE VIEWING — ${args.date}, ${args.slot}\n` +
+    `Bags: ${bagTitles}\n` +
+    `Contact: ${args.name} · ${args.phone} · ${args.email}\n` +
+    `Location: ${[args.city, args.country].filter(Boolean).join(', ')}`;
+
+  const input: Record<string, unknown> = {
+    email: args.email,
+    phone: args.phone,
+    tags: ['private-viewing'],
+    note,
+    customAttributes: [
+      { key: 'viewing_date', value: args.date },
+      { key: 'viewing_slot', value: args.slot },
+      { key: 'viewing_bags', value: bagTitles },
+      { key: 'viewing_city', value: args.city },
+      { key: 'viewing_country', value: args.country },
+      { key: 'viewing_room_id', value: args.roomId },
+      { key: 'viewing_host_url', value: args.hostRoomUrl },
+    ],
+    lineItems: args.bags.map((b) => ({ variantId: b.variantId, quantity: 1 })),
+  };
+
+  const data = await runAdminQuery<{
+    draftOrderCreate: { draftOrder: RawDraftOrder | null; userErrors: Array<{ message: string }> };
+  }>(DRAFT_ORDER_CREATE, { input });
+
+  const errs = data?.draftOrderCreate?.userErrors;
+  if (errs && errs.length) {
+    console.error('[admin] createPrivateViewingBooking userErrors:', JSON.stringify(errs));
     return null;
   }
   return shape(data?.draftOrderCreate?.draftOrder);
@@ -776,7 +835,90 @@ export async function getDemoBookings(): Promise<DemoBooking[]> {
   });
 }
 
-// ── Home-demo status changes (founders' dashboard) ──────────────────────────────
+// ── Private Viewing bookings (founders' dashboard) ──────────────────────────────
+// Same shape as the home-demo read above — a parallel, independent query/mapper
+// rather than a shared abstraction, since the two tables' columns already diverge
+// (viewing has no shipping address, but does have a city/country and a host room
+// link that demo bookings have no equivalent of).
+export type ViewingStatus = 'requested' | 'confirmed' | 'completed';
+export interface ViewingBooking {
+  id: string;
+  name: string;
+  createdAt: string;
+  email: string | null;
+  phone: string | null;
+  date: string;
+  slot: string;
+  bags: string;
+  city: string | null;
+  country: string | null;
+  status: ViewingStatus;
+  confirmedDate: string;
+  confirmedTime: string;
+  roomId: string;
+  hostRoomUrl: string | null; // advisor-only join link — never expose to the public viewing page
+  adminUrl: string | null;
+}
+
+const VIEWING_BOOKINGS = /* GraphQL */ `
+  query ViewingBookings($after: String) {
+    draftOrders(first: 100, after: $after, query: "tag:private-viewing", sortKey: UPDATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt email phone tags
+        customAttributes { key value }
+      } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+function viewingStatus(tags: string[], attrStatus: string): ViewingStatus {
+  if (attrStatus === 'completed' || tags.includes('viewing-completed')) return 'completed';
+  if (attrStatus === 'confirmed' || tags.includes('viewing-confirmed')) return 'confirmed';
+  return 'requested';
+}
+
+type ViewingBookingNode = {
+  id: string; name: string; createdAt: string; email: string | null; phone: string | null; tags: string[];
+  customAttributes: Array<{ key: string; value: string }>;
+};
+
+export async function getPrivateViewingBookings(): Promise<ViewingBooking[]> {
+  const nodes: ViewingBookingNode[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < 20; page++) { // 20 × 100 = 2000 drafts, generous ceiling
+    const data: { draftOrders: { edges: Array<{ node: ViewingBookingNode }>; pageInfo: { hasNextPage: boolean; endCursor: string | null } } } | null =
+      await runAdminQuery(VIEWING_BOOKINGS, { after });
+    const edges = data?.draftOrders?.edges ?? [];
+    nodes.push(...edges.map((e) => e.node));
+    if (!data?.draftOrders?.pageInfo?.hasNextPage) break;
+    after = data.draftOrders.pageInfo.endCursor;
+  }
+  const domain = adminDomain();
+  return nodes.map((node) => {
+    const attr = (k: string) => node.customAttributes.find((a) => a.key === k)?.value ?? '';
+    return {
+      id: node.id,
+      name: node.name,
+      createdAt: node.createdAt,
+      email: node.email,
+      phone: node.phone,
+      date: attr('viewing_date'),
+      slot: attr('viewing_slot'),
+      bags: attr('viewing_bags'),
+      city: attr('viewing_city') || null,
+      country: attr('viewing_country') || null,
+      status: viewingStatus(node.tags ?? [], attr('viewing_status')),
+      confirmedDate: attr('viewing_confirmed_date'),
+      confirmedTime: attr('viewing_confirmed_time'),
+      roomId: attr('viewing_room_id'),
+      hostRoomUrl: attr('viewing_host_url') || null,
+      adminUrl: domain ? `https://${domain}/admin/draft_orders/${node.id.split('/').pop() ?? ''}` : null,
+    };
+  });
+}
+
+// ── Booking status changes (founders' dashboard — Try at Home + Private Viewing) ──
 const DRAFT_ATTRS_GET = /* GraphQL */ `query DraftAttrs($id: ID!) { draftOrder(id: $id) { customAttributes { key value } } }`;
 const DRAFT_ORDER_UPDATE = /* GraphQL */ `
   mutation DraftOrderUpdate($id: ID!, $input: DraftOrderInput!) {
@@ -786,7 +928,10 @@ const DRAFT_ORDER_UPDATE = /* GraphQL */ `
 
 // Merges the given custom-attribute patch into the draft (draftOrderUpdate REPLACES the
 // whole customAttributes array, so we read-merge-write) and additively applies tags.
-async function patchDemo(id: string, patch: Record<string, string>, addTags: string[]): Promise<boolean> {
+// Generic over which booking type's draft order it's patching — despite the name
+// surviving from when this only handled home-demo bookings, there's nothing
+// demo-specific left in the body.
+async function patchBookingDraft(id: string, patch: Record<string, string>, addTags: string[]): Promise<boolean> {
   const cur = await runAdminQuery<{ draftOrder: { customAttributes: Array<{ key: string; value: string }> } | null }>(DRAFT_ATTRS_GET, { id });
   if (!cur?.draftOrder) return false;
   const map = new Map<string, string>();
@@ -805,10 +950,16 @@ async function patchDemo(id: string, patch: Record<string, string>, addTags: str
 }
 
 export function confirmDemo(id: string, date: string, time: string): Promise<boolean> {
-  return patchDemo(id, { demo_status: 'confirmed', demo_confirmed_date: date, demo_confirmed_time: time }, ['demo-confirmed']);
+  return patchBookingDraft(id, { demo_status: 'confirmed', demo_confirmed_date: date, demo_confirmed_time: time }, ['demo-confirmed']);
 }
 export function completeDemo(id: string): Promise<boolean> {
-  return patchDemo(id, { demo_status: 'completed' }, ['demo-completed']);
+  return patchBookingDraft(id, { demo_status: 'completed' }, ['demo-completed']);
+}
+export function confirmViewing(id: string, date: string, time: string): Promise<boolean> {
+  return patchBookingDraft(id, { viewing_status: 'confirmed', viewing_confirmed_date: date, viewing_confirmed_time: time }, ['viewing-confirmed']);
+}
+export function completeViewing(id: string): Promise<boolean> {
+  return patchBookingDraft(id, { viewing_status: 'completed' }, ['viewing-completed']);
 }
 
 export interface AbandonedLine {

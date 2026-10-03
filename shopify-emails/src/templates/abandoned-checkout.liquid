@@ -1,0 +1,44 @@
+---
+name: Abandoned checkout
+section: Orders
+subject: Still thinking it over?
+stores: global
+---
+{%- comment -%}
+  Global store only. India runs its own checkout (/checkout), which never creates a Shopify
+  checkout, so this email can't fire there; India cart recovery is the WhatsApp cart_reminder.
+{%- endcomment -%}
+{%- capture email_title -%}Still thinking it over?{%- endcapture -%}
+{%- capture email_preheader -%}
+  {%- if item_count == 1 -%}Your bag is still in your cart.{%- else -%}Your pieces are still in your cart.{%- endif -%}
+{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if billing_address.first_name != blank %}Hi {{ billing_address.first_name }}, y{% else %}Y{% endif -%}
+  ou left {% if item_count == 1 %}something{% else %}a few things{% endif %} in your cart. {% if item_count == 1 %}It's{% else %}They're{% endif %} still there whenever you're ready, while stock lasts.
+</p>
+{%- if custom_message != blank %}
+<p style="%%p%%">{{ custom_message }}</p>
+{%- endif %}
+
+{%- assign mk_button_url = url -%}
+{%- assign mk_button_label = 'Return to your cart' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'In your cart' -%}
+{% render 'section-start' %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for line in subtotal_line_items %}
+  {%- if line.product.title != blank %}{% assign mk_item_title = line.product.title %}{% else %}{% assign mk_item_title = line.title %}{% endif -%}
+  {%- if line.image %}{% capture mk_item_image %}{{ line | img_url: '240x', format: 'jpg' }}{% endcapture %}{% else %}{% assign mk_item_image = '' %}{% endif -%}
+  {%- capture mk_item_meta -%}
+    {%- if line.variant.title != 'Default Title' and line.variant.title != blank %}{{ line.variant.title }}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif -%}
+    Qty {{ line.quantity }}
+  {%- endcapture -%}
+  {%- assign mk_item_note = '' -%}
+  {%- assign mk_item_price = '' -%}
+  {% render 'item-row' %}
+{%- endfor %}
+</table>
+{% render 'section-end' %}

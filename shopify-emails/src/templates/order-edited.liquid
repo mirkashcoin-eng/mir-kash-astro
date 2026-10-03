@@ -1,0 +1,23 @@
+---
+name: Order edited
+section: Orders
+subject: Order {{ name }} has been updated
+---
+{%- capture email_title -%}Your order has been updated{%- endcapture -%}
+{%- capture email_preheader -%}We've made the changes to order {{ order_name }}. Here's how it looks now.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">We've made the changes to your order. Here's how it looks now.</p>
+{%- if custom_message != blank %}
+<p style="%%p%%">{{ custom_message }}</p>
+{%- endif %}
+
+{%- assign mk_button_url = order_status_url | default: mk_site -%}
+{%- assign mk_button_label = 'View your order' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Your order now' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+{% render 'section-end' %}

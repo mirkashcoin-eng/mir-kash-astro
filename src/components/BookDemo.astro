@@ -1,8 +1,11 @@
 ---
 import SiteHeader from './SiteHeader.astro';
 import SiteFooter from './SiteFooter.astro';
+import ReceiptPrinter from './ReceiptPrinter.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
 import { shopifyImage } from '~/lib/shopifyImage';
+import { flagEmoji } from '~/lib/countries';
+import '~/styles/booking-wizard.css';
 
 const products = await getAllProducts('india', 'IN', 48);
 const bags = products
@@ -28,112 +31,142 @@ const bagData = Object.fromEntries(
     handle: b.handle,
   }]),
 );
+
+// The confirmation receipt's date/time/items aren't known until the visitor
+// picks them client-side, well after this page is server-rendered — so the
+// receipt is pre-rendered with placeholder meta rows and a fixed 6 item slots
+// (the flow's own cap), and the wizard's own script overwrites their text and
+// un-hides the ones actually used right before revealing #bwDone. #bwDone stays
+// [hidden] until then, so the placeholders are never visible to a visitor.
+const RECEIPT_MAX_BAGS = 6;
+const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => ({
+  title: '', quantity: 1, price: null as number | null,
+}));
 ---
 <SiteHeader />
 
 <main class="bd">
-  <div id="bdMain">
+  <div class="bw-shell" id="bwShell">
+    <div class="bw-progress">
+      <span class="bw-progress__seg" data-step="cover"></span>
+      <span class="bw-progress__seg" data-step="bags"></span>
+      <span class="bw-progress__seg" data-step="datetime"></span>
+      <span class="bw-progress__seg" data-step="details"></span>
+    </div>
 
-    <!-- ══ SPLIT HERO ══ -->
-    <section class="bd-hero">
-      <div class="bd-hero__text">
-        <p class="bd-hero__eyebrow">Mumbai &middot; Private Try at Home</p>
-        <h1 class="bd-display bd-hero__h">Try at home. Fall in love. No pressure.</h1>
-        <p class="bd-hero__sub">Book a personal visit &mdash; we bring up to six bags for you to try in your own space and your own light. Buy only if something is truly yours.</p>
-        <a class="bd-cta" href="#book">Book your visit <span class="ar">&rarr;</span></a>
-      </div>
-      <div class="bd-hero__img">
-        <img src="/ed-tophandle.jpeg" alt="Mir Kash bag" loading="eager" />
+    <!-- ══ COVER ══ -->
+    <section class="bw-step bw-cover" data-step="cover">
+      <div class="bw-cover__media"><img src="/ed-tophandle.jpeg" alt="A Mir Kash top-handle bag, held" loading="eager" fetchpriority="high" /></div>
+      <div class="bw-cover__body">
+        <div class="bw-cover__intro">
+          <p class="bw-cover__eyebrow">Mumbai &middot; Private Try at Home</p>
+          <h1 class="bw-cover__h">Try at home. Fall in love. No pressure.</h1>
+          <p class="bw-cover__sub">Book a personal visit &mdash; we bring up to six bags for you to try in your own space and your own light. Buy only if something is truly yours.</p>
+        </div>
+        <ol class="bw-cover__steps">
+          <li><span class="bw-cover__n">1</span>Choose up to six bags</li>
+          <li><span class="bw-cover__n">2</span>Pick a day &amp; time</li>
+          <li><span class="bw-cover__n">3</span>We bring them to you</li>
+        </ol>
+        <p class="bw-cover__meta">Complimentary<i></i>15&ndash;30 minutes<i></i>No obligation to buy</p>
+        <button class="bw-cover__cta" type="button" id="bwCoverCta">Book your visit <span class="ar">&rarr;</span></button>
       </div>
     </section>
 
-    <!-- ══ DETAILS STRIP ══ -->
-    <div class="bd-strip">
-      <div class="bd-strip__i"><p class="bd-strip__k">Where</p><p class="bd-strip__v">Anywhere in Mumbai</p></div>
-      <div class="bd-strip__i"><p class="bd-strip__k">How many</p><p class="bd-strip__v">Up to 6 bags</p></div>
-      <div class="bd-strip__i"><p class="bd-strip__k">How long</p><p class="bd-strip__v">15&ndash;30 minutes</p></div>
-      <div class="bd-strip__i"><p class="bd-strip__k">Cost</p><p class="bd-strip__v">Complimentary</p></div>
-    </div>
+    <!-- ══ BAGS ══ -->
+    <section class="bw-step" data-step="bags">
+      <div class="bd-stepwrap">
+        <div class="bd-sec__head"><h2 class="bd-sec__t">Choose your bags</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
+        <p class="bd-choose-hint">Tap a bag to see it up close, or hit <strong>Select</strong> to add it straight to your visit.</p>
+        <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
+        <div class="bd-grid">
+          {bags.map((b) => (
+            <div class="bd-bag" data-vid={b.variantId} data-handle={b.handle}>
+              <button class="bd-bag__view" type="button" data-open={b.variantId} aria-label={`View ${b.title}`}>
+                <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
+                <span class="bd-bag__name">{b.title}</span>
+              </button>
+              <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
+                <span class="add">Select</span>
+                <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
 
-    <!-- ══ BOOKING ══ -->
-    <div class="bd-book" id="book">
-      <div class="bd-book__main">
+    <!-- ══ DATE & TIME ══ -->
+    <section class="bw-step" data-step="datetime">
+      <div class="bd-stepwrap">
+        <div class="bd-sec__head"><h2 class="bd-sec__t">Date &amp; time</h2></div>
+        <p class="bd-sublabel">Choose a day</p>
+        <div class="bd-rail" id="rail"></div>
+        <div class="bd-slots">
+          <p class="bd-sublabel" style="margin-top:26px">Time of day</p>
+          <p class="bd-hint" id="slotHint">Pick a day above to choose a time.</p>
+          <div class="bd-slot-btns" id="slotBtns" hidden>
+            <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)"><b>Morning</b><span>11 AM &ndash; 2 PM</span></button>
+            <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)"><b>Afternoon</b><span>2 &ndash; 5 PM</span></button>
+            <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)"><b>Evening</b><span>5 &ndash; 8 PM</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <!-- Date & time -->
-        <section class="bd-sec">
-          <div class="bd-sec__head"><span class="bd-sec__n">1</span><h2 class="bd-sec__t">Date &amp; time</h2></div>
-          <p class="bd-sublabel">Choose a day</p>
-          <div class="bd-rail" id="rail"></div>
-          <div class="bd-slots">
-            <p class="bd-sublabel" style="margin-top:26px">Time of day</p>
-            <p class="bd-hint" id="slotHint">Pick a day above to choose a time.</p>
-            <div class="bd-slot-btns" id="slotBtns" hidden>
-              <button type="button" class="bd-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
-              <button type="button" class="bd-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
-              <button type="button" class="bd-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
+    <!-- ══ DETAILS & CONFIRM ══ -->
+    <section class="bw-step" data-step="details">
+      <div class="bd-stepwrap">
+        <div id="bwBannerSlot"></div>
+        <div class="bd-sec__head"><h2 class="bd-sec__t">Your details</h2></div>
+        <p class="bd-recap" id="detailsRecap"></p>
+        <div class="bd-fields">
+          <label class="bd-field bd-field--half"><span>Country</span><div class="bw-combo"><input class="bd-input" id="f-country" type="text" value="India" spellcheck="false" /><div class="bw-combo__list" hidden></div></div></label>
+          <label class="bd-field bd-field--half"><span>City</span><input class="bd-input" id="f-city" type="text" autocomplete="address-level2" /></label>
+          <div class="bw-banner bd-field--full" id="cityCheck" hidden>
+            <p>We visit homes in the Mumbai area only. Is <strong id="cityCheckName"></strong> in or near Mumbai?</p>
+            <div class="bw-banner__actions">
+              <button type="button" class="bw-banner__btn" id="cityYes">Yes, it is</button>
+              <button type="button" class="bw-banner__btn" id="cityNo">No &mdash; book a video viewing</button>
             </div>
           </div>
-        </section>
-
-        <!-- Bags -->
-        <section class="bd-sec">
-          <div class="bd-sec__head"><span class="bd-sec__n">2</span><h2 class="bd-sec__t">Choose your bags</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
-          <p class="bd-choose-hint">Tap a bag to see it up close, or hit <strong>Select</strong> to add it straight to your visit.</p>
-          <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
-          <div class="bd-grid">
-            {bags.map((b) => (
-              <div class="bd-bag" data-vid={b.variantId}>
-                <button class="bd-bag__view" type="button" data-open={b.variantId} aria-label={`View ${b.title}`}>
-                  <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
-                  <span class="bd-bag__name">{b.title}</span>
-                </button>
-                <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
-                  <span class="add">Select</span>
-                  <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <!-- Details -->
-        <section class="bd-sec">
-          <div class="bd-sec__head"><span class="bd-sec__n">3</span><h2 class="bd-sec__t">Your details</h2></div>
-          <div class="bd-fields">
-            <label class="bd-field"><span>Full name</span><input class="bd-input" id="f-name" type="text" autocomplete="name" /></label>
-            <label class="bd-field"><span>Phone</span><input class="bd-input" id="f-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" /></label>
-            <label class="bd-field bd-field--full"><span>Email</span><input class="bd-input" id="f-email" type="email" autocomplete="email" /></label>
-            <label class="bd-field bd-field--full"><span>Address (flat / building / street)</span><input class="bd-input" id="f-addr" type="text" autocomplete="street-address" /></label>
-            <label class="bd-field"><span>Area / locality</span><input class="bd-input" id="f-area" type="text" /></label>
-            <label class="bd-field"><span>PIN code</span><input class="bd-input" id="f-pin" type="text" inputmode="numeric" maxlength="6" placeholder="Mumbai PIN" /></label>
-          </div>
-        </section>
-      </div>
-
-      <!-- Live summary -->
-      <aside class="bd-side">
-        <div class="bd-side__inner">
-          <p class="bd-side__t">Your appointment</p>
-          <div class="bd-sum">
-            <div class="bd-sum__row"><span class="bd-sum__k">Date</span><span class="bd-sum__v muted" id="sum-date">Choose a day</span></div>
-            <div class="bd-sum__row"><span class="bd-sum__k">Time</span><span class="bd-sum__v muted" id="sum-time">Choose a time</span></div>
-            <div class="bd-sum__row"><span class="bd-sum__k">Bags</span><span class="bd-sum__v muted" id="sum-bags">Up to six pieces</span></div>
-            <div class="bd-sum__row"><span class="bd-sum__k">Area</span><span class="bd-sum__v muted" id="sum-area">Add your details</span></div>
-          </div>
-          <button class="bd-cta bd-side__cta" type="button" id="bookBtn">Confirm Try at Home</button>
-          <p class="bd-err" id="bookErr" hidden></p>
-          <p class="bd-side__note">No pressure to buy. Confirm now, decide at home.</p>
+          <label class="bd-field"><span>Full name</span><input class="bd-input" id="f-name" type="text" autocomplete="name" /></label>
+          <label class="bd-field bd-field--phone">
+            <span>Phone</span>
+            <div class="bd-phone">
+              <span class="bd-phone__isd" aria-hidden="true">{flagEmoji('IN')} +91</span>
+              <input class="bd-input bd-phone__num" id="f-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" autocomplete="tel-national" />
+            </div>
+          </label>
+          <label class="bd-field bd-field--full"><span>Email</span><input class="bd-input" id="f-email" type="email" autocomplete="email" /></label>
+          <label class="bd-field bd-field--full"><span>Address (flat / building / street)</span><input class="bd-input" id="f-addr" type="text" autocomplete="street-address" /></label>
+          <label class="bd-field bd-field--half"><span>Area / locality</span><input class="bd-input" id="f-area" type="text" /></label>
+          <label class="bd-field bd-field--half"><span>PIN code</span><input class="bd-input" id="f-pin" type="text" inputmode="numeric" maxlength="6" placeholder="Mumbai PIN" /></label>
         </div>
-      </aside>
+        <p class="bd-side__note">No pressure to buy. Confirm now, decide at home.</p>
+      </div>
+    </section>
+
+    <div class="bw-stepbar">
+      <button class="bw-stepbar__back" id="bwBack" hidden>Back</button>
+      <p class="bw-stepbar__err" id="bwErr" hidden></p>
+      <button class="bw-stepbar__next" id="bwNext" type="button">Continue</button>
     </div>
   </div>
 
   <!-- ══ SUCCESS ══ -->
-  <section class="bd-done" id="bdDone" hidden>
-    <span class="bd-done__mark" aria-hidden="true">&check;</span>
-    <h2 class="bd-display bd-done__title">Your Try at Home is booked</h2>
-    <p class="bd-done__body" id="bdDoneBody"></p>
-    <a class="bd-done__btn" href="/shop">Browse the collection</a>
+  <section class="bd-done" id="bwDone" hidden>
+    <ReceiptPrinter
+      kind="appointment"
+      items={receiptPlaceholderItems}
+      amount={0}
+      isCod={false}
+      serviceName="Try at Home"
+      apptDate="Date to be confirmed"
+      apptSlot="Time to be confirmed"
+      thanksLine="Thank you. Your Try at Home visit is confirmed — we'll be in touch by WhatsApp and email."
+    />
+    <a class="bd-done__btn" href="/shop">Back to Shop</a>
   </section>
 
   <!-- ══ QUICK-VIEW MODAL ══ -->
@@ -160,7 +193,8 @@ const bagData = Object.fromEntries(
 
 <script type="application/json" id="bagData" set:html={JSON.stringify(bagData).replace(/</g, '\\u003c')} />
 
-<SiteFooter />
+<!-- A focused flow: the footer returns with the confirmation. -->
+<div id="bwFooter" hidden><SiteFooter /></div>
 
 <style is:global>
 
@@ -182,36 +216,16 @@ const bagData = Object.fromEntries(
   .bd-cta:hover { background: var(--cherry); }
   .bd-cta .ar { transition: transform .2s; }
   .bd-cta:hover .ar { transform: translateX(4px); }
-  .bd-err { color: var(--cherry); font-size: 13px; margin: 12px 0 0; }
 
-  /* Split hero */
-  .bd-hero { display: grid; grid-template-columns: 1.05fr .95fr; min-height: clamp(420px, 60vh, 560px); }
-  .bd-hero__text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px,6vw,80px) clamp(28px,5vw,64px); }
-  .bd-hero__eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); margin: 0 0 16px; }
-  .bd-hero__h { font-size: clamp(34px,4.6vw,58px); line-height: 1.04; color: var(--depth); margin: 0; max-width: 15ch; }
-  .bd-hero__sub { font-size: 15.5px; line-height: 1.65; color: var(--mid); max-width: 44ch; margin: 20px 0 30px; }
-  .bd-hero__text .bd-cta { align-self: flex-start; }
-  .bd-hero__img { background: #f0e9df; overflow: hidden; }
-  .bd-hero__img img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
-  /* Details strip */
-  .bd-strip { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .bd-strip__i { padding: 22px clamp(18px,3vw,28px); border-right: 1px solid var(--rule); }
-  .bd-strip__i:last-child { border-right: none; }
-  .bd-strip__k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--cherry); margin: 0 0 6px; }
-  .bd-strip__v { font-size: 13.5px; color: var(--mid); margin: 0; line-height: 1.5; }
 
-  /* Booking two-column */
-  .bd-book { display: grid; grid-template-columns: 1fr 330px; align-items: start; max-width: 1240px; margin: 0 auto; }
-  .bd-book__main { min-width: 0; padding: clamp(40px,5vw,72px) clamp(28px,4vw,56px); }
-  .bd-sec { padding-bottom: clamp(40px,5vw,56px); margin-bottom: clamp(40px,5vw,56px); border-bottom: 1px solid var(--rule); }
-  .bd-sec:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  /* Per-step content wrapper (replaces the old stacked-sections layout) */
+  .bd-stepwrap { max-width: 900px; margin: 0 auto; padding: clamp(36px,5vw,60px) clamp(20px,4vw,56px); }
   .bd-sec__head { display: flex; align-items: center; gap: 13px; margin-bottom: 20px; }
-  .bd-sec__n { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-  .bd-sec__t { font-size: 16px; font-weight: 500; margin: 0; }
+  .bd-sec__t { font-size: 20px; font-weight: 500; margin: 0; font-family: var(--serif-display); }
   .bd-count { margin-left: auto; font-size: 13px; color: var(--mid); font-variant-numeric: tabular-nums; }
   .bd-sublabel { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; margin: 0 0 14px; }
-  .bd-hint { font-size: 13px; color: var(--faint); margin: 0; }
+  .bd-hint { font-size: 13px; color: var(--faint); margin: 0 0 20px; }
   .bd-choose-hint { font-size: 13px; color: var(--mid); margin: 0 0 18px; }
   .bd-choose-hint strong { color: var(--depth); font-weight: 500; }
   .bd-maxmsg { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 300; margin: 0; background: var(--depth); color: #fff; font-size: 13.5px; letter-spacing: .01em; padding: 14px 24px; border-radius: 3px; box-shadow: 0 12px 34px rgba(0,0,0,.28); max-width: calc(100vw - 32px); text-align: center; animation: bd-toast-in .25s ease; }
@@ -233,6 +247,7 @@ const bagData = Object.fromEntries(
   /* Time slots */
   .bd-slot-btns { display: flex; gap: 10px; flex-wrap: wrap; }
   .bd-slot { flex: 1; min-width: 130px; border: 1px solid var(--rule); background: #fff; padding: 15px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
+  .bd-slot b { font-weight: inherit; }
   .bd-slot span { font-size: 12px; color: var(--mid); }
   .bd-slot:hover { border-color: var(--depth); }
   .bd-slot.sel { border-color: var(--depth); background: var(--depth); color: #fff; }
@@ -261,21 +276,20 @@ const bagData = Object.fromEntries(
   .bd-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .bd-field { display: flex; flex-direction: column; gap: 7px; }
   .bd-field--full { grid-column: 1 / -1; }
-  .bd-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 500; }
-  .bd-input { padding: 13px 14px; border: 1px solid var(--rule); background: #fff; font-family: inherit; font-size: 14px; color: var(--depth); }
+  .bd-fields .bw-banner { margin: 0; }
+  .bd-field > span:first-child { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 500; }
+  .bd-input { padding: 13px 14px; border: 1px solid var(--rule); background: #fff; font-family: inherit; font-size: 14px; color: var(--depth); width: 100%; }
   .bd-input:focus { outline: none; border-color: var(--depth); }
 
-  /* Live summary sidebar */
-  .bd-side { position: sticky; top: 24px; align-self: start; border-left: 1px solid var(--rule); }
-  .bd-side__inner { background: var(--cream); padding: clamp(28px,3vw,38px) clamp(24px,2.5vw,32px); }
-  .bd-side__t { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--cherry); margin: 0 0 20px; }
-  .bd-sum { display: flex; flex-direction: column; gap: 16px; }
-  .bd-sum__row { display: flex; flex-direction: column; gap: 4px; }
-  .bd-sum__k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
-  .bd-sum__v { font-size: 14px; line-height: 1.4; color: var(--depth); }
-  .bd-sum__v.muted { color: var(--faint); }
-  .bd-side__cta { width: 100%; justify-content: center; margin-top: 26px; }
-  .bd-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 16px 0 0; }
+  /* ISD-locked phone field */
+  .bd-phone { display: flex; align-items: stretch; gap: 8px; }
+  .bd-phone__isd { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--rule); background: var(--cream); color: var(--depth); font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+  .bd-phone__num { flex: 1; min-width: 0; }
+
+  .bd-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 20px 0 0; }
+
+  /* What's being booked, one line above the fields */
+  .bd-recap { margin: 0 0 22px; padding: 12px 16px; background: var(--cream); border: 1px solid var(--rule); font-size: 13.5px; line-height: 1.5; color: var(--depth); }
 
   /* Quick-view modal */
   .bd-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -307,10 +321,8 @@ const bagData = Object.fromEntries(
   .bd-modal__full:hover { color: var(--cherry); border-color: var(--cherry); }
 
   /* Success */
-  .bd-done { max-width: 560px; margin: 0 auto; text-align: center; padding: clamp(72px,12vw,150px) var(--gutter); }
-  .bd-done__mark { width: 58px; height: 58px; border-radius: 50%; background: #2f6b3f; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 24px; }
-  .bd-done__title { font-size: clamp(30px,4.5vw,44px); margin: 0 0 16px; color: var(--depth); }
-  .bd-done__body { font-size: 15px; line-height: 1.7; color: var(--mid); margin: 0 0 32px; }
+  .bd-done { max-width: 420px; margin: 0 auto; text-align: center; padding: clamp(72px,12vw,150px) var(--gutter); display: flex; flex-direction: column; align-items: center; gap: 28px; }
+  .bd-done[hidden] { display: none; }
   .bd-done__btn { display: inline-flex; height: 50px; align-items: center; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; text-decoration: none; transition: background .3s; }
   .bd-done__btn:hover { background: var(--cherry); }
 
@@ -319,191 +331,476 @@ const bagData = Object.fromEntries(
   @keyframes bd-fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes bd-modal-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   @keyframes bd-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  .bd-hero__text > * { animation: bd-fade-up .6s ease both; }
-  .bd-hero__eyebrow { animation-delay: 0s; } .bd-hero__h { animation-delay: .08s; } .bd-hero__sub { animation-delay: .16s; }
-  @media (prefers-reduced-motion: reduce) { .bd *, .bd-hero__text > *, .bd-modal * { animation: none !important; transition: none !important; } }
 
-  @media (max-width: 900px) {
-    .bd-hero { grid-template-columns: 1fr; }
-    .bd-hero__img { min-height: 280px; order: -1; }
-    .bd-book { grid-template-columns: 1fr; }
-    .bd-side { position: static; border-left: none; border-top: 1px solid var(--rule); }
-    .bd-side__inner { padding: 28px clamp(28px,4vw,56px); }
-  }
   @media (max-width: 720px) { .bd-modal__grid { grid-template-columns: 1fr; } .bd-modal__main { aspect-ratio: 16/12; } }
+  /* Phone: every step but the bag grid fits one screen (see booking-wizard.css
+     for the shell). The sticky Continue bar is the cover's call to action. */
   @media (max-width: 620px) {
-    .bd-strip { grid-template-columns: 1fr 1fr; }
-    .bd-strip__i:nth-child(2) { border-right: none; }
-    .bd-strip__i:nth-child(1), .bd-strip__i:nth-child(2) { border-bottom: 1px solid var(--rule); }
-    .bd-fields { grid-template-columns: 1fr; }
-    .bd-slot { min-width: 0; }
+
+    .bd-stepwrap { padding: 20px 20px 16px; }
+    .bd-sec__head { margin-bottom: 14px; }
+    .bd-choose-hint { margin-bottom: 14px; }
+    .bd-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .bd-maxmsg { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+    .bd-sublabel { margin-bottom: 10px; }
+    .bd-rail { gap: 8px; padding-bottom: 10px; }
+    .bd-rdate { width: 62px; padding: 10px 0; }
+    .bd-rdate .nm { font-size: 24px; }
+    .bd-slots .bd-sublabel { margin-top: 18px !important; }
+    .bd-hint { margin-bottom: 0; }
+    .bd-slot-btns { flex-direction: column; gap: 8px; }
+    .bd-slot { flex-direction: row; justify-content: space-between; align-items: baseline; min-width: 0; padding: 14px 16px; }
+
+    /* Labels sit inside the field's border, which keeps all six fields on one
+       screen. 16px inputs stop iOS zooming in on focus. */
+    .bd-recap { margin-bottom: 14px; padding: 9px 12px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-fields { gap: 8px; }
+    .bd-field { grid-column: 1 / -1; gap: 0; padding: 7px 12px 0; border: 1px solid var(--rule); background: #fff; }
+    .bd-field--half { grid-column: auto; }
+    .bd-field:focus-within { border-color: var(--depth); }
+    .bd-field > span:first-child { font-size: 9.5px; color: var(--mid); }
+    .bd-field { position: relative; }
+    .bd-input { border: none; padding: 3px 0 8px; font-size: 16px; }
+    .bd-phone { gap: 0; align-items: center; }
+    .bd-phone__isd { padding: 0 10px 0 0; margin: 3px 10px 8px 0; border: none; border-right: 1px solid var(--rule); background: none; font-size: 15px; }
+    .bd-side__note { margin-top: 12px; }
+  }
+  /* Shorter phones: the reassurance line gives way. */
+  @media (max-width: 620px) and (max-height: 620px) {
+    .bd-stepwrap { padding-top: 10px; padding-bottom: 4px; }
+    .bd-side__note { display: none; }
+    [data-step="details"] .bd-sec__head { display: none; }
+    .bd-fields { gap: 6px; }
+    .bd-recap { margin-bottom: 10px; }
   }
 </style>
 
-<script is:inline>
-  (function () {
-    var BAGS = {};
-    try { BAGS = JSON.parse(document.getElementById('bagData').textContent); } catch (e) {}
+<script>
+  import {
+    WIZARD_STEPS, stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
+    type WizardStep, type GateContext,
+  } from '~/lib/booking-wizard';
+  import { saveDraft, loadDraft, clearDraft, DRAFT_KEY_TRY_AT_HOME, DRAFT_KEY_PRIVATE_VIEWING, type BookingDraft, type BookingBag } from '~/lib/booking-draft';
+  import { COUNTRIES, flagEmoji, findCountry } from '~/lib/countries';
+  import { isMumbaiArea } from '~/lib/cities';
+  import { makeCombobox, type ComboOption } from '~/lib/combobox';
 
-    var selectedISO = '', selectedLabel = '', selectedSlot = '';
-    var selectedBags = new Map(); // variantId -> title
-    var modalVid = '';
+  interface BagInfo { title: string; description: string; images: string[]; handle: string }
+  let BAGS: Record<string, BagInfo> = {};
+  try { BAGS = JSON.parse(document.getElementById('bagData')!.textContent || '{}'); } catch { /* malformed/missing — grid still works, modal just won't */ }
 
-    var $ = function (id) { return document.getElementById(id); };
-    var val = function (id) { var el = $(id); return el ? (el.value || '').trim() : ''; };
-    var tileFor = function (vid) { return document.querySelector('.bd-bag[data-vid="' + vid + '"]'); };
+  let active: WizardStep = 'cover';
+  let selectedISO = '', selectedLabel = '', selectedSlot = '';
+  const selectedBags = new Map<string, string>(); // variantId -> title
+  let modalVid = '';
 
-    // ── Date rail (tomorrow → +45 days) ──
-    var rail = $('rail');
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    function pad(n) { return (n < 10 ? '0' : '') + n; }
-    for (var i = 1; i <= 45; i++) {
-      var d = new Date(today); d.setDate(d.getDate() + i);
-      var iso = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-      var label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
-      var btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'bd-rdate';
-      btn.dataset.iso = iso; btn.dataset.label = label;
-      btn.innerHTML = '<span class="dw">' + d.toLocaleDateString('en-IN', { weekday: 'short' }) + '</span>' +
-        '<span class="nm">' + d.getDate() + '</span>' +
-        '<span class="mo">' + d.toLocaleDateString('en-IN', { month: 'short' }) + '</span>';
-      btn.addEventListener('click', function () {
-        rail.querySelectorAll('.bd-rdate').forEach(function (x) { x.classList.remove('sel'); });
-        this.classList.add('sel');
-        selectedISO = this.dataset.iso; selectedLabel = this.dataset.label;
-        $('slotHint').hidden = true; $('slotBtns').hidden = false;
-        updateSummary();
-      });
-      rail.appendChild(btn);
-    }
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
+  const tileFor = (vid: string) => document.querySelector<HTMLElement>(`.bd-bag[data-vid="${vid}"]`);
 
-    // ── Time slots ──
-    document.querySelectorAll('.bd-slot').forEach(function (b) {
-      b.addEventListener('click', function () {
-        document.querySelectorAll('.bd-slot').forEach(function (x) { x.classList.remove('sel'); });
-        b.classList.add('sel'); selectedSlot = b.dataset.slot; updateSummary();
-      });
+  const shell = $('bwShell');
+  const backBtn = $('bwBack') as HTMLButtonElement;
+  const nextBtn = $('bwNext') as HTMLButtonElement;
+  const errEl = $('bwErr');
+
+  // ── Date rail (tomorrow → +45 days) ──
+  const rail = $('rail');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  function pad(n: number) { return (n < 10 ? '0' : '') + n; }
+  for (let i = 1; i <= 45; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const iso = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'bd-rdate';
+    btn.dataset.iso = iso; btn.dataset.label = label;
+    btn.innerHTML = '<span class="dw">' + d.toLocaleDateString('en-IN', { weekday: 'short' }) + '</span>' +
+      '<span class="nm">' + d.getDate() + '</span>' +
+      '<span class="mo">' + d.toLocaleDateString('en-IN', { month: 'short' }) + '</span>';
+    btn.addEventListener('click', () => {
+      rail.querySelectorAll('.bd-rdate').forEach((x) => x.classList.remove('sel'));
+      btn.classList.add('sel');
+      selectedISO = btn.dataset.iso!; selectedLabel = btn.dataset.label!;
+      $('slotHint').hidden = true; $('slotBtns').hidden = false;
     });
+    rail.appendChild(btn);
+  }
 
-    // ── Bag selection (shared toggle) ──
-    var maxTimer;
-    function showMax() { var m = $('maxMsg'); m.hidden = false; clearTimeout(maxTimer); maxTimer = setTimeout(function () { m.hidden = true; }, 3000); }
-    function toggleBag(vid) {
-      var tile = tileFor(vid);
-      if (selectedBags.has(vid)) { selectedBags.delete(vid); if (tile) tile.classList.remove('sel'); }
-      else {
-        if (selectedBags.size >= 6) { showMax(); return false; }
-        selectedBags.set(vid, (BAGS[vid] && BAGS[vid].title) || 'Bag'); if (tile) tile.classList.add('sel');
-      }
-      // The card button carries a visible label now, so its pressed state has to
-      // be exposed too — the label alone reads the same either way to a screen reader.
-      if (tile) {
-        var addBtn = tile.querySelector('.bd-bag__add');
-        if (addBtn) addBtn.setAttribute('aria-pressed', selectedBags.has(vid) ? 'true' : 'false');
-      }
-      $('bagCount').textContent = String(selectedBags.size);
-      updateSummary();
-      return true;
-    }
-    document.querySelectorAll('.bd-bag__add').forEach(function (btn) {
-      btn.addEventListener('click', function (e) { e.stopPropagation(); toggleBag(btn.dataset.add); });
+  // ── Time slots ──
+  document.querySelectorAll<HTMLButtonElement>('.bd-slot').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.bd-slot').forEach((x) => x.classList.remove('sel'));
+      b.classList.add('sel'); selectedSlot = b.dataset.slot || '';
     });
+  });
 
-    // ── Quick-view modal ──
-    var modal = $('bagModal');
-    function openModal(vid) {
-      var b = BAGS[vid]; if (!b) return;
-      modalVid = vid;
-      $('mv-title').textContent = b.title;
-      // Shop-authored HTML from Shopify, same trust level as the PDP's set:html.
-      $('mv-desc').innerHTML = b.description || 'A Mir Kash piece — crafted slowly from plant-based vegan leather.';
-      $('mv-full').href = '/products/' + b.handle;
-      var imgs = (b.images && b.images.length) ? b.images : [''];
-      $('mv-img').src = imgs[0]; $('mv-img').alt = b.title;
-      var tw = $('mv-thumbs'); tw.innerHTML = '';
-      if (imgs.length > 1) {
-        imgs.forEach(function (src, idx) {
-          var t = document.createElement('img'); t.src = src; t.alt = ''; if (idx === 0) t.className = 'on';
-          t.addEventListener('click', function () {
-            $('mv-img').src = src;
-            tw.querySelectorAll('img').forEach(function (x) { x.classList.remove('on'); });
-            t.classList.add('on');
-          });
-          tw.appendChild(t);
+  // ── Bag selection (shared toggle) ──
+  let maxTimer = 0;
+  function showMax() { const m = $('maxMsg'); m.hidden = false; clearTimeout(maxTimer); maxTimer = window.setTimeout(() => { m.hidden = true; }, 3000); }
+  function toggleBag(vid: string): boolean {
+    const tile = tileFor(vid);
+    if (selectedBags.has(vid)) { selectedBags.delete(vid); if (tile) tile.classList.remove('sel'); }
+    else {
+      if (selectedBags.size >= 6) { showMax(); return false; }
+      selectedBags.set(vid, BAGS[vid]?.title || 'Bag'); if (tile) tile.classList.add('sel');
+    }
+    // The card button carries a visible label now, so its pressed state has to
+    // be exposed too — the label alone reads the same either way to a screen reader.
+    if (tile) {
+      const addBtn = tile.querySelector('.bd-bag__add');
+      if (addBtn) addBtn.setAttribute('aria-pressed', selectedBags.has(vid) ? 'true' : 'false');
+    }
+    $('bagCount').textContent = String(selectedBags.size);
+    return true;
+  }
+  document.querySelectorAll<HTMLButtonElement>('.bd-bag__add').forEach((btn) => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleBag(btn.dataset.add!); });
+  });
+
+  // ── Preselect from ?bag=<handle> (the product-page prompt links here) ──
+  function preselectFromQuery() {
+    const wantBag = new URLSearchParams(location.search).get('bag');
+    if (!wantBag) return;
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
+    const wantTile = document.querySelector<HTMLElement>(`.bd-bag[data-handle="${esc}"]`);
+    if (wantTile && !selectedBags.has(wantTile.dataset.vid!)) toggleBag(wantTile.dataset.vid!);
+  }
+
+  // ── Quick-view modal ──
+  const modal = $('bagModal');
+  function openModal(vid: string) {
+    const b = BAGS[vid]; if (!b) return;
+    modalVid = vid;
+    $('mv-title').textContent = b.title;
+    // Shop-authored HTML from Shopify, same trust level as the PDP's set:html.
+    $('mv-desc').innerHTML = b.description || 'A Mir Kash piece — crafted slowly from plant-based vegan leather.';
+    ($('mv-full') as HTMLAnchorElement).href = '/products/' + b.handle;
+    const imgs = (b.images && b.images.length) ? b.images : [''];
+    ($('mv-img') as HTMLImageElement).src = imgs[0]; ($('mv-img') as HTMLImageElement).alt = b.title;
+    const tw = $('mv-thumbs'); tw.innerHTML = '';
+    if (imgs.length > 1) {
+      imgs.forEach((src, idx) => {
+        const t = document.createElement('img'); t.src = src; t.alt = ''; if (idx === 0) t.className = 'on';
+        t.addEventListener('click', () => {
+          ($('mv-img') as HTMLImageElement).src = src;
+          tw.querySelectorAll('img').forEach((x) => x.classList.remove('on'));
+          t.classList.add('on');
         });
-      }
-      syncModalBtn();
-      $('mv-msg').hidden = true;
-      modal.hidden = false;
-      document.body.style.overflow = 'hidden';
-    }
-    function syncModalBtn() {
-      var added = selectedBags.has(modalVid);
-      var btn = $('mv-add');
-      btn.textContent = added ? 'Remove from selection' : 'Select this bag';
-      btn.style.background = added ? '#8B1A1A' : '';
-    }
-    function closeModal() { modal.hidden = true; document.body.style.overflow = ''; modalVid = ''; }
-    document.querySelectorAll('.bd-bag__view').forEach(function (btn) {
-      btn.addEventListener('click', function () { openModal(btn.dataset.open); });
-    });
-    $('mv-add').addEventListener('click', function () {
-      var wasAdded = selectedBags.has(modalVid);
-      var ok = toggleBag(modalVid);
-      // Adding was blocked because 6 are already selected.
-      $('mv-msg').hidden = !(!wasAdded && ok === false);
-      syncModalBtn();
-    });
-    modal.querySelectorAll('[data-close]').forEach(function (el) { el.addEventListener('click', closeModal); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
-
-    // ── Details → summary ──
-    ['f-area', 'f-pin', 'f-name'].forEach(function (id) { var el = $(id); if (el) el.addEventListener('input', updateSummary); });
-
-    function updateSummary() {
-      set('sum-date', selectedLabel, 'Choose a day');
-      set('sum-time', selectedSlot, 'Choose a time');
-      var names = []; selectedBags.forEach(function (t) { names.push(t); });
-      set('sum-bags', names.length ? names.join(', ') : '', 'Up to six pieces');
-      var area = val('f-area') || (val('f-pin') ? 'Mumbai ' + val('f-pin') : '');
-      set('sum-area', area, 'Add your details');
-    }
-    function set(id, value, placeholder) {
-      var el = $(id); if (!el) return;
-      el.textContent = value || placeholder; el.classList.toggle('muted', !value);
-    }
-
-    function flashErr(msg) { var e = $('bookErr'); e.hidden = false; e.textContent = msg; }
-    function clearErr() { $('bookErr').hidden = true; }
-
-    // ── Confirm ──
-    $('bookBtn').addEventListener('click', function () {
-      clearErr();
-      if (!selectedISO || !selectedSlot) { flashErr('Please choose a date and time above.'); return; }
-      if (selectedBags.size < 1) { flashErr('Please select at least one bag to try.'); return; }
-      var name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
-        addr = val('f-addr'), area = val('f-area'), pin = val('f-pin');
-      if (!name || !phone || !email || !addr) { flashErr('Please fill in your name, phone, email and address.'); return; }
-      if (phone.length !== 10) { flashErr('Please enter a valid 10-digit phone number.'); return; }
-      if (!/^\S+@\S+\.\S+$/.test(email)) { flashErr('Please enter a valid email address.'); return; }
-      if (!/^\d{6}$/.test(pin)) { flashErr('Please enter a valid 6-digit PIN code.'); return; }
-
-      var btn = $('bookBtn'); btn.disabled = true; btn.textContent = 'Booking…';
-      var bagList = []; selectedBags.forEach(function (title, vid) { bagList.push({ variantId: vid, title: title }); });
-      fetch('/api/book-demo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name: name, phone: phone, email: email, address: addr, area: area, pin: pin })
-      }).then(function (res) {
-        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
-      }).then(function (r) {
-        if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
-        $('bdMain').style.display = 'none';
-        $('bdDoneBody').textContent = 'We’ll call you shortly to confirm your ' + selectedSlot + ' slot on ' + selectedLabel + '. Relax — there’s absolutely no pressure to buy.';
-        $('bdDone').hidden = false;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }).catch(function (err) {
-        flashErr(err.message); btn.disabled = false; btn.textContent = 'Confirm Try at Home';
+        tw.appendChild(t);
       });
+    }
+    syncModalBtn();
+    $('mv-msg').hidden = true;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function syncModalBtn() {
+    const added = selectedBags.has(modalVid);
+    const btn = $('mv-add') as HTMLButtonElement;
+    btn.textContent = added ? 'Remove from selection' : 'Select this bag';
+    btn.style.background = added ? '#8B1A1A' : '';
+  }
+  function closeModal() { modal.hidden = true; document.body.style.overflow = ''; modalVid = ''; }
+  document.querySelectorAll<HTMLButtonElement>('.bd-bag__view').forEach((btn) => {
+    btn.addEventListener('click', () => openModal(btn.dataset.open!));
+  });
+  $('mv-add').addEventListener('click', () => {
+    const wasAdded = selectedBags.has(modalVid);
+    const ok = toggleBag(modalVid);
+    // Adding was blocked because 6 are already selected.
+    $('mv-msg').hidden = !(!wasAdded && ok === false);
+    syncModalBtn();
+  });
+  modal.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeModal));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+
+  // ── Details recap (shown on the details step, in place of the old live sidebar) ──
+  function updateDetailsRecap() {
+    const recap = document.getElementById('detailsRecap');
+    if (!recap) return;
+    const bagNames: string[] = []; selectedBags.forEach((t) => bagNames.push(t));
+    const parts = [selectedLabel, selectedSlot, bagNames.length ? bagNames.join(', ') : ''].filter(Boolean);
+    recap.textContent = parts.length ? parts.join(' · ') : 'Choose a day, time and your bags to see them here.';
+  }
+
+  // ── Wizard engine ──
+  function buildCtx(): GateContext {
+    return { hasDateTime: Boolean(selectedISO && selectedSlot), bagCount: selectedBags.size, detailsValid: computeDetailsValid() };
+  }
+  function computeDetailsValid(): boolean {
+    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
+      addr = val('f-addr'), pin = val('f-pin');
+    if (!name || !phone || !email || !addr) return false;
+    if (phone.length !== 10) return false;
+    if (!/^\S+@\S+\.\S+$/.test(email)) return false;
+    if (!/^\d{6}$/.test(pin)) return false;
+    if (countryIso !== 'IN' || !cityOk()) return false;
+    return true;
+  }
+
+  // ── Country & city ──
+  // Try at Home visits the Mumbai area only. Choosing another country moves the
+  // visitor straight to Private Viewing with everything they've entered. The city
+  // is typed freely: Mumbai-area names pass (cities.ts), and anything else gets a
+  // one-tap "is this in or near Mumbai?" check — "No" makes the same move.
+  let countryIso = 'IN';
+  let cityConfirmed = false;
+  const comboList = (id: string) => $(id).parentElement!.querySelector<HTMLElement>('.bw-combo__list')!;
+  const countryOpts: ComboOption[] = COUNTRIES.map((c) => ({ value: c.iso2, label: c.name, prefix: flagEmoji(c.iso2) }));
+  const countryCombo = makeCombobox({
+    input: $('f-country') as HTMLInputElement,
+    list: comboList('f-country'),
+    options: () => countryOpts,
+    onCommit(opt) {
+      countryIso = opt?.value || '';
+      if (countryIso && countryIso !== 'IN') { switchToViewing(); return; }
+      scheduleSave();
+    },
+  });
+  const cityCheck = $('cityCheck');
+  const cityInput = $('f-city') as HTMLInputElement;
+  // Checked once they've finished typing — change fires on leaving the field.
+  cityInput.addEventListener('input', () => { cityConfirmed = false; cityCheck.hidden = true; });
+  cityInput.addEventListener('change', () => { checkCity(); scheduleSave(); });
+  function cityOk(): boolean {
+    const city = val('f-city');
+    return Boolean(city) && (isMumbaiArea(city) || cityConfirmed);
+  }
+  function checkCity() {
+    const city = val('f-city');
+    cityCheck.hidden = true;
+    if (!city || isMumbaiArea(city) || cityConfirmed) return;
+    $('cityCheckName').textContent = city;
+    cityCheck.hidden = false;
+  }
+  $('cityYes').addEventListener('click', () => { cityConfirmed = true; cityCheck.hidden = true; scheduleSave(); });
+  $('cityNo').addEventListener('click', () => switchToViewing());
+
+  function switchToViewing() {
+    const phone = val('f-phone').replace(/\D/g, '');
+    const draftBags: BookingBag[] = []; selectedBags.forEach((title, variantId) => draftBags.push({ variantId, title }));
+    const where = countryIso && countryIso !== 'IN' ? (findCountry(countryIso)?.name || '') : val('f-city');
+    saveDraft(DRAFT_KEY_PRIVATE_VIEWING, {
+      step: 'details', dateISO: selectedISO, dateLabel: selectedLabel, slot: selectedSlot, bags: draftBags,
+      fields: {
+        'f-name': val('f-name'), 'f-email': val('f-email'),
+        // The number was typed after a fixed +91.
+        'f-phone-iso': phone ? 'IN' : '', 'f-phone-number': phone,
+        'f-country': countryIso || 'IN',
+        'f-city': countryIso === 'IN' ? val('f-city') : '',
+      },
     });
-  })();
+    // Leave this form's own draft without the out-of-area answer, so coming back
+    // here doesn't bounce the visitor straight out again.
+    countryIso = 'IN';
+    countryCombo.set(countryOpts.find((o) => o.value === 'IN') ?? null);
+    cityInput.value = '';
+    cityConfirmed = false;
+    clearTimeout(saveTimer);
+    saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft());
+    try { sessionStorage.setItem('mk_switched_from_tah', where || '1'); } catch { /* storage unavailable */ }
+    if (window.mkTrack) window.mkTrack('tryhome_switch_to_viewing');
+    window.location.href = '/private-viewing';
+  }
+
+  function render() {
+    WIZARD_STEPS.forEach((s) => {
+      const el = document.querySelector(`.bw-step[data-step="${s}"]`);
+      if (!el) return;
+      if (s === active) el.setAttribute('data-active', ''); else el.removeAttribute('data-active');
+    });
+    document.querySelectorAll<HTMLElement>('.bw-progress__seg').forEach((seg) => {
+      const s = seg.dataset.step as WizardStep;
+      const idx = stepIndex(s), curIdx = stepIndex(active);
+      seg.dataset.state = idx < curIdx ? 'done' : idx === curIdx ? 'active' : 'todo';
+    });
+    shell.dataset.step = active;
+    backBtn.hidden = active === 'cover';
+    nextBtn.disabled = false;
+    nextBtn.textContent = active === 'details' ? 'Confirm Try at Home' : active === 'cover' ? 'Book your visit →' : 'Continue';
+    if (active === 'details') updateDetailsRecap();
+  }
+
+  // Lets the phone layout size the shell to the screen below the header.
+  function measureTop() {
+    shell.style.setProperty('--bw-top', Math.round(shell.getBoundingClientRect().top + window.scrollY) + 'px');
+  }
+  window.addEventListener('resize', measureTop);
+
+  function currentDraft(): BookingDraft {
+    const fields: Record<string, string> = {};
+    ['f-name', 'f-phone', 'f-email', 'f-city', 'f-addr', 'f-area', 'f-pin'].forEach((id) => { const v = val(id); if (v) fields[id] = v; });
+    if (countryIso) fields['f-country'] = countryIso;
+    if (cityConfirmed) fields['f-city-ok'] = '1';
+    const draftBags: BookingBag[] = []; selectedBags.forEach((title, variantId) => draftBags.push({ variantId, title }));
+    return { step: active, dateISO: selectedISO, dateLabel: selectedLabel, slot: selectedSlot, bags: draftBags, fields };
+  }
+
+  function restoreDraft(draft: BookingDraft) {
+    if (draft.dateISO) {
+      const btn = Array.from(rail.querySelectorAll<HTMLButtonElement>('.bd-rdate')).find((b) => b.dataset.iso === draft.dateISO);
+      if (btn) btn.click();
+    }
+    if (draft.slot) {
+      const sbtn = Array.from(document.querySelectorAll<HTMLButtonElement>('.bd-slot')).find((b) => b.dataset.slot === draft.slot);
+      if (sbtn) sbtn.click();
+    }
+    draft.bags.forEach((b) => { if (b.variantId && !selectedBags.has(b.variantId)) toggleBag(b.variantId); });
+    Object.entries(draft.fields).forEach(([id, v]) => {
+      if (id === 'f-country' || id === 'f-city') return;
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el && v) el.value = v;
+    });
+    const country = findCountry(draft.fields['f-country'] || 'IN');
+    if (country?.iso2 === 'IN') {
+      countryIso = 'IN';
+      countryCombo.set(countryOpts.find((o) => o.value === 'IN') ?? null);
+      cityConfirmed = draft.fields['f-city-ok'] === '1';
+      cityInput.value = draft.fields['f-city'] || '';
+      checkCity();
+    }
+  }
+
+  function goNext() {
+    errEl.hidden = true;
+    const ctx = buildCtx();
+    const gate = canAdvance(active, ctx);
+    if (!gate.ok) { errEl.hidden = false; errEl.textContent = gate.reason || 'Please check the details above.'; return; }
+    const leavingStep = active;
+    if (window.mkLead) window.mkLead({
+      event: 'booking_step', bookingFlow: 'try_at_home', bookingStep: leavingStep,
+      bookingDate: selectedISO || undefined, bookingSlot: selectedSlot || undefined, bookingBagsCount: selectedBags.size,
+    });
+    if (leavingStep === 'details') { submit(); return; }
+    active = nextStep(active);
+    render();
+    window.scrollTo(0, 0);
+    saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft());
+    if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
+  }
+  function goBack() {
+    errEl.hidden = true;
+    active = prevStep(active);
+    render();
+    window.scrollTo(0, 0);
+    if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
+  }
+  backBtn.addEventListener('click', goBack);
+  nextBtn.addEventListener('click', goNext);
+  $('bwCoverCta')?.addEventListener('click', goNext);
+
+  // ── Lead capture (best-effort, matches CheckoutPage.astro's pattern) ──
+  let leadTimer = 0;
+  function maybeFirePhoneEmailLead() {
+    const phone = val('f-phone').replace(/\D/g, '');
+    const email = val('f-email');
+    if (phone.length === 10 && /^\S+@\S+\.\S+$/.test(email)) {
+      clearTimeout(leadTimer);
+      leadTimer = window.setTimeout(() => {
+        if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone, email, name: val('f-name') || undefined });
+      }, 400);
+    }
+  }
+  ['f-phone', 'f-email'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('input', maybeFirePhoneEmailLead); el.addEventListener('blur', maybeFirePhoneEmailLead); }
+  });
+
+  // ── Draft autosave (debounced, mirrors CheckoutPage.astro) ──
+  let saveTimer = 0;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft()), 400);
+  }
+  shell.addEventListener('input', scheduleSave);
+  shell.addEventListener('change', scheduleSave);
+
+  // ── Mumbai-switch resume banner ──
+  function maybeShowSwitchBanner() {
+    let switched = false;
+    try {
+      switched = sessionStorage.getItem('mk_switched_from_pv') !== null;
+      if (switched) sessionStorage.removeItem('mk_switched_from_pv');
+    } catch { /* storage unavailable — just skip the banner */ }
+    if (!switched) return;
+    const stepEl = document.querySelector(`.bw-step[data-step="${active}"]`);
+    if (!stepEl) return;
+    const banner = document.createElement('div');
+    banner.className = 'bw-banner';
+    banner.innerHTML = '<p>Switched from Private Viewing — your date, time and bags carried over.</p>' +
+      '<div class="bw-banner__actions"><button type="button" class="bw-banner__btn bw-banner__btn--quiet" data-dismiss-banner>Dismiss</button></div>';
+    banner.querySelector('[data-dismiss-banner]')?.addEventListener('click', () => banner.remove());
+    const host = (active === 'details' && document.getElementById('bwBannerSlot')) || stepEl;
+    host.insertBefore(banner, host.firstChild);
+  }
+
+  // ── Submit ──
+  function submit() {
+    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
+      addr = val('f-addr'), area = val('f-area'), pin = val('f-pin');
+    const city = val('f-city');
+    if (window.mkLead) window.mkLead({ event: 'address', address1: addr, city: city || 'Mumbai', province: 'Maharashtra', pin, name: name || undefined, email: email || undefined });
+    nextBtn.disabled = true; nextBtn.textContent = 'Booking…';
+    if (window.mkTrack) window.mkTrack('tryhome_submit');
+    const bagList: BookingBag[] = []; selectedBags.forEach((title, variantId) => bagList.push({ variantId, title }));
+    fetch('/api/book-demo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, email, address: addr, area, pin, city, country: countryIso }),
+    }).then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then((r) => {
+        if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
+        if (window.mkTrack) window.mkTrack('tryhome_booked');
+        clearDraft(DRAFT_KEY_TRY_AT_HOME);
+        showDone();
+      }).catch((err) => {
+        errEl.hidden = false; errEl.textContent = err.message;
+        nextBtn.disabled = false; nextBtn.textContent = 'Confirm Try at Home';
+      });
+  }
+
+  function populateReceipt(doneSection: HTMLElement) {
+    const field = (name: string) => doneSection.querySelector<HTMLElement>(`[data-rp-field="${name}"]`);
+    const dateEl = field('date'), slotEl = field('slot');
+    if (dateEl) dateEl.textContent = selectedLabel;
+    if (slotEl) slotEl.textContent = selectedSlot;
+    const bagNames: string[] = []; selectedBags.forEach((t) => bagNames.push(t));
+    doneSection.querySelectorAll<HTMLElement>('[data-rp-item-slot]').forEach((li) => {
+      const i = Number(li.dataset.rpItemSlot);
+      li.hidden = i >= bagNames.length;
+      const titleEl = li.querySelector<HTMLElement>('[data-rp-field="title"]');
+      if (titleEl && !li.hidden) titleEl.textContent = bagNames[i];
+    });
+  }
+  function showDone() {
+    const doneSection = document.getElementById('bwDone');
+    if (doneSection) { populateReceipt(doneSection); doneSection.hidden = false; }
+    shell.hidden = true;
+    const footer = document.getElementById('bwFooter'); if (footer) footer.hidden = false;
+    // Mirrors mark(storage, 'bookedAt', now) in src/lib/viewing-prompt.ts.
+    try {
+      let vp: Record<string, unknown> = {};
+      try { const p = JSON.parse(localStorage.getItem('mk_vp') || 'null'); if (p && p.v === 1) vp = p; } catch { /* corrupt entry — start fresh */ }
+      vp.bookedAt = Date.now(); vp.v = 1;
+      localStorage.setItem('mk_vp', JSON.stringify(vp));
+    } catch { /* storage unavailable — the prompt may show again, which is harmless */ }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── Boot ──
+  if (window.mkTrack) window.mkTrack('tryhome_start');
+  const draft = loadDraft(DRAFT_KEY_TRY_AT_HOME);
+  if (draft) restoreDraft(draft);
+  preselectFromQuery();
+  active = draft ? resolveInitialStep(buildCtx()) : 'cover';
+  maybeShowSwitchBanner();
+  render();
+  measureTop();
+  // Visitors the site already places in the Mumbai area get their city filled in.
+  window.mkGeo?.then((g) => {
+    if (!g?.mumbai || val('f-city')) return;
+    cityInput.value = g.city && isMumbaiArea(g.city) ? g.city : 'Mumbai';
+    scheduleSave();
+  });
+  if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
 </script>

@@ -1,0 +1,13 @@
+{%- comment -%} A tinted note. Needs: mk_callout_title (optional), mk_callout_body. Set mk_callout_alert = true for a Cherry Red edge. {%- endcomment -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
+  <tr>
+    <td style="{% if mk_callout_alert %}%%callout-alert%%{% else %}%%callout%%{% endif %}">
+      {%- if mk_callout_title != blank %}
+      <p class="mk-serif" style="%%h2%%;font-size:18px;line-height:24px;margin:0 0 6px;">{{ mk_callout_title }}</p>
+      {%- endif %}
+      <p style="%%p-last%%;font-size:14px;line-height:22px;">{{ mk_callout_body }}</p>
+    </td>
+  </tr>
+</table>
+{%- assign mk_callout_title = '' -%}
+{%- assign mk_callout_alert = false -%}

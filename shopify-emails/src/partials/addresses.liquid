@@ -1,0 +1,40 @@
+{%- comment -%} Shipping address + method, billing address, payment method. Two columns that stack on phones. {%- endcomment -%}
+{%- assign mk_pay = '' -%}
+{%- if mk_store == 'india' and financial_status == 'pending' -%}
+  {%- assign mk_pay = 'Cash on delivery' -%}
+{%- else -%}
+  {%- capture mk_pay -%}
+    {%- for transaction in transactions -%}
+      {%- if transaction.status == 'success' or transaction.status == 'pending' -%}
+        {%- if transaction.kind == 'authorization' or transaction.kind == 'sale' -%}
+          {%- if transaction.payment_details.credit_card_company != blank -%}
+            {{ transaction.payment_details.credit_card_company }} ending {{ transaction.payment_details.credit_card_last_four_digits }}<br>
+          {%- else -%}
+            {{ transaction.gateway_display_name }}<br>
+          {%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endcapture -%}
+{%- endif -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    {%- if requires_shipping and shipping_address %}
+    <td class="mk-stack" width="50%" style="%%addr-cell%%">
+      <p style="%%label%%;color:#6B5A4C;">Delivering to</p>
+      {{ shipping_address | format_address }}
+      {%- if shipping_method.title != blank %}<br><br><span style="color:#6B5A4C;">{{ shipping_method.title }}</span>{% endif %}
+    </td>
+    {%- endif %}
+    <td class="mk-stack" width="50%" style="%%addr-cell%%">
+      {%- if billing_address %}
+      <p style="%%label%%;color:#6B5A4C;">Billing address</p>
+      {{ billing_address | format_address }}
+      {%- endif %}
+      {%- if mk_pay != blank %}
+      <p style="%%label%%;color:#6B5A4C;margin-top:{% if billing_address %}20px{% else %}0{% endif %};">Payment</p>
+      {{ mk_pay }}
+      {%- endif %}
+    </td>
+  </tr>
+</table>

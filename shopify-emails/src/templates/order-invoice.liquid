@@ -1,0 +1,51 @@
+---
+name: Order invoice
+section: Orders
+subject: Payment for order {{ name }}
+---
+{%- capture email_title -%}Your order is ready for payment{%- endcapture -%}
+{%- capture email_preheader -%}{{ total_outstanding | money_with_currency }} is due on order {{ order_name }}.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+{%- if custom_message != blank %}
+<p style="%%p%%">{{ custom_message }}</p>
+{%- endif %}
+<p style="%%p%%">
+  {%- if payment_terms.next_payment.due_at != blank -%}
+    Please pay <strong>{{ total_outstanding | money_with_currency }}</strong> by {{ payment_terms.next_payment.due_at | date: '%-d %B %Y' }} to complete your order.
+  {%- else -%}
+    Please pay <strong>{{ total_outstanding | money_with_currency }}</strong> to complete your order.
+  {%- endif -%}
+</p>
+
+{%- if checkout_payment_collection_url != blank %}
+  {%- assign mk_button_url = checkout_payment_collection_url -%}
+  {%- assign mk_button_label = 'Pay now' -%}
+{%- else %}
+  {%- assign mk_button_url = order_status_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- assign mk_section = 'Your order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  {%- if total_price > total_outstanding %}
+  <tr>
+    <td style="%%total-label%%">Already paid</td>
+    <td style="%%total-value%%">{{ total_price | minus: total_outstanding | money }}</td>
+  </tr>
+  {%- endif %}
+  <tr>
+    <td style="%%total-label%%;color:#8B1A1A;font-weight:600;">Amount due</td>
+    <td style="%%total-value%%;color:#8B1A1A;font-weight:600;">{{ total_outstanding | money_with_currency }}</td>
+  </tr>
+</table>
+{% render 'section-end' %}
+
+{%- assign mk_section = 'Delivery details' -%}
+{% render 'section-start' %}
+{% render 'addresses' %}
+{% render 'section-end' %}

@@ -1,0 +1,56 @@
+---
+name: Order confirmation
+section: Orders
+subject: Order {{ name }} is confirmed
+previews: paid
+---
+{%- capture email_title -%}
+  Thank you{% if customer.first_name != blank %}, {{ customer.first_name }}{% endif %}.
+{%- endcapture -%}
+{%- capture email_preheader -%}
+  {%- if mk_store == 'india' and financial_status == 'pending' -%}
+    Your order is confirmed. Please keep {{ total_price | money }} ready to pay when it arrives.
+  {%- else -%}
+    Your order is confirmed. We'll write again the moment it ships.
+  {%- endif -%}
+{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if requires_shipping -%}
+    Your order is confirmed and we're getting it ready. {{ mk_delivery_promise }} We'll write again the moment it ships, with tracking.
+  {%- else -%}
+    Your order is confirmed.
+  {%- endif -%}
+</p>
+{%- if delivery_instructions != blank %}
+<p style="%%p%%"><strong>Delivery notes:</strong> {{ delivery_instructions }}</p>
+{%- endif %}
+
+{%- if mk_store == 'india' and financial_status == 'pending' %}
+  {%- assign mk_callout_title = 'Paying on delivery' -%}
+  {%- capture mk_callout_body -%}
+    Please keep <strong>{{ total_price | money }}</strong> ready for the courier when your bag arrives.
+  {%- endcapture -%}
+  {% render 'callout' %}
+{%- endif %}
+
+{%- if order_status_url != blank %}
+  {%- assign mk_button_url = order_status_url -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- else %}
+  {%- assign mk_button_url = mk_site -%}
+  {%- assign mk_button_label = 'Visit Mir Kash' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- assign mk_section = 'In your order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+{% render 'section-end' %}
+
+{%- assign mk_section = 'Delivery details' -%}
+{% render 'section-start' %}
+{% render 'addresses' %}
+{% render 'section-end' %}

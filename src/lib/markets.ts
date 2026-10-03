@@ -176,7 +176,7 @@ export function getAlternateUrl(pathname: string, target: MarketConfig): string 
 
 /** Root-only routes with no /en-xx counterpart under src/pages/[locale] — no hreflang alternates for these
  *  (listing /en-us/try-at-home etc. as alternates pointed Google at 404s). */
-const ROOT_ONLY = [/^\/try-at-home(\/|$)/, /^\/checkout(\/|$)/, /^\/account(\/|$)/, /^\/private-viewing(\/|$)/, /^\/viewing(\/|$)/, /^\/admin(\/|$)/, /^\/go(\/|$)/];
+const ROOT_ONLY = [/^\/try-at-home(\/|$)/, /^\/checkout(\/|$)/, /^\/account(\/|$)/, /^\/viewing(\/|$)/, /^\/admin(\/|$)/, /^\/go(\/|$)/];
 export const hasLocaleVersions = (path: string) => !ROOT_ONLY.some((re) => re.test(path));
 
 export function absoluteUrl(pathname: string): string {

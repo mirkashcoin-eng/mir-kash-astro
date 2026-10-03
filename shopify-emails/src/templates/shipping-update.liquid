@@ -1,0 +1,27 @@
+---
+name: Shipping update
+section: Shipping
+subject: New tracking details for order {{ name }}
+---
+{%- capture email_title -%}Your tracking details have changed{%- endcapture -%}
+{%- capture email_preheader -%}There's new shipping information for order {{ order_name }}.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">There's new shipping information for the pieces below. Use the details here from now on.</p>
+{% render 'tracking' %}
+
+{%- if mk_track_url != blank %}
+  {%- assign mk_button_url = mk_track_url -%}
+  {%- assign mk_button_label = 'Track your parcel' -%}
+  {%- assign mk_link_url = order_status_url -%}
+  {%- assign mk_link_label = 'view your order' -%}
+{%- else %}
+  {%- assign mk_button_url = order_status_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- assign mk_section = 'In this shipment' -%}
+{% render 'section-start' %}
+{% render 'fulfillment-items' %}
+{% render 'section-end' %}

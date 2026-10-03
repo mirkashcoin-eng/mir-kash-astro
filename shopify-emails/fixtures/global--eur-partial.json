@@ -1,0 +1,33 @@
+{
+  "_money_format": "€{{amount}}",
+  "_currency": "EUR",
+  "_locale": "de-DE",
+  "fulfillment_status": "partial",
+  "fulfillment": {
+    "item_count": 1,
+    "fulfillment_line_items": [
+      {
+        "line_item": {
+          "title": "Weaver Tote - Cherry Red",
+          "product": {
+            "title": "Weaver Tote"
+          },
+          "variant": {
+            "title": "Cherry Red"
+          },
+          "variant_title": "Cherry Red",
+          "quantity": 1,
+          "image": {
+            "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+          },
+          "original_line_price": 32800,
+          "final_line_price": 32800,
+          "line_price": 32800,
+          "discount_allocations": [],
+          "refunded_quantity": 0
+        },
+        "quantity": 1
+      }
+    ]
+  }
+}

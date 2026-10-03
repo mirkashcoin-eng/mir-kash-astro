@@ -1,0 +1,20 @@
+---
+name: Return request received
+section: Returns
+subject: We've received your return request for order {{ order.name }}
+---
+{%- capture email_title -%}We've received your return request{%- endcapture -%}
+{%- capture email_preheader -%}We'll review it and email you as soon as it's done.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+{%- assign mk_order_url = order.customer_order_url | default: order.order_status_url -%}
+<!-- body -->
+<p style="%%p%%">Thank you for letting us know. We'll review your request and email you as soon as it's done, with everything you need to send the bag back.</p>
+
+{%- assign mk_button_url = mk_order_url | default: mk_site -%}
+{%- assign mk_button_label = 'View your order' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Return summary' -%}
+{% render 'section-start' %}
+{% render 'return-items' %}
+{% render 'section-end' %}

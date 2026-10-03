@@ -16,14 +16,22 @@ declare global {
   }
   interface Window {
     // First-party analytics + lead capture (defined inline in BaseLayout).
-    mkTrack?: (event: string, opts?: { product?: string }) => void;
+    mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string }) => void;
     mkSid?: string;
     mkLead?: (data: {
-      event: 'add_to_cart' | 'phone' | 'address';
+      event: 'add_to_cart' | 'phone' | 'address' | 'booking_step';
       item?: string; phone?: string; email?: string; name?: string; uid?: string;
       address1?: string; city?: string; province?: string; pin?: string;
       cart?: { total: number; currency: string; quantity: number; lines: Array<{ title: string; variant: string | null; quantity: number; price: number }> };
+      // Try at Home / Private Viewing wizard progress (booking_step event).
+      bookingFlow?: 'try_at_home' | 'private_viewing';
+      bookingStep?: 'cover' | 'datetime' | 'bags' | 'details';
+      bookingDate?: string; bookingSlot?: string; bookingBagsCount?: number;
     }) => void;
+    // India storefront only: the visitor's /api/geo lookup (BaseLayout). null if it failed.
+    mkGeo?: Promise<{ mumbai?: boolean; city?: string; country?: string } | null>;
+    // Google Tag Manager queue.
+    dataLayer?: Record<string, unknown>[];
     // Trims a Shopify cart payload down to what /admin stores.
     cartSnapshot?: (cart: unknown) => { total: number; currency: string; quantity: number; lines: Array<{ title: string; variant: string | null; quantity: number; price: number }> } | undefined;
   }

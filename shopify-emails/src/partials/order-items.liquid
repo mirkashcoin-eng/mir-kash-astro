@@ -1,0 +1,25 @@
+{%- comment -%} The order's products with prices (subtotal_line_items). {%- endcomment -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for line in subtotal_line_items %}
+  {%- if line.product.title != blank %}{% assign mk_item_title = line.product.title %}{% else %}{% assign mk_item_title = line.title %}{% endif -%}
+  {%- if line.image %}{% capture mk_item_image %}{{ line | img_url: '240x', format: 'jpg' }}{% endcapture %}{% else %}{% assign mk_item_image = '' %}{% endif -%}
+  {%- capture mk_item_meta -%}
+    {%- if line.variant.title != 'Default Title' and line.variant.title != blank %}{{ line.variant.title }}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif -%}
+    Qty {{ line.quantity }}
+    {%- if line.selling_plan_allocation %}&nbsp;&nbsp;·&nbsp;&nbsp;{{ line.selling_plan_allocation.selling_plan.name }}{% endif -%}
+  {%- endcapture -%}
+  {%- capture mk_item_note -%}
+    {%- for discount_allocation in line.discount_allocations -%}
+      {%- if discount_allocation.discount_application.target_selection != 'all' -%}
+        {{ discount_allocation.discount_application.title | default: 'Discount' }} (−{{ discount_allocation.amount | money }})<br>
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if line.refunded_quantity > 0 %}Refunded{% endif -%}
+  {%- endcapture -%}
+  {%- capture mk_item_price -%}
+    {%- if line.original_line_price != line.final_line_price %}<span style="%%strike%%">{{ line.original_line_price | money }}</span><br>{% endif -%}
+    {%- if line.final_line_price > 0 %}{{ line.final_line_price | money }}{% else %}Free{% endif -%}
+  {%- endcapture -%}
+  {% render 'item-row' %}
+{%- endfor %}
+</table>

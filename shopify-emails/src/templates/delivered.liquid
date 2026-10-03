@@ -1,0 +1,26 @@
+---
+name: Delivered
+section: Shipping
+subject: Order {{ name }} has arrived
+---
+{%- assign mk_stage = 'has arrived' -%}
+{% render 'fulfillment-title' %}
+{%- capture email_preheader -%}We hope it was worth the wait.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">We hope it was worth the wait. Carry it often: it was made to be used, not kept for best.</p>
+<p style="%%p%%">Haven't received it? Write to us at <a href="mailto:{{ mk_help_email }}" style="%%link%%">{{ mk_help_email }}</a> and we'll look into it.</p>
+
+{%- assign mk_button_url = order_status_url | default: mk_site -%}
+{%- assign mk_button_label = 'View your order' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Delivered' -%}
+{% render 'section-start' %}
+{% render 'fulfillment-items' %}
+{% render 'section-end' %}
+
+{%- capture mk_callout_body -%}
+  If it isn't quite right, you can return it within {{ mk_return_days }} days of delivery. It needs to be unused, with its dust bag and Mir Kash box. <a href="{{ mk_site }}/pages/shipping-returns" style="%%link%%">How returns work</a>
+{%- endcapture -%}
+{% render 'callout' %}

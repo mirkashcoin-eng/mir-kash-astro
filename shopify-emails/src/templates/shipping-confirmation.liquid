@@ -1,0 +1,44 @@
+---
+name: Shipping confirmation
+section: Shipping
+subject: Order {{ name }} is on its way
+previews: eur-partial
+---
+{%- assign mk_stage = 'is on its way' -%}
+{% render 'fulfillment-title' %}
+{%- capture email_preheader -%}
+  {%- if fulfillment.tracking_numbers.size > 0 -%}It's left us and is on its way. Your tracking details are inside.{%- else -%}It's left us and is on its way to you.{%- endif -%}
+{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if fulfillment.item_count == item_count -%}
+    Your order has left us and is on its way to you.
+  {%- else -%}
+    {% if fulfillment.item_count == 1 %}The piece below has left us and is{% else %}The pieces below have left us and are{% endif %} on {% if fulfillment.item_count == 1 %}its{% else %}their{% endif %} way to you.{% unless fulfillment_status == 'fulfilled' %} We'll write again when the rest of your order ships.{% endunless %}
+  {%- endif -%}
+</p>
+{% render 'tracking' %}
+
+{%- if mk_track_url != blank %}
+  {%- assign mk_button_url = mk_track_url -%}
+  {%- assign mk_button_label = 'Track your parcel' -%}
+  {%- assign mk_link_url = order_status_url -%}
+  {%- assign mk_link_label = 'view your order' -%}
+{%- else %}
+  {%- assign mk_button_url = order_status_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- assign mk_section = 'In this shipment' -%}
+{% render 'section-start' %}
+{% render 'fulfillment-items' %}
+{% render 'section-end' %}
+
+{%- if shipping_address %}
+{%- assign mk_section = 'Delivering to' -%}
+{% render 'section-start' %}
+{% render 'ship-to' %}
+{% render 'section-end' %}
+{%- endif %}

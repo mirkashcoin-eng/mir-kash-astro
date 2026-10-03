@@ -1,0 +1,21 @@
+{%- comment -%}
+  One product row. Needs: mk_item_image (URL or blank), mk_item_title, mk_item_meta,
+  mk_item_price (HTML, may be blank), mk_item_note (HTML, may be blank).
+{%- endcomment -%}
+{%- comment -%} img_url returns //cdn.shopify.com/… which desktop clients can't load: force https. {%- endcomment -%}
+{%- if mk_item_image != blank -%}
+  {%- assign mk_item_image = mk_item_image | strip | prepend: 'https:' | replace: 'https:https:', 'https:' | replace: 'https:http:', 'http:' -%}
+{%- endif %}
+<tr>
+  <td width="72" style="%%item-img-cell%%">
+    {%- if mk_item_image != blank %}
+    <img src="{{ mk_item_image }}" width="72" alt="{{ mk_item_title | escape }}" style="%%item-img%%">
+    {%- endif %}
+  </td>
+  <td style="%%item-text-cell%%">
+    <p class="mk-serif" style="%%item-title%%">{{ mk_item_title }}</p>
+    {%- if mk_item_meta != blank %}<p style="%%item-meta%%">{{ mk_item_meta }}</p>{% endif %}
+    {%- if mk_item_note != blank %}<p style="%%item-note%%">{{ mk_item_note }}</p>{% endif %}
+  </td>
+  <td style="%%item-price-cell%%">{{ mk_item_price }}</td>
+</tr>

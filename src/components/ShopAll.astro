@@ -3,6 +3,7 @@ import BrandTicker from './BrandTicker.astro';
 import SiteHeader from './SiteHeader.astro';
 import NavDrawer from './NavDrawer.astro';
 import SiteFooter from './SiteFooter.astro';
+import ViewingPrompt from './ViewingPrompt.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { formatMoney } from '~/lib/markets';
@@ -107,10 +108,12 @@ const lightProducts = cards;
 
   <section class="shop-grid" id="shopGrid"></section>
   <div class="grid-sentinel" id="gridSentinel" aria-hidden="true"></div>
+  <div data-vp-sentinel aria-hidden="true"></div>
 
 </main>
 
 <SiteFooter />
+<ViewingPrompt page="shop" />
 
 <script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix, store: market, countryCode: marketConfig.countryCode }}>
   const grid = document.getElementById('shopGrid');

@@ -1,0 +1,17 @@
+---
+name: Customer account invite
+section: Customer accounts
+subject: Activate your Mir Kash account
+---
+{%- capture email_title -%}Activate your account{%- endcapture -%}
+{%- capture email_preheader -%}One step and your Mir Kash account is ready.{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">{% if customer.first_name != blank %}Hi {{ customer.first_name }}, a{% else %}A{% endif %} Mir Kash account has been set up for you. Activate it to follow your orders and check out faster next time.</p>
+{%- if custom_message != blank %}
+<p style="%%p%%">{{ custom_message }}</p>
+{%- endif %}
+
+{%- assign mk_button_url = customer.account_activation_url -%}
+{%- assign mk_button_label = 'Activate your account' -%}
+{% render 'button' %}

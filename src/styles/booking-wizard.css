@@ -1,0 +1,305 @@
+/* Shared step-shell for the Try at Home and Private Viewing booking wizards
+   (src/components/BookDemo.astro, src/components/PrivateViewing.astro).
+   One step full-screen at a time, identically on mobile and desktop — no media
+   query here ever reintroduces a second visible step. Pairs with the JS state
+   machine in src/lib/booking-wizard.ts, which toggles [data-active] / [data-state]
+   on these elements; nothing here depends on screen width.
+
+   This file only holds the NEW step-switching scaffold (progress bar, step
+   visibility, back/continue bar). Each component keeps its own existing CSS for
+   what's inside a step (hero, bag grid, fields, etc.) — there was nothing to
+   gain from renaming hundreds of already-working rules. */
+
+.bw-shell { position: relative; }
+
+/* Thin horizontal line segments across the top — one per step, filled for the
+   steps already done or in progress, faint for what's ahead. */
+.bw-progress {
+  display: flex;
+  gap: 6px;
+  padding: 18px clamp(20px, 4vw, 56px) 0;
+}
+.bw-progress__seg {
+  flex: 1;
+  height: 3px;
+  background: var(--rule, #e4dfd7);
+  border-radius: 2px;
+  transition: background .25s ease;
+}
+.bw-progress__seg[data-state="active"],
+.bw-progress__seg[data-state="done"] {
+  background: var(--cherry, #8B1A1A);
+}
+
+.bw-step { display: none; }
+.bw-step[data-active] { display: block; animation: bw-step-in .3s ease; }
+@keyframes bw-step-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.bw-stepbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px clamp(20px, 4vw, 56px) clamp(28px, 4vw, 40px);
+  border-top: 1px solid var(--rule, #e4dfd7);
+}
+.bw-stepbar__back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--mid, #6e6a64);
+  padding: 10px 4px;
+  transition: color .2s;
+}
+.bw-stepbar__back:hover { color: var(--depth, #2C1A0E); }
+.bw-stepbar__back[hidden] { visibility: hidden; }
+.bw-stepbar__next {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--depth, #2C1A0E);
+  color: #fff;
+  border: none;
+  padding: 15px 32px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s;
+}
+.bw-stepbar__next:hover { background: var(--cherry, #8B1A1A); }
+.bw-stepbar__next:disabled { opacity: .55; cursor: default; }
+.bw-stepbar__err {
+  flex: 1 0 100%;
+  order: 3;
+  margin: 0;
+  color: var(--cherry, #8B1A1A);
+  font-size: 13px;
+}
+
+/* Cross-sell / resume banners dropped in at the top of a step (Mumbai switch
+   prompt, "switched from..." notice, draft-resumed notice). One shared look. */
+.bw-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 20px;
+  margin: 0 clamp(20px, 4vw, 56px) 24px;
+  padding: 16px 20px;
+  background: var(--cream, #F6F1E9);
+  border: 1px solid var(--rule, #e4dfd7);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--mid, #6e6a64);
+}
+.bw-banner strong { color: var(--depth, #2C1A0E); font-weight: 500; }
+.bw-banner__actions { display: flex; gap: 14px; margin-left: auto; }
+.bw-banner__btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 0;
+  color: var(--depth, #2C1A0E);
+  border-bottom: 1px solid var(--depth, #2C1A0E);
+  transition: color .2s, border-color .2s;
+}
+.bw-banner__btn:hover { color: var(--cherry, #8B1A1A); border-color: var(--cherry, #8B1A1A); }
+.bw-banner__btn--quiet { color: var(--faint, #b3aca1); border-color: transparent; }
+
+/* ── Cover ──
+   One screen, both flows. Desktop: a split — the promise, how it works and the
+   button on the left, the photograph on the right, sized to the window. Phone:
+   the photograph fills the screen with the headline set over it and the
+   progress lines laid across its top, Stories-style; how it works and the terms
+   sit beneath, and the sticky bar is the button. */
+.bw-cover[data-active] {
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  height: calc(100svh - var(--bw-top, 0px) - 21px);
+  min-height: 540px;
+  max-height: 860px;
+}
+.bw-cover__media { grid-column: 2; grid-row: 1; position: relative; overflow: hidden; background: #f0e9df; }
+.bw-cover__media img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  animation: bw-cover-settle 1.8s cubic-bezier(.2, .7, .2, 1) both;
+}
+.bw-cover__body {
+  grid-column: 1; grid-row: 1;
+  display: flex; flex-direction: column; justify-content: center; gap: 32px;
+  padding: clamp(32px, 5vw, 72px);
+}
+.bw-cover__eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry, #8B1A1A); margin: 0 0 16px; }
+.bw-cover__h {
+  font-family: var(--serif-display, Georgia, serif); font-weight: 300; letter-spacing: 0;
+  font-size: clamp(36px, 4.4vw, 60px); line-height: 1.04; color: var(--depth, #2C1A0E); margin: 0; max-width: 14ch;
+}
+.bw-cover__sub { font-size: 15.5px; line-height: 1.65; color: var(--mid, #6e6a64); max-width: 44ch; margin: 18px 0 0; }
+.bw-cover__steps {
+  list-style: none; margin: 0; padding: 24px 0 0;
+  border-top: 1px solid var(--rule, #e4dfd7);
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 520px;
+}
+.bw-cover__steps li { display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.4; color: var(--depth, #2C1A0E); }
+.bw-cover__n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid currentColor;
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.bw-cover__meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin: 0; font-size: 12px; letter-spacing: .06em; color: var(--mid, #6e6a64);
+}
+.bw-cover__meta i { width: 3px; height: 3px; border-radius: 50%; background: var(--faint, #b3aca1); }
+.bw-cover__cta {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 10px;
+  background: var(--depth, #2C1A0E); color: #fff; border: none; padding: 16px 34px;
+  font-family: inherit; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500;
+  cursor: pointer; transition: background .2s;
+}
+.bw-cover__cta:hover { background: var(--cherry, #8B1A1A); }
+.bw-cover__cta .ar { transition: transform .2s; }
+.bw-cover__cta:hover .ar { transform: translateX(4px); }
+
+/* Arrives in sequence: the words, then how it works, then the terms. */
+.bw-cover[data-active] .bw-cover__intro > *,
+.bw-cover[data-active] .bw-cover__steps li,
+.bw-cover[data-active] .bw-cover__meta,
+.bw-cover[data-active] .bw-cover__cta { animation: bw-rise .6s ease both; }
+.bw-cover[data-active] .bw-cover__h { animation-delay: .08s; }
+.bw-cover[data-active] .bw-cover__sub { animation-delay: .16s; }
+.bw-cover[data-active] .bw-cover__steps li:nth-child(1) { animation-delay: .26s; }
+.bw-cover[data-active] .bw-cover__steps li:nth-child(2) { animation-delay: .32s; }
+.bw-cover[data-active] .bw-cover__steps li:nth-child(3) { animation-delay: .38s; }
+.bw-cover[data-active] .bw-cover__meta,
+.bw-cover[data-active] .bw-cover__cta { animation-delay: .46s; }
+@keyframes bw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes bw-cover-settle { from { transform: scale(1.06); } to { transform: none; } }
+
+/* Searchable country / city dropdown (src/lib/combobox.ts). */
+.bw-combo { position: relative; }
+.bw-combo__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 248px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--rule, #e4dfd7);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .14);
+  text-align: left;
+}
+.bw-combo__opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  color: var(--depth, #2C1A0E);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bw-combo__opt[data-active], .bw-combo__opt:hover { background: var(--cream, #F6F1E9); }
+.bw-combo__opt--custom { color: var(--mid, #6e6a64); border-top: 1px solid var(--rule, #e4dfd7); }
+.bw-combo__prefix { flex-shrink: 0; font-size: 15px; }
+.bw-combo__empty { padding: 11px 14px; font-size: 13px; color: var(--faint, #b3aca1); }
+
+/* The display:flex above would otherwise beat the [hidden] attribute. */
+.bw-banner[hidden] { display: none; }
+
+/* The Continue bar stays in reach on a long step (the bag grid) and releases
+   at the end of the shell, so it never covers the footer. On the cover the
+   hero's own button is the action on desktop; on a phone the bar is. */
+.bw-stepbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: #fff;
+}
+.bw-shell[data-step="cover"] .bw-stepbar__back { display: none; }
+@media (min-width: 621px) {
+  .bw-shell[data-step="cover"] .bw-stepbar { display: none; }
+}
+
+/* Phone: the shell fills the screen below the header, each step takes the
+   space between the progress bar and the Continue bar, and every step except
+   the bag grid is laid out to fit without scrolling. --bw-top is the shell's
+   distance from the top of the page, set by the wizard script. */
+@media (max-width: 620px) {
+  .page-header .hdr-nav-row { display: none; }
+  .bw-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - var(--bw-top, 0px));
+  }
+  .bw-shell[hidden] { display: none; }
+  .bw-step[data-active] { flex: 1 0 auto; }
+  .bw-progress { gap: 4px; padding: 10px 20px 0; }
+  .bw-progress__seg { height: 2px; }
+  .bw-stepbar {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 10px 20px calc(10px + env(safe-area-inset-bottom));
+  }
+  .bw-stepbar__err { order: -1; font-size: 12.5px; }
+  .bw-stepbar__next { flex: 1; justify-content: center; padding: 15px 20px; }
+  .bw-banner { margin: 0 0 14px; padding: 12px 14px; font-size: 13px; line-height: 1.5; gap: 8px 16px; }
+  .bw-banner p { margin: 0; }
+  .bw-banner__actions { margin-left: 0; }
+  /* Fields have their label inside the border here, so the list hangs off the
+     whole field rather than just the input. */
+  .bw-combo { position: static; }
+  .bw-combo__list { top: 100%; left: -1px; right: -1px; }
+
+  /* Cover: photograph full-bleed, words over it. */
+  .bw-shell[data-step="cover"] .bw-progress { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+  .bw-shell[data-step="cover"] .bw-progress__seg { background: rgba(255, 255, 255, .38); }
+  .bw-shell[data-step="cover"] .bw-progress__seg[data-state="active"] { background: #fff; }
+  .bw-cover[data-active] {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    height: auto; min-height: 0; max-height: none;
+  }
+  .bw-cover__body { display: contents; }
+  .bw-cover__media { grid-column: 1; grid-row: 1; min-height: 290px; }
+  .bw-cover__media::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(24, 14, 6, .3) 0%, rgba(24, 14, 6, 0) 16%, rgba(24, 14, 6, .08) 30%, rgba(24, 14, 6, .58) 54%, rgba(24, 14, 6, .88) 100%);
+  }
+  .bw-cover__intro { grid-column: 1; grid-row: 1; align-self: end; position: relative; z-index: 1; padding: 0 20px 22px; }
+  .bw-cover__eyebrow { font-size: 10px; letter-spacing: .16em; margin-bottom: 10px; color: #f1d6c6; }
+  .bw-cover__h { font-size: 33px; color: #fff; max-width: none; }
+  .bw-cover__sub { font-size: 14px; line-height: 1.55; margin-top: 10px; color: rgba(255, 255, 255, .86); }
+  .bw-cover__more { display: none; }
+  .bw-cover__steps { grid-row: 2; margin: 0 20px; padding: 16px 0 0; border-top: none; gap: 12px; max-width: none; }
+  .bw-cover__steps li { font-size: 12px; gap: 8px; }
+  .bw-cover__n { width: 22px; height: 22px; font-size: 10px; }
+  .bw-cover__meta { grid-row: 3; flex-wrap: nowrap; white-space: nowrap; padding: 12px 20px 14px; font-size: 10.5px; letter-spacing: .02em; gap: 8px; }
+  .bw-cover__cta { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw-step[data-active],
+  .bw-cover__media img,
+  .bw-cover[data-active] .bw-cover__intro > *,
+  .bw-cover[data-active] .bw-cover__steps li,
+  .bw-cover[data-active] .bw-cover__meta,
+  .bw-cover[data-active] .bw-cover__cta { animation: none; }
+}

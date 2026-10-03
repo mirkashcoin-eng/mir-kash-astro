@@ -1,0 +1,33 @@
+---
+name: Out for delivery
+section: Shipping
+subject: Order {{ name }} is out for delivery
+---
+{%- assign mk_stage = 'is out for delivery' -%}
+{% render 'fulfillment-title' %}
+{%- capture email_preheader -%}It's with the courier and should reach you today.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">It's with the courier and should reach you today.</p>
+{%- if mk_store == 'india' and financial_status == 'pending' %}
+  {%- assign mk_callout_title = 'Paying on delivery' -%}
+  {%- capture mk_callout_body -%}Please keep <strong>{{ total_price | money }}</strong> ready for the courier.{%- endcapture -%}
+  {% render 'callout' %}
+{%- endif %}
+{% render 'tracking' %}
+
+{%- if mk_track_url != blank %}
+  {%- assign mk_button_url = mk_track_url -%}
+  {%- assign mk_button_label = 'Track your parcel' -%}
+  {%- assign mk_link_url = order_status_url -%}
+  {%- assign mk_link_label = 'view your order' -%}
+{%- else %}
+  {%- assign mk_button_url = order_status_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- assign mk_section = 'On its way' -%}
+{% render 'section-start' %}
+{% render 'fulfillment-items' %}
+{% render 'section-end' %}

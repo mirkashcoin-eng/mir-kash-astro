@@ -174,6 +174,8 @@ const orgJsonLd = {
         try {
           var q = '/api/track?e=' + encodeURIComponent(e) + '&t=' + Date.now();
           if (opts && opts.product) q += '&product=' + encodeURIComponent(opts.product);
+          if (opts && opts.page) q += '&page=' + encodeURIComponent(opts.page);
+          if (opts && opts.offer) q += '&offer=' + encodeURIComponent(opts.offer);
           (new Image()).src = q;
         } catch (_) {}
       };
@@ -252,14 +254,18 @@ const orgJsonLd = {
       <script is:inline>
         // Try at Home is Mumbai-only. Pages are CDN-cached, so detect location
         // per-user client-side and, for Mumbai visitors, swap Materials → Try at
-        // Home across the header, drawer, footer, product pages and the homepage
-        // banner. Non-Mumbai visitors keep Materials and never see Try at Home.
+        // Home across the header, drawer, footer and product pages. Non-Mumbai
+        // visitors keep Materials and never see Try at Home.
         //
         // Lives here rather than in SiteHeader because ProductPage and
         // checkout/return render their own <header> — the footer link on those
         // pages was never revealed while this script sat in SiteHeader.
+        //
+        // The lookup is kept on window.mkGeo so ViewingPrompt can pick Try at Home
+        // vs Private Viewing without a second request. Absent on global markets.
         (function () {
-          fetch('/api/geo').then(function (r) { return r.json(); }).then(function (g) {
+          window.mkGeo = fetch('/api/geo').then(function (r) { return r.json(); }).catch(function () { return null; });
+          window.mkGeo.then(function (g) {
             if (!g || !g.mumbai) return;
             document.querySelectorAll('[data-geo="materials"]').forEach(function (el) { el.hidden = true; });
             document.querySelectorAll('[data-geo="demo"]').forEach(function (el) { el.hidden = false; });

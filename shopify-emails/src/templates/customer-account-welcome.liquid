@@ -1,0 +1,15 @@
+---
+name: Customer account welcome
+section: Customer accounts
+subject: Welcome to Mir Kash
+---
+{%- capture email_title -%}Welcome to Mir Kash{%- endcapture -%}
+{%- capture email_preheader -%}Your account is ready.{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">{% if customer.first_name != blank %}Hi {{ customer.first_name }}, y{% else %}Y{% endif %}our account is ready. Sign in next time to check out faster and follow your orders.</p>
+<p style="%%p%%">Every bag we make is fully vegan and built to be carried for years, not seasons. We're glad you're here.</p>
+
+{%- assign mk_button_url = mk_site -%}
+{%- assign mk_button_label = 'Visit Mir Kash' -%}
+{% render 'button' %}

@@ -1,135 +1,192 @@
 ---
 import SiteHeader from './SiteHeader.astro';
 import SiteFooter from './SiteFooter.astro';
+import ReceiptPrinter from './ReceiptPrinter.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
 import { shopifyImage } from '~/lib/shopifyImage';
+import '~/styles/booking-wizard.css';
 
 // Private Viewing — a live video appointment for customers we can't visit in person.
 //
-// Deliberately mirrors BookDemo.astro's structure, wording rhythm and interaction
-// patterns: the two services should read as one family, not as a main offer and a
-// consolation. Styles are self-contained rather than shared with BookDemo so this
-// prototype touches no existing file.
+// Rewritten as a 4-step full-screen wizard (cover → bags → date & time → details),
+// sharing its step engine (src/lib/booking-wizard.ts) and draft persistence
+// (src/lib/booking-draft.ts) with Try at Home (src/components/BookDemo.astro).
+// Bags before date/time is deliberate — see booking-wizard.ts's comment.
+//
+// Crucially, this version never opens a tab or navigates to /viewing/{roomId} on
+// submit. The old page did ("Confirm" opened a blank tab and, on success,
+// pointed it at the LIVE call room for a FUTURE appointment) — that behaviour is
+// gone. The room link is sent later, manually, by the team.
+// A market URL (/en-ae/private-viewing) says where the visitor is; the bare URL
+// is the India default, which says nothing — the client falls back to geo then.
+const market = Astro.locals.marketConfig;
 const products = await getAllProducts('india', 'IN', 48);
 const bags = products
   .map((p) => ({
     variantId: p.variants.edges[0]?.node.id ?? '',
+    handle: p.handle,
     title: p.title,
     image: shopifyImage(p.featuredImage?.url, 500),
   }))
   .filter((b) => b.variantId);
+
+// Same pre-rendered receipt as Try at Home: six item slots (the flow's cap),
+// filled in through ReceiptPrinter's data-rp-* hooks once the booking succeeds.
+const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
+  title: '', quantity: 1, price: null as number | null,
+}));
 ---
 <SiteHeader />
 
 <main class="pv">
-  <div id="pvMain">
-
-    <!-- ══ HERO ══ -->
-    <section class="pv-hero">
-      <div class="pv-hero__text">
-        <p class="pv-hero__eyebrow">Anywhere in the world &middot; Private Viewing</p>
-        <h1 class="pv-display pv-hero__h">See them up close, wherever you are.</h1>
-        <p class="pv-hero__sub">
-          Book a live video viewing with a client advisor. We&rsquo;ll show you the pieces you
-          choose in natural light &mdash; the grain, the hardware, the scale in the hand &mdash;
-          and answer anything you&rsquo;d ask us in a boutique.
-        </p>
-        <a class="pv-cta" href="#book">Book a Private Viewing <span class="ar">&rarr;</span></a>
-      </div>
-      <div class="pv-hero__img">
-        <img src="/ed-tophandle.jpeg" alt="A Mir Kash bag shown up close" loading="eager" />
-      </div>
-    </section>
-
-    <!-- ══ DETAILS STRIP ══ -->
-    <div class="pv-strip">
-      <div class="pv-strip__i"><p class="pv-strip__k">Where</p><p class="pv-strip__v">Anywhere &mdash; by video</p></div>
-      <div class="pv-strip__i"><p class="pv-strip__k">How many</p><p class="pv-strip__v">Up to 6 bags</p></div>
-      <div class="pv-strip__i"><p class="pv-strip__k">How long</p><p class="pv-strip__v">15&ndash;30 minutes</p></div>
-      <div class="pv-strip__i"><p class="pv-strip__k">Cost</p><p class="pv-strip__v">Complimentary</p></div>
+  <div class="bw-shell" id="bwShell" data-market-country={market?.isDefault ? '' : (market?.countryCode ?? '')}>
+    <div class="bw-progress">
+      <span class="bw-progress__seg" data-step="cover"></span>
+      <span class="bw-progress__seg" data-step="bags"></span>
+      <span class="bw-progress__seg" data-step="datetime"></span>
+      <span class="bw-progress__seg" data-step="details"></span>
     </div>
 
-    <!-- ══ HOW IT WORKS ══ -->
-    <section class="pv-how">
-      <div class="pv-how__i"><span class="pv-how__n">1</span><p class="pv-how__t">Choose a time</p><p class="pv-how__d">Pick a day and a window that suits you.</p></div>
-      <div class="pv-how__i"><span class="pv-how__n">2</span><p class="pv-how__t">Choose your pieces</p><p class="pv-how__d">Tell us which bags you&rsquo;d like to see.</p></div>
-      <div class="pv-how__i"><span class="pv-how__n">3</span><p class="pv-how__t">Join from your browser</p><p class="pv-how__d">One tap, no app to install.</p></div>
+    <!-- ══ STEP 1 — COVER ══ -->
+    <section class="bw-step bw-cover" data-step="cover">
+      <div class="bw-cover__media"><img src="/ed-tophandle.jpeg" alt="A Mir Kash bag shown up close" loading="eager" fetchpriority="high" /></div>
+      <div class="bw-cover__body">
+        <div class="bw-cover__intro">
+          <p class="bw-cover__eyebrow">Anywhere in the world &middot; Private Viewing</p>
+          <h1 class="bw-cover__h">See them up close, wherever you are.</h1>
+          <p class="bw-cover__sub">Book a live video viewing with a client advisor.<span class="bw-cover__more"> We&rsquo;ll show you the pieces you choose in natural light &mdash; the grain, the hardware, the scale in the hand &mdash; and answer anything you&rsquo;d ask us in a boutique.</span></p>
+        </div>
+        <ol class="bw-cover__steps">
+          <li><span class="bw-cover__n">1</span>Choose up to six bags</li>
+          <li><span class="bw-cover__n">2</span>Pick a day &amp; time</li>
+          <li><span class="bw-cover__n">3</span>Get your video link</li>
+        </ol>
+        <p class="bw-cover__meta">Complimentary<i></i>15&ndash;30 minutes<i></i>No obligation to buy</p>
+        <button class="bw-cover__cta" type="button" id="pvHeroCta">Book a Private Viewing <span class="ar">&rarr;</span></button>
+      </div>
     </section>
 
-    <!-- ══ BOOKING ══ -->
-    <div class="pv-book" id="book">
-      <div class="pv-book__main">
-
-        <section class="pv-sec">
-          <div class="pv-sec__head"><span class="pv-sec__n">1</span><h2 class="pv-sec__t">Date &amp; time</h2></div>
-          <p class="pv-sublabel">Choose a day</p>
-          <div class="pv-rail" id="pvRail"></div>
-          <p class="pv-sublabel" style="margin-top:26px">Time of day <span class="pv-tz">(India Standard Time)</span></p>
-          <p class="pv-hint" id="pvSlotHint">Pick a day above to choose a time.</p>
-          <div class="pv-slot-btns" id="pvSlotBtns" hidden>
-            <button type="button" class="pv-slot" data-slot="Morning (11 AM–2 PM)">Morning<span>11 AM &ndash; 2 PM</span></button>
-            <button type="button" class="pv-slot" data-slot="Afternoon (2–5 PM)">Afternoon<span>2 &ndash; 5 PM</span></button>
-            <button type="button" class="pv-slot" data-slot="Evening (5–8 PM)">Evening<span>5 &ndash; 8 PM</span></button>
-          </div>
-        </section>
-
-        <section class="pv-sec">
-          <div class="pv-sec__head"><span class="pv-sec__n">2</span><h2 class="pv-sec__t">Choose your bags</h2><span class="pv-count"><span id="pvBagCount">0</span> / 6</span></div>
-          <p class="pv-choose-hint">Hit <strong>Select</strong> on anything you&rsquo;d like us to bring to the call.</p>
-          <p class="pv-maxmsg" id="pvMaxMsg" hidden>You&rsquo;ve already selected 6 bags — remove one to add another.</p>
-          <div class="pv-grid">
-            {bags.map((b) => (
-              <div class="pv-bag" data-vid={b.variantId}>
-                <span class="pv-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
-                <span class="pv-bag__name">{b.title}</span>
-                <button class="pv-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
-                  <span class="add">Select</span>
-                  <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section class="pv-sec">
-          <div class="pv-sec__head"><span class="pv-sec__n">3</span><h2 class="pv-sec__t">Your details</h2></div>
-          <div class="pv-fields">
-            <label class="pv-field"><span>Full name</span><input class="pv-input" id="pv-name" type="text" autocomplete="name" /></label>
-            <label class="pv-field"><span>Phone</span><input class="pv-input" id="pv-phone" type="tel" inputmode="tel" maxlength="20" placeholder="Include country code" /></label>
-            <label class="pv-field pv-field--full"><span>Email</span><input class="pv-input" id="pv-email" type="email" autocomplete="email" /></label>
-            <label class="pv-field"><span>City</span><input class="pv-input" id="pv-city" type="text" /></label>
-            <label class="pv-field"><span>Country</span><input class="pv-input" id="pv-country" type="text" autocomplete="country-name" /></label>
-          </div>
-        </section>
-      </div>
-
-      <aside class="pv-side">
-        <div class="pv-side__inner">
-          <p class="pv-side__t">Your appointment</p>
-          <div class="pv-sum">
-            <div class="pv-sum__row"><span class="pv-sum__k">Date</span><span class="pv-sum__v muted" id="pv-sum-date">Choose a day</span></div>
-            <div class="pv-sum__row"><span class="pv-sum__k">Time</span><span class="pv-sum__v muted" id="pv-sum-time">Choose a time</span></div>
-            <div class="pv-sum__row"><span class="pv-sum__k">Bags</span><span class="pv-sum__v muted" id="pv-sum-bags">Up to six pieces</span></div>
-          </div>
-          <button class="pv-cta pv-side__cta" type="button" id="pvBookBtn">Confirm Private Viewing</button>
-          <p class="pv-err" id="pvErr" hidden></p>
-          <p class="pv-side__note">Complimentary, and no obligation to buy.</p>
+    <!-- ══ STEP 2 — BAGS ══ -->
+    <section class="bw-step" data-step="bags">
+      <div class="pv-stepinner">
+        <div class="pv-step__head">
+          <h2 class="pv-step__t">Choose your bags</h2>
+          <span class="pv-count"><span id="pvBagCount">0</span> / 6</span>
         </div>
-      </aside>
+        <p class="pv-choose-hint">Hit <strong>Select</strong> on anything you&rsquo;d like us to bring to the call.</p>
+        <p class="pv-maxmsg" id="pvMaxMsg" hidden>You&rsquo;ve already selected 6 bags — remove one to add another.</p>
+        <div class="pv-grid">
+          {bags.map((b) => (
+            <div class="pv-bag" data-vid={b.variantId} data-handle={b.handle}>
+              <span class="pv-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
+              <span class="pv-bag__name">{b.title}</span>
+              <button class="pv-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
+                <span class="add">Select</span>
+                <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ STEP 3 — DATE & TIME ══ -->
+    <section class="bw-step" data-step="datetime">
+      <div class="pv-stepinner">
+        <h2 class="pv-step__t">Date &amp; time</h2>
+        <p class="pv-sublabel">Choose a day</p>
+        <div class="pv-rail" id="pvRail"></div>
+        <p class="pv-sublabel" style="margin-top:26px">Time of day <span class="pv-tz">(India Standard Time)</span></p>
+        <p class="pv-hint" id="pvSlotHint">Pick a day above to choose a time.</p>
+        <div class="pv-slot-btns" id="pvSlotBtns" hidden>
+          <button type="button" class="pv-slot" data-slot="Morning (11 AM–2 PM)" data-start="11" data-end="14">
+            <b>Morning</b><span>11 AM &ndash; 2 PM</span><span class="pv-slot__local" hidden></span>
+          </button>
+          <button type="button" class="pv-slot" data-slot="Afternoon (2–5 PM)" data-start="14" data-end="17">
+            <b>Afternoon</b><span>2 &ndash; 5 PM</span><span class="pv-slot__local" hidden></span>
+          </button>
+          <button type="button" class="pv-slot" data-slot="Evening (5–8 PM)" data-start="17" data-end="20">
+            <b>Evening</b><span>5 &ndash; 8 PM</span><span class="pv-slot__local" hidden></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ STEP 4 — DETAILS ══ -->
+    <section class="bw-step" data-step="details">
+      <div class="pv-stepinner">
+        <h2 class="pv-step__t">Your details</h2>
+
+        <div class="pv-recap" id="pvRecap">
+          <div class="pv-recap__row"><span>Date</span><span id="pvRecapDate" class="muted">Choose a day</span></div>
+          <div class="pv-recap__row"><span>Time</span><span id="pvRecapTime" class="muted">Choose a time</span></div>
+          <div class="pv-recap__row"><span>Bags</span><span id="pvRecapBags" class="muted">Up to six pieces</span></div>
+        </div>
+
+        <div class="bw-banner" id="pvFromTah" hidden>
+          <p>Try at Home is only in the Mumbai area, so we&rsquo;ve moved you to a Private Viewing &mdash; a live video appointment with the same bags. Your date, time and details came with you.</p>
+          <div class="bw-banner__actions">
+            <button type="button" class="bw-banner__btn bw-banner__btn--quiet" id="pvFromTahOk">Got it</button>
+          </div>
+        </div>
+
+        <div class="pv-fields">
+          <label class="pv-field pv-field--half"><span>Country</span><div class="bw-combo"><input class="pv-input" id="pv-country" type="text" placeholder="Search country" spellcheck="false" /><div class="bw-combo__list" hidden></div></div></label>
+          <label class="pv-field pv-field--half"><span>City</span><input class="pv-input" id="pv-city" type="text" autocomplete="address-level2" /></label>
+          <div class="bw-banner pv-field--full" id="pvMumbaiBanner" hidden>
+            <p>Looks like you&rsquo;re in Mumbai &mdash; we can bring the bags to you in person instead of a video call.</p>
+            <div class="bw-banner__actions">
+              <button type="button" class="bw-banner__btn" id="pvSwitchTah">Switch to Try at Home</button>
+              <button type="button" class="bw-banner__btn bw-banner__btn--quiet" id="pvDismissBanner">No, continue</button>
+            </div>
+          </div>
+          <label class="pv-field"><span>Full name</span><input class="pv-input" id="pv-name" type="text" autocomplete="name" /></label>
+          <label class="pv-field pv-field--phone">
+            <span>Phone</span>
+            <div class="pv-phone">
+              <button type="button" class="pv-phone__cc" id="pv-phone-cc" aria-haspopup="listbox" aria-expanded="false">
+                <span id="pv-phone-flag" class="pv-phone__ccflag"></span>
+                <span id="pv-phone-dial" class="pv-phone__ccdial">Code</span>
+                <span class="pv-phone__ccar" aria-hidden="true">&#9662;</span>
+              </button>
+              <input class="pv-input pv-phone__num" id="pv-phone-number" type="tel" inputmode="tel" maxlength="15" placeholder="Phone number" />
+              <div class="pv-phone__menu" id="pv-phone-menu" hidden>
+                <input class="pv-phone__filter" id="pv-phone-filter" type="text" placeholder="Search country" />
+                <div class="pv-phone__list" id="pv-phone-list" role="listbox"></div>
+              </div>
+            </div>
+          </label>
+          <label class="pv-field pv-field--full"><span>Email</span><input class="pv-input" id="pv-email" type="email" autocomplete="email" /></label>
+        </div>
+        <p class="pv-side__note">Complimentary, and no obligation to buy.</p>
+      </div>
+    </section>
+
+    <div class="bw-stepbar">
+      <button type="button" class="bw-stepbar__back" id="bwBack">Back</button>
+      <button type="button" class="bw-stepbar__next" id="bwNext">Continue</button>
+      <p class="bw-stepbar__err" id="bwErr" hidden></p>
     </div>
   </div>
 
   <!-- ══ SUCCESS ══ -->
-  <section class="pv-done" id="pvDone" hidden>
-    <span class="pv-done__mark" aria-hidden="true">&check;</span>
-    <h2 class="pv-display pv-done__title">Your Private Viewing is booked</h2>
-    <p class="pv-done__body" id="pvDoneBody"></p>
-    <a class="pv-cta pv-done__join" id="pvJoin" href="#" target="_blank" rel="noopener">Join your viewing <span class="ar">&rarr;</span></a>
-    <p class="pv-done__note" id="pvDoneNote">Opens in your browser &mdash; nothing to install.</p>
+  <section class="pv-done" id="bwDone" hidden>
+    <ReceiptPrinter
+      kind="appointment"
+      items={receiptPlaceholderItems}
+      amount={0}
+      isCod={false}
+      serviceName="Private Viewing"
+      apptDate=" "
+      apptSlot=" "
+      thanksLine="Thank you. Your private viewing is confirmed. We'll send your video link by WhatsApp and email before your appointment."
+    />
+    <a class="pv-done__btn" href={`${Astro.locals.marketConfig?.urlPrefix ?? ''}/shop`}>Back to Shop</a>
   </section>
 </main>
 
-<SiteFooter />
+<!-- A focused flow: the footer returns with the confirmation. -->
+<div id="bwFooter" hidden><SiteFooter /></div>
 
 <style is:global>
   /* SiteHeader is rendered without NavDrawer here (same as the Try at Home page),
@@ -147,39 +204,14 @@ const bags = products
   }
   .pv-display { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; }
 
-  .pv-cta { display: inline-flex; align-items: center; gap: 10px; background: var(--depth); color: #fff; border: none; padding: 15px 32px; font-family: inherit; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; cursor: pointer; text-decoration: none; transition: background .2s; }
-  .pv-cta:hover { background: var(--cherry); }
-  .pv-cta .ar { transition: transform .2s; }
-  .pv-cta:hover .ar { transform: translateX(4px); }
-  .pv-err { color: var(--cherry); font-size: 13px; margin: 12px 0 0; }
 
-  .pv-hero { display: grid; grid-template-columns: 1.05fr .95fr; min-height: clamp(420px, 60vh, 560px); }
-  .pv-hero__text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px,6vw,80px) clamp(28px,5vw,64px); }
-  .pv-hero__eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--cherry); margin: 0 0 16px; }
-  .pv-hero__h { font-size: clamp(34px,4.6vw,58px); line-height: 1.04; color: var(--depth); margin: 0; max-width: 15ch; }
-  .pv-hero__sub { font-size: 15.5px; line-height: 1.65; color: var(--mid); max-width: 46ch; margin: 20px 0 30px; }
-  .pv-hero__text .pv-cta { align-self: flex-start; }
-  .pv-hero__img { background: #f0e9df; overflow: hidden; }
-  .pv-hero__img img { width: 100%; height: 100%; object-fit: cover; }
 
-  .pv-strip { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .pv-strip__i { padding: 22px clamp(18px,3vw,28px); border-right: 1px solid var(--rule); }
-  .pv-strip__i:last-child { border-right: none; }
-  .pv-strip__k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--cherry); margin: 0 0 6px; }
-  .pv-strip__v { font-size: 13.5px; color: var(--mid); margin: 0; line-height: 1.5; }
 
-  .pv-how { display: grid; grid-template-columns: repeat(3,1fr); gap: clamp(24px,4vw,56px); max-width: 1240px; margin: 0 auto; padding: clamp(44px,5vw,72px) clamp(28px,4vw,56px); }
-  .pv-how__n { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--depth); font-size: 12px; margin-bottom: 14px; }
-  .pv-how__t { font-size: 15px; margin: 0 0 6px; }
-  .pv-how__d { font-size: 13.5px; color: var(--mid); line-height: 1.6; margin: 0; }
 
-  .pv-book { display: grid; grid-template-columns: 1fr 330px; align-items: start; max-width: 1240px; margin: 0 auto; border-top: 1px solid var(--rule); }
-  .pv-book__main { min-width: 0; padding: clamp(40px,5vw,72px) clamp(28px,4vw,56px); }
-  .pv-sec { padding-bottom: clamp(40px,5vw,56px); margin-bottom: clamp(40px,5vw,56px); border-bottom: 1px solid var(--rule); }
-  .pv-sec:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .pv-sec__head { display: flex; align-items: center; gap: 13px; margin-bottom: 20px; }
-  .pv-sec__n { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--depth); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-  .pv-sec__t { font-size: 16px; font-weight: 500; margin: 0; }
+  .pv-stepinner { max-width: 1100px; margin: 0 auto; padding: clamp(32px,5vw,56px) clamp(20px,4vw,56px) clamp(16px,3vw,32px); }
+  .pv-step__head { display: flex; align-items: center; gap: 13px; margin-bottom: 20px; }
+  .pv-step__t { font-size: 20px; font-weight: 500; margin: 0 0 20px; color: var(--depth); }
+  .pv-step__head .pv-step__t { margin-bottom: 0; }
   .pv-count { margin-left: auto; font-size: 13px; color: var(--mid); font-variant-numeric: tabular-nums; }
   .pv-sublabel { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; margin: 0 0 14px; }
   .pv-hint { font-size: 13px; color: var(--faint); margin: 0; }
@@ -201,8 +233,10 @@ const bags = products
   .pv-rdate.sel .nm { color: #fff; }
 
   .pv-slot-btns { display: flex; gap: 10px; flex-wrap: wrap; }
-  .pv-slot { flex: 1; min-width: 130px; border: 1px solid var(--rule); background: #fff; padding: 15px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
+  .pv-slot { flex: 1; min-width: 150px; border: 1px solid var(--rule); background: #fff; padding: 15px; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--depth); display: flex; flex-direction: column; gap: 3px; transition: border-color .2s, background .2s; }
+  .pv-slot b { font-weight: inherit; }
   .pv-slot span { font-size: 12px; color: var(--mid); }
+  .pv-slot .pv-slot__local { font-size: 11px; }
   .pv-slot:hover { border-color: var(--depth); }
   .pv-slot.sel { border-color: var(--depth); background: var(--depth); color: #fff; }
   .pv-slot.sel span { color: rgba(255,255,255,.72); }
@@ -223,56 +257,192 @@ const bags = products
   .pv-bag.sel .pv-bag__add .add { display: none; }
   .pv-bag.sel .pv-bag__add .added { display: inline-flex; align-items: center; gap: 6px; }
 
+  .pv-recap { display: flex; flex-wrap: wrap; gap: 20px 32px; background: var(--cream); border: 1px solid var(--rule); padding: 16px 20px; margin-bottom: 24px; }
+  .pv-recap__row { display: flex; flex-direction: column; gap: 4px; }
+  .pv-recap__row span:first-child { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .pv-recap__row span:last-child { font-size: 14px; color: var(--depth); }
+  .pv-recap__row span.muted { color: var(--faint); }
+
   .pv-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .pv-field { display: flex; flex-direction: column; gap: 7px; }
   .pv-field--full { grid-column: 1 / -1; }
-  .pv-field span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
-  .pv-input { border: 1px solid var(--rule); background: #fff; padding: 13px 14px; font-family: inherit; font-size: 14.5px; color: var(--depth); border-radius: 0; }
+  .pv-field > span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+  .pv-input { border: 1px solid var(--rule); background: #fff; padding: 13px 14px; font-family: inherit; font-size: 14.5px; color: var(--depth); border-radius: 0; width: 100%; box-sizing: border-box; }
   .pv-input:focus { outline: none; border-color: var(--depth); }
 
-  .pv-side { position: sticky; top: 24px; align-self: start; border-left: 1px solid var(--rule); }
-  .pv-side__inner { background: var(--cream); padding: clamp(28px,3vw,38px) clamp(24px,2.5vw,32px); }
-  .pv-side__t { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--cherry); margin: 0 0 20px; }
-  .pv-sum { display: flex; flex-direction: column; gap: 16px; }
-  .pv-sum__row { display: flex; flex-direction: column; gap: 4px; }
-  .pv-sum__k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
-  .pv-sum__v { font-size: 14px; line-height: 1.4; color: var(--depth); }
-  .pv-sum__v.muted { color: var(--faint); }
-  .pv-side__cta { width: 100%; justify-content: center; margin-top: 26px; }
-  .pv-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 16px 0 0; }
+  .pv-phone { position: relative; display: flex; gap: 8px; }
+  .pv-phone__cc { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; border: 1px solid var(--rule); background: #fff; padding: 0 12px; font-family: inherit; font-size: 14px; color: var(--depth); cursor: pointer; min-height: 46px; }
+  .pv-phone__cc:hover { border-color: var(--depth); }
+  .pv-phone__ccflag { font-size: 16px; }
+  .pv-phone__ccar { font-size: 9px; color: var(--faint); }
+  .pv-phone__num { flex: 1; min-width: 0; }
+  .pv-phone__menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; width: min(300px, 90vw); background: #fff; border: 1px solid var(--rule); box-shadow: 0 12px 30px rgba(0,0,0,.14); }
+  .pv-phone__filter { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--rule); padding: 12px 14px; font-family: inherit; font-size: 13.5px; }
+  .pv-phone__filter:focus { outline: none; }
+  .pv-phone__list { max-height: 240px; overflow-y: auto; }
+  .pv-phone__row { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: none; padding: 10px 14px; font-family: inherit; font-size: 13px; color: var(--depth); text-align: left; cursor: pointer; }
+  .pv-phone__row:hover { background: var(--cream); }
+  .pv-phone__rowflag { font-size: 15px; flex-shrink: 0; }
+  .pv-phone__rowname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pv-phone__rowdial { color: var(--mid); flex-shrink: 0; }
+
+  .pv-stepinner .bw-banner { margin-left: 0; margin-right: 0; }
+  .pv-fields .bw-banner { margin: 0; }
+  .pv-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 20px 0 0; }
 
   .pv-done { max-width: 620px; margin: 0 auto; text-align: center; padding: clamp(60px,9vw,120px) 24px; }
   .pv-done[hidden] { display: none; }
-  .pv-done__mark { width: 56px; height: 56px; border-radius: 50%; background: #2f6b3f; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 24px; }
-  .pv-done__title { font-size: clamp(28px,4vw,42px); margin: 0 0 12px; }
-  .pv-done__body { font-size: 15px; color: var(--mid); line-height: 1.7; margin: 0 0 30px; }
-  .pv-done__join { }
-  .pv-done__note { font-size: 12px; color: var(--faint); margin: 16px 0 0; }
+  .pv-done__btn { display: inline-flex; height: 50px; align-items: center; margin-top: 28px; padding: 0 32px; background: var(--depth); color: #fff; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; text-decoration: none; transition: background .3s; }
+  .pv-done__btn:hover { background: var(--cherry); }
 
-  @media (max-width: 900px) {
-    .pv-hero { grid-template-columns: 1fr; }
-    .pv-hero__img { min-height: 280px; order: -1; }
-    .pv-how { grid-template-columns: 1fr; gap: 28px; }
-    .pv-book { grid-template-columns: 1fr; }
-    .pv-side { position: static; border-left: none; border-top: 1px solid var(--rule); }
-    .pv-side__inner { padding: 28px clamp(28px,4vw,56px); }
-  }
+  /* Phone: every step but the bag grid fits one screen (see booking-wizard.css
+     for the shell). The sticky Continue bar is the cover's call to action, and
+     the how-it-works row gives way — the progress bar already shows the steps. */
   @media (max-width: 620px) {
-    .pv-strip { grid-template-columns: 1fr 1fr; }
-    .pv-strip__i:nth-child(2) { border-right: none; }
-    .pv-strip__i:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
-    .pv-fields { grid-template-columns: 1fr; }
+
+    .pv-stepinner { padding: 20px 20px 16px; }
+    .pv-step__head { margin-bottom: 14px; }
+    .pv-step__t { margin-bottom: 14px; }
+    .pv-choose-hint { margin-bottom: 14px; }
+    .pv-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pv-maxmsg { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+    .pv-sublabel { margin-bottom: 10px; }
+    .pv-sublabel[style] { margin-top: 18px !important; }
+    .pv-rail { gap: 8px; padding-bottom: 10px; }
+    .pv-rdate { width: 62px; padding: 10px 0; }
+    .pv-rdate .nm { font-size: 24px; }
+    .pv-slot-btns { flex-direction: column; gap: 8px; }
+    .pv-slot { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 12px; min-width: 0; padding: 13px 16px; text-align: left; }
+    .pv-slot b { grid-row: 1 / span 2; align-self: center; }
+    .pv-slot span { grid-column: 2; text-align: right; }
+
+    /* One line of what's being booked, labels dropped. */
+    .pv-recap { flex-wrap: nowrap; gap: 0; padding: 9px 12px; margin-bottom: 14px; white-space: nowrap; overflow: hidden; }
+    .pv-recap__row { flex-direction: row; flex-shrink: 0; }
+    .pv-recap__row span:first-child { display: none; }
+    .pv-recap__row span:last-child { font-size: 13px; }
+    .pv-recap__row + .pv-recap__row::before { content: '·'; margin: 0 8px; color: var(--faint); }
+    .pv-recap__row:last-child { flex-shrink: 1; min-width: 0; }
+    .pv-recap__row:last-child span:last-child { overflow: hidden; text-overflow: ellipsis; }
+
+    /* Labels sit inside the field's border; 16px inputs stop iOS zooming in. */
+    .pv-fields { gap: 8px; }
+    .pv-field { grid-column: 1 / -1; gap: 0; padding: 7px 12px 0; border: 1px solid var(--rule); background: #fff; }
+    .pv-field--half { grid-column: auto; }
+    .pv-field:focus-within { border-color: var(--depth); }
+    .pv-field > span:first-child { font-size: 9.5px; }
+    .pv-field { position: relative; }
+    .pv-input { border: none; padding: 3px 0 8px; font-size: 16px; }
+    .pv-phone { gap: 0; align-items: center; }
+    .pv-phone__cc { min-height: 0; padding: 0 10px 0 0; margin: 3px 10px 8px 0; border: none; border-right: 1px solid var(--rule); }
+    .pv-phone__menu { top: calc(100% + 1px); left: -13px; }
+    .pv-phone__filter { font-size: 16px; }
+    .pv-side__note { margin-top: 12px; }
+  }
+  @media (max-width: 620px) and (max-height: 620px) {
+    .pv-stepinner { padding-top: 14px; padding-bottom: 8px; }
+    .pv-side__note { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { .pv * { animation: none !important; transition: none !important; } }
 </style>
 
 <script>
-  const $ = (id: string) => document.getElementById(id);
-  const selected = new Map<string, string>();
-  let pickedISO = '', pickedLabel = '', pickedSlot = '';
+  import { mark } from '~/lib/viewing-prompt';
+  import {
+    stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
+    type WizardStep, type GateContext,
+  } from '~/lib/booking-wizard';
+  import {
+    saveDraft, loadDraft, clearDraft,
+    DRAFT_KEY_PRIVATE_VIEWING, DRAFT_KEY_TRY_AT_HOME,
+    type BookingDraft,
+  } from '~/lib/booking-draft';
+  import { COUNTRIES, flagEmoji, findCountry, type CountryDial } from '~/lib/countries';
+  import { isMumbaiCity } from '~/lib/cities';
+  import { makeCombobox, type ComboOption } from '~/lib/combobox';
 
-  // ── Date rail: tomorrow → +45 days, matching Try at Home ──
+  type LeadData = NonNullable<Window['mkLead']> extends (data: infer D) => void ? D : never;
+
+  const $ = (id: string) => document.getElementById(id);
+  const track = (event: string) => window.mkTrack?.(event);
+  const lead = (data: LeadData) => window.mkLead?.(data);
+
+  // ── State ──
+  let active: WizardStep = 'cover';
+  let pickedISO = '', pickedLabel = '', pickedSlot = '';
+  const selected = new Map<string, string>(); // variantId -> title
+  let selectedCountry: CountryDial | null = null;
+  let mumbaiDismissed = false;
+  let lastPhoneLeadKey = '';
+
+  const shellEl = $('bwShell');
+  const doneEl = $('bwDone');
+  const backBtn = $('bwBack') as HTMLButtonElement | null;
+  const nextBtn = $('bwNext') as HTMLButtonElement | null;
+  const errEl = $('bwErr');
+  const nameInput = $('pv-name') as HTMLInputElement | null;
+  const emailInput = $('pv-email') as HTMLInputElement | null;
+  const cityInput = $('pv-city') as HTMLInputElement | null;
+  const countryInput = $('pv-country') as HTMLInputElement | null;
+  const phoneNumberInput = $('pv-phone-number') as HTMLInputElement | null;
+
+  function showErr(msg: string) { if (errEl) { errEl.textContent = msg; errEl.hidden = false; } }
+  function clearErr() { if (errEl) errEl.hidden = true; }
+
+  // ── Date rail: tomorrow → +45 days ──
   const rail = $('pvRail');
+  const slotHint = $('pvSlotHint');
+  const slotBtnsWrap = $('pvSlotBtns');
+
+  // IST ↔ local timezone: the three slots are fixed IST windows (no DST — same
+  // math as /api/private-viewing.ts). For a visitor elsewhere, show a secondary
+  // line converting each window into their own timezone. Wrapped in try/catch —
+  // if Intl can't format an unrecognised timezone string, fail silently back to
+  // IST-only labels rather than throwing.
+  let localTz = '';
+  let showLocal = false;
+  try {
+    localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (localTz && localTz !== 'Asia/Kolkata') {
+      new Intl.DateTimeFormat(undefined, { timeZone: localTz, hour: 'numeric', minute: '2-digit' }).format(new Date());
+      showLocal = true;
+    }
+  } catch { showLocal = false; }
+
+  function istToUTC(dateISO: string, hourIST: number): number {
+    const [y, m, d] = dateISO.split('-').map(Number);
+    return Date.UTC(y, (m || 1) - 1, d, hourIST, 0, 0) - (5 * 60 + 30) * 60 * 1000;
+  }
+  function fmtLocal(ms: number): string {
+    return new Intl.DateTimeFormat(undefined, { timeZone: localTz, hour: 'numeric', minute: '2-digit' }).format(new Date(ms));
+  }
+  function updateSlotLocalLabels() {
+    document.querySelectorAll<HTMLButtonElement>('.pv-slot').forEach((btn) => {
+      const localEl = btn.querySelector<HTMLElement>('.pv-slot__local');
+      if (!localEl) return;
+      if (!showLocal || !pickedISO) { localEl.hidden = true; localEl.textContent = ''; return; }
+      try {
+        const startMs = istToUTC(pickedISO, Number(btn.dataset.start));
+        const endMs = istToUTC(pickedISO, Number(btn.dataset.end));
+        localEl.textContent = `(${fmtLocal(startMs)}\u2013${fmtLocal(endMs)} your time)`;
+        localEl.hidden = false;
+      } catch { localEl.hidden = true; localEl.textContent = ''; }
+    });
+  }
+
+  function selectDate(btn: HTMLButtonElement) {
+    rail?.querySelectorAll('.pv-rdate').forEach((x) => x.classList.remove('sel'));
+    btn.classList.add('sel');
+    pickedISO = btn.dataset.iso || '';
+    pickedLabel = btn.dataset.label || '';
+    if (slotHint) slotHint.hidden = true;
+    if (slotBtnsWrap) slotBtnsWrap.hidden = false;
+    updateSlotLocalLabels();
+    syncRecap();
+    scheduleSave();
+  }
+
   if (rail) {
     const today = new Date();
     for (let i = 1; i <= 45; i++) {
@@ -281,32 +451,28 @@ const bags = products
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'pv-rdate';
-      btn.dataset.iso = d.toISOString().slice(0, 10);
+      // From the local date, like the label — toISOString() is the UTC date, a day
+      // off from the label for part of every day east or west of UTC.
+      btn.dataset.iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       btn.dataset.label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
       btn.innerHTML =
         `<span class="dw">${d.toLocaleDateString('en-IN', { weekday: 'short' })}</span>` +
         `<span class="nm">${d.getDate()}</span>` +
         `<span class="mo">${d.toLocaleDateString('en-IN', { month: 'short' })}</span>`;
-      btn.addEventListener('click', () => {
-        rail.querySelectorAll('.pv-rdate').forEach((x) => x.classList.remove('sel'));
-        btn.classList.add('sel');
-        pickedISO = btn.dataset.iso || '';
-        pickedLabel = btn.dataset.label || '';
-        const hint = $('pvSlotHint'); if (hint) hint.hidden = true;
-        const btns = $('pvSlotBtns'); if (btns) btns.hidden = false;
-        sync();
-      });
+      btn.addEventListener('click', () => selectDate(btn));
       rail.appendChild(btn);
     }
   }
 
-  document.querySelectorAll('.pv-slot').forEach((b) => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.pv-slot').forEach((x) => x.classList.remove('sel'));
-      b.classList.add('sel');
-      pickedSlot = (b as HTMLElement).dataset.slot || '';
-      sync();
-    });
+  function selectSlot(btn: HTMLButtonElement) {
+    document.querySelectorAll('.pv-slot').forEach((x) => x.classList.remove('sel'));
+    btn.classList.add('sel');
+    pickedSlot = btn.dataset.slot || '';
+    syncRecap();
+    scheduleSave();
+  }
+  document.querySelectorAll<HTMLButtonElement>('.pv-slot').forEach((b) => {
+    b.addEventListener('click', () => selectSlot(b));
   });
 
   // ── Bag selection ──
@@ -317,88 +483,436 @@ const bags = products
     clearTimeout(maxTimer);
     maxTimer = window.setTimeout(() => { m.hidden = true; }, 3000);
   }
+  function tileFor(vid: string) { return document.querySelector(`.pv-bag[data-vid="${vid}"]`); }
+  function reflectBagUI(vid: string) {
+    const tile = tileFor(vid);
+    const isSel = selected.has(vid);
+    tile?.classList.toggle('sel', isSel);
+    tile?.querySelector('.pv-bag__add')?.setAttribute('aria-pressed', isSel ? 'true' : 'false');
+  }
+  function updateBagCount() {
+    const c = $('pvBagCount'); if (c) c.textContent = String(selected.size);
+    syncRecap();
+  }
+  function addBag(vid: string, title: string): boolean {
+    if (selected.has(vid)) return true;
+    if (selected.size >= 6) { showMax(); return false; }
+    selected.set(vid, title);
+    reflectBagUI(vid);
+    updateBagCount();
+    return true;
+  }
+  function removeBag(vid: string) {
+    selected.delete(vid);
+    reflectBagUI(vid);
+    updateBagCount();
+  }
   document.querySelectorAll<HTMLButtonElement>('.pv-bag__add').forEach((btn) => {
     btn.addEventListener('click', () => {
       const vid = btn.dataset.add || '';
-      const tile = document.querySelector(`.pv-bag[data-vid="${vid}"]`);
-      const name = tile?.querySelector('.pv-bag__name')?.textContent?.trim() || 'Bag';
       if (selected.has(vid)) {
-        selected.delete(vid);
-        tile?.classList.remove('sel');
+        removeBag(vid);
       } else {
-        if (selected.size >= 6) { showMax(); return; }
-        selected.set(vid, name);
-        tile?.classList.add('sel');
+        const tile = tileFor(vid);
+        const name = tile?.querySelector('.pv-bag__name')?.textContent?.trim() || 'Bag';
+        addBag(vid, name);
       }
-      btn.setAttribute('aria-pressed', selected.has(vid) ? 'true' : 'false');
-      const c = $('pvBagCount'); if (c) c.textContent = String(selected.size);
-      sync();
+      scheduleSave();
     });
   });
 
+  // ── Phone: ISD picker ──
+  const ccBtn = $('pv-phone-cc') as HTMLButtonElement | null;
+  const ccFlagEl = $('pv-phone-flag');
+  const ccDialEl = $('pv-phone-dial');
+  const menuEl = $('pv-phone-menu');
+  const filterInput = $('pv-phone-filter') as HTMLInputElement | null;
+  const listEl = $('pv-phone-list');
+
+  if (listEl) {
+    COUNTRIES.forEach((c) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'pv-phone__row';
+      row.dataset.iso = c.iso2;
+      const flag = document.createElement('span'); flag.className = 'pv-phone__rowflag'; flag.textContent = flagEmoji(c.iso2);
+      const name = document.createElement('span'); name.className = 'pv-phone__rowname'; name.textContent = c.name;
+      const dial = document.createElement('span'); dial.className = 'pv-phone__rowdial'; dial.textContent = c.dial;
+      row.append(flag, name, dial);
+      row.addEventListener('click', () => { selectCountry(c); closeMenu(); });
+      listEl.appendChild(row);
+    });
+  }
+  function selectCountry(c: CountryDial) {
+    selectedCountry = c;
+    if (ccFlagEl) ccFlagEl.textContent = flagEmoji(c.iso2);
+    if (ccDialEl) ccDialEl.textContent = c.dial;
+    maybeFirePhoneLead();
+    scheduleSave();
+  }
+  function openMenu() {
+    if (!menuEl || !filterInput || !listEl) return;
+    menuEl.hidden = false;
+    ccBtn?.setAttribute('aria-expanded', 'true');
+    filterInput.value = '';
+    listEl.querySelectorAll<HTMLElement>('.pv-phone__row').forEach((r) => { r.style.display = ''; });
+    filterInput.focus();
+  }
+  function closeMenu() {
+    if (!menuEl) return;
+    menuEl.hidden = true;
+    ccBtn?.setAttribute('aria-expanded', 'false');
+  }
+  ccBtn?.addEventListener('click', () => { (menuEl?.hidden ? openMenu : closeMenu)(); });
+  filterInput?.addEventListener('input', () => {
+    const q = filterInput.value.trim().toLowerCase();
+    listEl?.querySelectorAll<HTMLElement>('.pv-phone__row').forEach((row) => {
+      const name = row.querySelector('.pv-phone__rowname')?.textContent?.toLowerCase() || '';
+      const dial = row.querySelector('.pv-phone__rowdial')?.textContent?.toLowerCase() || '';
+      row.style.display = (!q || name.includes(q) || dial.includes(q)) ? '' : 'none';
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!menuEl || menuEl.hidden) return;
+    if (!(e.target as HTMLElement).closest('.pv-phone')) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuEl && !menuEl.hidden) closeMenu();
+  });
+
+  // ── Preselect from ?bag=<handle> (the product-page prompt links here) ──
+  const wantBag = new URLSearchParams(location.search).get('bag');
+  if (wantBag) {
+    const esc = window.CSS?.escape ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
+    const tile = document.querySelector<HTMLElement>(`.pv-bag[data-handle="${esc}"]`);
+    if (tile) {
+      const vid = tile.dataset.vid || '';
+      const name = tile.querySelector('.pv-bag__name')?.textContent?.trim() || 'Bag';
+      if (vid && !selected.has(vid)) addBag(vid, name);
+    }
+  }
+
+  // ── Country & city ──
+  // Country is a searchable dropdown (combobox.ts); city is typed freely.
+  let placeIso = '';
+  const countryOpts: ComboOption[] = COUNTRIES.map((c) => ({ value: c.iso2, label: c.name, prefix: flagEmoji(c.iso2) }));
+  const comboList = (el: HTMLElement | null) => el?.parentElement?.querySelector<HTMLElement>('.bw-combo__list') ?? null;
+  const countryListEl = comboList(countryInput);
+  const countryCombo = countryInput && countryListEl ? makeCombobox({
+    input: countryInput,
+    list: countryListEl,
+    options: () => countryOpts,
+    onCommit(opt) {
+      const iso = opt?.value || '';
+      setPlaceCountry(iso);
+      scheduleSave();
+    },
+  }) : null;
+  let cityTimer = 0;
+  cityInput?.addEventListener('input', () => { clearTimeout(cityTimer); cityTimer = window.setTimeout(checkMumbai, 400); });
+  cityInput?.addEventListener('change', checkMumbai);
+  function setPlaceCountry(iso: string) {
+    placeIso = iso;
+    // Their phone is most likely from the same country — preselect its code
+    // unless they've already chosen one.
+    const c = iso ? findCountry(iso) : undefined;
+    if (c && !selectedCountry) selectCountry(c);
+    checkMumbai();
+  }
+  function showPlace(iso: string, city: string) {
+    const opt = countryOpts.find((o) => o.value === iso);
+    if (opt) { countryCombo?.set(opt); placeIso = iso; }
+    if (cityInput) cityInput.value = city;
+  }
+
+  // ── Mumbai → Try at Home cross-sell ──
+  const mumbaiBanner = $('pvMumbaiBanner');
+  function checkMumbai() {
+    if (!mumbaiBanner || !cityInput) return;
+    const match = isMumbaiCity(cityInput.value);
+    mumbaiBanner.hidden = mumbaiDismissed || !match;
+    // "We moved you here from Try at Home" would contradict it.
+    const fromTahNote = $('pvFromTah');
+    if (match && fromTahNote) fromTahNote.hidden = true;
+  }
+  $('pvDismissBanner')?.addEventListener('click', () => {
+    mumbaiDismissed = true;
+    if (mumbaiBanner) mumbaiBanner.hidden = true;
+  });
+  $('pvSwitchTah')?.addEventListener('click', () => {
+    const switchDraft: BookingDraft = {
+      step: 'details',
+      dateISO: pickedISO,
+      dateLabel: pickedLabel,
+      slot: pickedSlot,
+      bags: [...selected.entries()].map(([variantId, title]) => ({ variantId, title })),
+      // The phone carries over only if it's Indian — Try at Home's code is a fixed +91.
+      fields: {
+        'f-name': nameInput?.value.trim() || '',
+        'f-email': emailInput?.value.trim() || '',
+        'f-phone': selectedCountry?.iso2 === 'IN' ? phoneDigits().slice(-10) : '',
+        'f-country': 'IN',
+        'f-city': cityInput?.value.trim() || '',
+      },
+    };
+    saveDraft(DRAFT_KEY_TRY_AT_HOME, switchDraft);
+    try { sessionStorage.setItem('mk_switched_from_pv', '1'); } catch { /* storage unavailable */ }
+    window.location.href = '/try-at-home';
+  });
+
+  // ── Details validation + lead capture ──
+  function phoneDigits(): string { return (phoneNumberInput?.value || '').replace(/\D/g, ''); }
+  function detailsErrorMessage(): string | null {
+    const name = nameInput?.value.trim() || '';
+    const email = emailInput?.value.trim() || '';
+    if (!name || !email) return 'Please fill in your name and email.';
+    if (!/^\S+@\S+\.\S+$/.test(email)) return 'Please enter a valid email address.';
+    if (!selectedCountry) return "Please choose your phone's country code.";
+    const digits = phoneDigits();
+    if (digits.length < 7 || digits.length > 15) return 'Please enter a valid phone number, including your country code.';
+    return null;
+  }
+  function detailsValidBool(): boolean { return detailsErrorMessage() === null; }
+
+  function maybeFirePhoneLead() {
+    const digits = phoneDigits();
+    const email = emailInput?.value.trim() || '';
+    if (!selectedCountry || digits.length < 7 || digits.length > 15) return;
+    if (!/^\S+@\S+\.\S+$/.test(email)) return;
+    const combined = selectedCountry.dial + digits;
+    const key = combined + '|' + email;
+    if (key === lastPhoneLeadKey) return;
+    lastPhoneLeadKey = key;
+    lead({ event: 'phone', phone: combined, email, name: nameInput?.value.trim() || undefined });
+  }
+  let leadTimer = 0;
+  const scheduleLeadCheck = () => { clearTimeout(leadTimer); leadTimer = window.setTimeout(maybeFirePhoneLead, 400); };
+  phoneNumberInput?.addEventListener('input', scheduleLeadCheck);
+  phoneNumberInput?.addEventListener('blur', maybeFirePhoneLead);
+  emailInput?.addEventListener('input', scheduleLeadCheck);
+  emailInput?.addEventListener('blur', maybeFirePhoneLead);
+
+  // ── Recap (shown on the details step) ──
   function set(id: string, text: string, muted: boolean) {
     const el = $(id); if (!el) return;
     el.textContent = text;
     el.classList.toggle('muted', muted);
   }
-  function sync() {
-    set('pv-sum-date', pickedLabel || 'Choose a day', !pickedLabel);
-    set('pv-sum-time', pickedSlot || 'Choose a time', !pickedSlot);
-    set('pv-sum-bags', selected.size ? [...selected.values()].join(', ') : 'Up to six pieces', selected.size === 0);
+  function syncRecap() {
+    set('pvRecapDate', pickedLabel || 'Choose a day', !pickedLabel);
+    set('pvRecapTime', pickedSlot || 'Choose a time', !pickedSlot);
+    set('pvRecapBags', selected.size ? [...selected.values()].join(', ') : 'Up to six pieces', selected.size === 0);
   }
 
-  // ── Confirm ──
-  const bookBtn = $('pvBookBtn') as HTMLButtonElement | null;
-  bookBtn?.addEventListener('click', async () => {
-    const err = $('pvErr');
-    const fail = (m: string) => { if (err) { err.textContent = m; err.hidden = false; } };
-    if (err) err.hidden = true;
+  // ── Draft persistence ──
+  function currentDraft(): BookingDraft {
+    return {
+      step: active,
+      dateISO: pickedISO,
+      dateLabel: pickedLabel,
+      slot: pickedSlot,
+      bags: [...selected.entries()].map(([variantId, title]) => ({ variantId, title })),
+      fields: {
+        'f-name': nameInput?.value.trim() || '',
+        'f-email': emailInput?.value.trim() || '',
+        'f-city': cityInput?.value.trim() || '',
+        'f-country': placeIso,
+        'f-phone-iso': selectedCountry?.iso2 || '',
+        'f-phone-number': phoneNumberInput?.value.trim() || '',
+      },
+    };
+  }
+  let saveTimer = 0;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => saveDraft(DRAFT_KEY_PRIVATE_VIEWING, currentDraft()), 400);
+  }
+  shellEl?.addEventListener('input', scheduleSave);
+  shellEl?.addEventListener('change', scheduleSave);
 
-    const name = ($('pv-name') as HTMLInputElement)?.value.trim() || '';
-    const phone = (($('pv-phone') as HTMLInputElement)?.value || '').replace(/\D/g, '');
-    const email = ($('pv-email') as HTMLInputElement)?.value.trim() || '';
+  // ── Step engine ──
+  function computeCtx(): GateContext {
+    return { hasDateTime: Boolean(pickedISO && pickedSlot), bagCount: selected.size, detailsValid: detailsValidBool() };
+  }
+  function render() {
+    document.querySelectorAll<HTMLElement>('.bw-step').forEach((el) => {
+      el.toggleAttribute('data-active', el.dataset.step === active);
+    });
+    const idx = stepIndex(active);
+    document.querySelectorAll<HTMLElement>('.bw-progress__seg').forEach((seg, i) => {
+      seg.dataset.state = i < idx ? 'done' : i === idx ? 'active' : 'upcoming';
+    });
+    if (shellEl) shellEl.dataset.step = active;
+    if (backBtn) backBtn.hidden = active === 'cover';
+    if (nextBtn) nextBtn.textContent = active === 'details' ? 'Confirm Private Viewing' : active === 'cover' ? 'Book a Private Viewing →' : 'Continue';
+    clearErr();
+    if (active === 'details') { syncRecap(); checkMumbai(); }
+  }
+  function goBack() {
+    if (active === 'cover') return;
+    active = prevStep(active);
+    render();
+    window.scrollTo(0, 0);
+    scheduleSave();
+    track('viewing_step_' + active);
+  }
+  async function goNext() {
+    let reason: string | null = null;
+    if (active === 'details') {
+      reason = detailsErrorMessage();
+    } else {
+      const gate = canAdvance(active, computeCtx());
+      if (!gate.ok) reason = gate.reason || 'Please check this step.';
+    }
+    if (reason) { showErr(reason); return; }
+    clearErr();
+    lead({
+      event: 'booking_step', bookingFlow: 'private_viewing', bookingStep: active,
+      bookingDate: pickedISO || undefined, bookingSlot: pickedSlot || undefined, bookingBagsCount: selected.size,
+    });
+    if (active === 'details') { await submit(); return; }
+    active = nextStep(active);
+    render();
+    window.scrollTo(0, 0);
+    scheduleSave();
+    track('viewing_step_' + active);
+  }
+  backBtn?.addEventListener('click', goBack);
+  nextBtn?.addEventListener('click', goNext);
+  $('pvHeroCta')?.addEventListener('click', goNext);
 
-    if (!pickedISO || !pickedSlot) return fail('Please choose a day and a time.');
-    if (selected.size < 1) return fail('Please select at least one bag.');
-    // E.164 allows up to 15 digits; 7 is about the shortest real national number.
-    if (!name || !email) return fail('Please fill in your name and email.');
-    if (phone.length < 7 || phone.length > 15) return fail('Please enter a valid phone number, including your country code.');
+  // ── Receipt (replaces the old room-redirect success panel) ──
+  function populateReceipt() {
+    if (!doneEl) return;
+    const dateEl = doneEl.querySelector('[data-rp-field="date"]');
+    const slotEl = doneEl.querySelector('[data-rp-field="slot"]');
+    if (dateEl) dateEl.textContent = pickedLabel;
+    if (slotEl) slotEl.textContent = pickedSlot;
+    const titles = [...selected.values()];
+    doneEl.querySelectorAll<HTMLElement>('[data-rp-item-slot]').forEach((li) => {
+      const i = Number(li.dataset.rpItemSlot);
+      li.hidden = i >= titles.length;
+      const titleEl = li.querySelector('[data-rp-field="title"]');
+      if (titleEl && !li.hidden) titleEl.textContent = titles[i];
+    });
+  }
 
-    const tab = window.open('', '_blank');
-
-    bookBtn.disabled = true;
-    bookBtn.textContent = 'Opening your room…';
+  // ── Submit ──
+  async function submit() {
+    track('viewing_submit');
+    const prevLabel = nextBtn?.textContent || 'Confirm Private Viewing';
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = 'Booking\u2026'; }
     try {
+      const bagsPayload = [...selected.entries()].map(([variantId, title]) => ({ variantId, title }));
+      const phone = (selectedCountry?.dial || '') + phoneDigits();
       const res = await fetch('/api/private-viewing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startsAt: pickedISO }),
+        body: JSON.stringify({
+          date: pickedISO,
+          slot: pickedSlot,
+          bags: bagsPayload,
+          name: nameInput?.value.trim() || '',
+          phone,
+          email: emailInput?.value.trim() || '',
+          city: cityInput?.value.trim() || '',
+          country: (placeIso && findCountry(placeIso)?.name) || '',
+        }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not open a viewing room.');
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
 
-      const main = $('pvMain'); if (main) main.hidden = true;
-      const done = $('pvDone'); if (done) done.hidden = false;
-      const body = $('pvDoneBody');
-      if (body) body.textContent = `${pickedLabel}, ${pickedSlot}. We'll confirm by email and WhatsApp, and your room link is ready below.`;
-      const join = $('pvJoin') as HTMLAnchorElement | null;
-      if (join) join.href = data.viewingPath;
-
-      if (tab && !tab.closed) {
-        tab.location.href = data.viewingPath;
-      } else {
-        // Popup blocked, or the tab was closed — the button below is the way in.
-        const note = $('pvDoneNote');
-        if (note) note.textContent = 'Your browser blocked the new tab — use the button above to join.';
-      }
+      track('viewing_booked');
+      // Booked — the product-page viewing prompt never shows again.
+      try { mark(localStorage, 'bookedAt', Date.now()); } catch { /* localStorage itself can throw */ }
+      clearDraft(DRAFT_KEY_PRIVATE_VIEWING);
+      populateReceipt();
+      if (shellEl) shellEl.hidden = true;
+      if (doneEl) doneEl.hidden = false;
+      const footer = $('bwFooter'); if (footer) footer.hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      if (tab && !tab.closed) tab.close();
-      fail(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
-      bookBtn.disabled = false;
-      bookBtn.textContent = 'Confirm Private Viewing';
+      showErr(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = prevLabel; }
     }
-  });
+  }
 
-  sync();
+  // ── Restore a draft, if any ──
+  const draft = loadDraft(DRAFT_KEY_PRIVATE_VIEWING);
+  if (draft) {
+    draft.bags.forEach((b) => selected.set(b.variantId, b.title));
+    selected.forEach((_, vid) => reflectBagUI(vid));
+    updateBagCount();
+
+    if (nameInput) nameInput.value = draft.fields['f-name'] || '';
+    if (emailInput) emailInput.value = draft.fields['f-email'] || '';
+    if (phoneNumberInput) phoneNumberInput.value = draft.fields['f-phone-number'] || '';
+    const iso = draft.fields['f-phone-iso'];
+    if (iso) { const c = findCountry(iso); if (c) selectCountry(c); }
+    // Older drafts kept the country as typed text; only a code is restored.
+    showPlace(draft.fields['f-country'] || '', draft.fields['f-city'] || '');
+    if (placeIso) setPlaceCountry(placeIso); // its phone code, if none was saved
+
+    if (draft.dateISO && rail) {
+      const matchBtn = rail.querySelector<HTMLButtonElement>(`[data-iso="${draft.dateISO}"]`);
+      if (matchBtn) {
+        selectDate(matchBtn);
+        if (draft.slot) {
+          const slotBtn = document.querySelector<HTMLButtonElement>(`.pv-slot[data-slot="${CSS.escape(draft.slot)}"]`);
+          if (slotBtn) selectSlot(slotBtn);
+        }
+      }
+      // If the saved date has fallen out of the 45-day window, the date (and
+      // therefore the slot, which is meaningless alone) are simply dropped —
+      // same as if the visitor had never picked one.
+    }
+
+    active = resolveInitialStep(computeCtx());
+  }
+
+  // Lets the phone layout size the shell to the screen below the header.
+  function measureTop() {
+    if (shellEl) shellEl.style.setProperty('--bw-top', Math.round(shellEl.getBoundingClientRect().top + window.scrollY) + 'px');
+  }
+  window.addEventListener('resize', measureTop);
+
+  // Arrived here from Try at Home because the city is outside Mumbai.
+  const fromTah = $('pvFromTah');
+  try {
+    if (fromTah && sessionStorage.getItem('mk_switched_from_tah') !== null) {
+      sessionStorage.removeItem('mk_switched_from_tah');
+      fromTah.hidden = false;
+    }
+  } catch { /* storage unavailable — skip the note */ }
+  $('pvFromTahOk')?.addEventListener('click', () => { if (fromTah) fromTah.hidden = true; });
+
+  render();
+  measureTop();
+  track('viewing_start');
+
+  // ── Where the visitor is: country, phone code and city, filled in ──
+  // A market URL (/en-ae/private-viewing) names the country outright. Vercel's IP
+  // geolocation (/api/geo) supplies the country on the bare URL — the India
+  // default, which says nothing about the visitor — and the city wherever its
+  // country agrees with the one chosen. India is the last resort. setPlaceCountry
+  // also picks the matching phone code. Nothing the visitor has already chosen,
+  // or restored from a draft, is ever replaced.
+  function prefillCountry(iso: string) {
+    if (placeIso || !findCountry(iso)) return;
+    showPlace(iso, cityInput?.value ?? '');
+    setPlaceCountry(iso);
+    scheduleSave();
+  }
+  prefillCountry(shellEl?.dataset.marketCountry || '');
+  // BaseLayout only starts this lookup on the India store's pages.
+  const geo = window.mkGeo ?? fetch('/api/geo').then((r) => r.json()).catch(() => null);
+  geo.then((g) => {
+    if (g?.country) prefillCountry(g.country);
+    prefillCountry('IN');
+    if (g?.city && cityInput && !cityInput.value.trim() && g.country === placeIso) {
+      cityInput.value = g.city;
+      checkMumbai();
+      scheduleSave();
+    }
+  }).catch(() => prefillCountry('IN'));
 </script>

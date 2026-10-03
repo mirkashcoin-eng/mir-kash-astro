@@ -1,0 +1,7 @@
+{%- comment -%} Just the shipping address, for shipping-stage emails. {%- endcomment -%}
+{%- if shipping_address %}
+<p style="%%addr-cell%%;padding:0;margin:0;">
+  {{ shipping_address | format_address }}
+  {%- if shipping_method.title != blank %}<br><br><span style="color:#6B5A4C;">{{ shipping_method.title }}</span>{% endif %}
+</p>
+{%- endif %}

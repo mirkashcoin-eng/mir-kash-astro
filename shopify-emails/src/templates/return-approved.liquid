@@ -1,0 +1,50 @@
+---
+name: Return request approved
+section: Returns
+subject: Your return for order {{ order.name }} is approved
+---
+{%- capture email_title -%}Your return is approved{%- endcapture -%}
+{%- assign mk_delivery = return.deliveries | first -%}
+{%- assign mk_label_url = mk_delivery.return_label.public_file_url -%}
+{%- capture email_preheader -%}
+  {%- if mk_label_url != blank -%}Your return label is ready to print.{%- else -%}Here's how to send it back.{%- endif -%}
+{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order.name -%}
+{%- assign mk_order_url = order.customer_order_url | default: order.order_status_url -%}
+<!-- body -->
+<p style="%%p%%">
+  {%- if mk_delivery.type == 'shopify_label' and mk_label_url != blank -%}
+    Your return is approved. Print the label below and attach it to the parcel, covering any old labels.
+  {%- elsif mk_delivery.type == 'shopify_label' or mk_delivery.type == 'manual' -%}
+    Your return is approved. We've sent you a return label, or you'll have it soon. Once it arrives, attach it to the parcel and hand it to the courier.
+  {%- else -%}
+    Your return is approved. Here's how to send it back.
+  {%- endif -%}
+</p>
+
+{%- if mk_label_url != blank %}
+  {%- assign mk_button_url = mk_label_url -%}
+  {%- assign mk_button_label = 'Print return label' -%}
+  {%- assign mk_link_url = mk_order_url -%}
+  {%- assign mk_link_label = 'view your order' -%}
+{%- else %}
+  {%- assign mk_button_url = mk_order_url | default: mk_site -%}
+  {%- assign mk_button_label = 'View your order' -%}
+{%- endif %}
+{% render 'button' %}
+
+{%- if mk_delivery.carrier_name != blank and mk_delivery.tracking_number != blank %}
+<p style="%%small%%;margin:16px 0 0;">{{ mk_delivery.carrier_name }} tracking: {% if mk_delivery.tracking_url != blank %}<a href="{{ mk_delivery.tracking_url }}" style="%%link%%">{{ mk_delivery.tracking_number }}</a>{% else %}{{ mk_delivery.tracking_number }}{% endif %}</p>
+{%- endif %}
+
+{%- if mk_label_url == blank and mk_delivery.type != 'manual' %}
+{% render 'return-send-to' %}
+{%- else %}
+{%- assign mk_callout_body = 'Pack the bag unused, in its dust bag and Mir Kash box. We&#39;ll refund the item price to your original payment method within 14 days of receiving it.' -%}
+{% render 'callout' %}
+{%- endif %}
+
+{%- assign mk_section = 'Return summary' -%}
+{% render 'section-start' %}
+{% render 'return-items' %}
+{% render 'section-end' %}

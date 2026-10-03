@@ -1,0 +1,279 @@
+{
+  "_money_format": "₹{{amount}}",
+  "_currency": "INR",
+  "_locale": "en-IN",
+  "shop": {
+    "name": "Mir Kash",
+    "url": "https://www.mirkash.com",
+    "email": "order@mirkash.com"
+  },
+  "name": "#MK1042",
+  "order_name": "#MK1042",
+  "order": {
+    "name": "#MK1042",
+    "order_status_url": "https://www.mirkash.com/account/orders",
+    "customer_order_url": ""
+  },
+  "order_status_url": "https://www.mirkash.com/account/orders",
+  "customer": {
+    "first_name": "Ananya",
+    "email": "customer@example.com",
+    "account_activation_url": "https://www.mirkash.com/account/activate/123",
+    "reset_password_url": "https://www.mirkash.com/account/reset/123",
+    "subscribe_url": "https://www.mirkash.com/subscribe/confirm/123"
+  },
+  "requires_shipping": true,
+  "financial_status": "pending",
+  "fulfillment_status": "fulfilled",
+  "item_count": 2,
+  "line_items": [
+    {
+      "title": "Weaver Tote - Cherry Red",
+      "product": {
+        "title": "Weaver Tote"
+      },
+      "variant": {
+        "title": "Cherry Red"
+      },
+      "variant_title": "Cherry Red",
+      "quantity": 1,
+      "image": {
+        "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+      },
+      "original_line_price": 1539900,
+      "final_line_price": 1539900,
+      "line_price": 1539900,
+      "discount_allocations": [],
+      "refunded_quantity": 0
+    },
+    {
+      "title": "Gigi - Olive",
+      "product": {
+        "title": "Gigi"
+      },
+      "variant": {
+        "title": "Olive"
+      },
+      "variant_title": "Olive",
+      "quantity": 1,
+      "image": {
+        "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/1_converted.avif"
+      },
+      "original_line_price": 980000,
+      "final_line_price": 980000,
+      "line_price": 980000,
+      "discount_allocations": [],
+      "refunded_quantity": 0
+    }
+  ],
+  "subtotal_line_items": [
+    {
+      "title": "Weaver Tote - Cherry Red",
+      "product": {
+        "title": "Weaver Tote"
+      },
+      "variant": {
+        "title": "Cherry Red"
+      },
+      "variant_title": "Cherry Red",
+      "quantity": 1,
+      "image": {
+        "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+      },
+      "original_line_price": 1539900,
+      "final_line_price": 1539900,
+      "line_price": 1539900,
+      "discount_allocations": [],
+      "refunded_quantity": 0
+    },
+    {
+      "title": "Gigi - Olive",
+      "product": {
+        "title": "Gigi"
+      },
+      "variant": {
+        "title": "Olive"
+      },
+      "variant_title": "Olive",
+      "quantity": 1,
+      "image": {
+        "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/1_converted.avif"
+      },
+      "original_line_price": 980000,
+      "final_line_price": 980000,
+      "line_price": 980000,
+      "discount_allocations": [],
+      "refunded_quantity": 0
+    }
+  ],
+  "subtotal_price": 2519900,
+  "shipping_price": 0,
+  "tax_price": 269989,
+  "total_price": 2519900,
+  "total_discounts": 0,
+  "total_outstanding": 2519900,
+  "discount_applications": [],
+  "transactions": [],
+  "shipping_address": {
+    "first_name": "Ananya",
+    "last_name": "Rao",
+    "address1": "14 Carmichael Road",
+    "address2": "Flat 6B",
+    "city": "Mumbai",
+    "province_code": "MH",
+    "zip": "400026",
+    "country": "India"
+  },
+  "billing_address": {
+    "first_name": "Ananya",
+    "last_name": "Rao",
+    "address1": "14 Carmichael Road",
+    "address2": "Flat 6B",
+    "city": "Mumbai",
+    "province_code": "MH",
+    "zip": "400026",
+    "country": "India"
+  },
+  "shipping_method": {
+    "title": "Free shipping",
+    "price": 0
+  },
+  "fulfillment": {
+    "item_count": 2,
+    "tracking_company": "Delhivery",
+    "tracking_numbers": [
+      "2834910023"
+    ],
+    "tracking_url": "https://www.delhivery.com/track/package/2834910023",
+    "tracking_urls": [
+      "https://www.delhivery.com/track/package/2834910023"
+    ],
+    "estimated_delivery_at": "2026-10-09T10:00:00Z",
+    "fulfillment_line_items": [
+      {
+        "line_item": {
+          "title": "Weaver Tote - Cherry Red",
+          "product": {
+            "title": "Weaver Tote"
+          },
+          "variant": {
+            "title": "Cherry Red"
+          },
+          "variant_title": "Cherry Red",
+          "quantity": 1,
+          "image": {
+            "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+          },
+          "original_line_price": 1539900,
+          "final_line_price": 1539900,
+          "line_price": 1539900,
+          "discount_allocations": [],
+          "refunded_quantity": 0
+        },
+        "quantity": 1
+      },
+      {
+        "line_item": {
+          "title": "Gigi - Olive",
+          "product": {
+            "title": "Gigi"
+          },
+          "variant": {
+            "title": "Olive"
+          },
+          "variant_title": "Olive",
+          "quantity": 1,
+          "image": {
+            "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/1_converted.avif"
+          },
+          "original_line_price": 980000,
+          "final_line_price": 980000,
+          "line_price": 980000,
+          "discount_allocations": [],
+          "refunded_quantity": 0
+        },
+        "quantity": 1
+      }
+    ]
+  },
+  "amount": 1539900,
+  "refund_line_items": [
+    {
+      "line_item": {
+        "title": "Weaver Tote - Cherry Red",
+        "product": {
+          "title": "Weaver Tote"
+        },
+        "variant": {
+          "title": "Cherry Red"
+        },
+        "variant_title": "Cherry Red",
+        "quantity": 1,
+        "image": {
+          "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+        },
+        "original_line_price": 1539900,
+        "final_line_price": 1539900,
+        "line_price": 1539900,
+        "discount_allocations": [],
+        "refunded_quantity": 0
+      },
+      "quantity": 1
+    }
+  ],
+  "cancel_reason": "customer",
+  "return": {
+    "line_items": [
+      {
+        "title": "Weaver Tote - Cherry Red",
+        "product": {
+          "title": "Weaver Tote"
+        },
+        "variant": {
+          "title": "Cherry Red"
+        },
+        "variant_title": "Cherry Red",
+        "quantity": 1,
+        "image": {
+          "src": "https://cdn.shopify.com/s/files/1/0730/9774/0503/files/132_converted.avif"
+        },
+        "original_line_price": 1539900,
+        "final_line_price": 1539900,
+        "line_price": 1539900,
+        "discount_allocations": [],
+        "refunded_quantity": 0
+      }
+    ],
+    "deliveries": [
+      {
+        "type": "shopify_label",
+        "carrier_name": "Delhivery",
+        "tracking_number": "RT88213",
+        "tracking_url": "https://www.delhivery.com/track/package/2834910023",
+        "return_label": {
+          "public_file_url": "https://www.mirkash.com/return-label.pdf"
+        }
+      }
+    ],
+    "decline": {
+      "reason": "return_period_ended",
+      "note": ""
+    }
+  },
+  "return_label": {
+    "public_file_url": "https://www.mirkash.com/return-label.pdf"
+  },
+  "gift_card": {
+    "balance": 500000,
+    "initial_value": 500000,
+    "url": "https://www.mirkash.com/gift_cards/123",
+    "expires_on": "2027-10-03",
+    "pass_url": ""
+  },
+  "custom_message": "",
+  "url": "https://www.mirkash.com/cart",
+  "invoice_url": "https://www.mirkash.com/invoices/123",
+  "checkout_payment_collection_url": "https://www.mirkash.com/pay/123",
+  "reserve_inventory_until": "2026-10-10T18:00:00Z",
+  "unsubscribe_url": ""
+}

@@ -1,0 +1,72 @@
+{%- comment -%} Subtotal → discounts → shipping → duties → taxes → total, then any split payments and refunds. {%- endcomment -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 0;">
+  <tr>
+    <td style="%%total-label%%">Subtotal</td>
+    <td style="%%total-value%%">{{ subtotal_price | money }}</td>
+  </tr>
+  {%- for discount_application in discount_applications %}
+    {%- if discount_application.target_selection == 'all' %}
+  <tr>
+    <td style="%%total-label%%">{% if discount_application.title != blank %}Discount ({{ discount_application.title }}){% else %}Discount{% endif %}</td>
+    <td style="%%total-value%%;color:#3D6B4F;">−{{ discount_application.total_allocated_amount | money }}</td>
+  </tr>
+    {%- endif %}
+  {%- endfor %}
+  {%- if requires_shipping or shipping_price > 0 %}
+  <tr>
+    <td style="%%total-label%%">Shipping</td>
+    <td style="%%total-value%%">{% if shipping_price > 0 %}{{ shipping_price | money }}{% else %}Free{% endif %}</td>
+  </tr>
+  {%- endif %}
+  {%- if total_duties > 0 %}
+  <tr>
+    <td style="%%total-label%%">Duties</td>
+    <td style="%%total-value%%">{{ total_duties | money }}</td>
+  </tr>
+  {%- endif %}
+  {%- if tax_price > 0 %}
+  <tr>
+    <td style="%%total-label%%">{{ mk_taxes_label }}</td>
+    <td style="%%total-value%%">{{ tax_price | money }}</td>
+  </tr>
+  {%- endif %}
+  {%- if total_tip > 0 %}
+  <tr>
+    <td style="%%total-label%%">Tip</td>
+    <td style="%%total-value%%">{{ total_tip | money }}</td>
+  </tr>
+  {%- endif %}
+  <tr>
+    <td class="mk-serif" style="%%grand-label%%">Total</td>
+    <td class="mk-serif" style="%%grand-value%%">{{ total_price | money_with_currency }}</td>
+  </tr>
+  {%- if total_discounts > 0 %}
+  <tr>
+    <td style="padding:0;"></td>
+    <td style="%%grand-note%%">You saved {{ total_discounts | money }}</td>
+  </tr>
+  {%- endif %}
+  {%- assign mk_tx_count = 0 -%}
+  {%- assign mk_tx_amount = 0 -%}
+  {%- for transaction in transactions -%}
+    {%- unless transaction.kind == 'capture' or transaction.kind == 'void' -%}
+      {%- assign mk_tx_count = mk_tx_count | plus: 1 -%}
+      {%- assign mk_tx_amount = mk_tx_amount | plus: transaction.amount -%}
+    {%- endunless -%}
+  {%- endfor -%}
+  {%- if mk_tx_count > 1 or mk_tx_amount > 0 and mk_tx_amount < total_price %}
+    {%- for transaction in transactions %}
+      {%- if transaction.status == 'success' and transaction.kind == 'authorization' or transaction.status == 'success' and transaction.kind == 'sale' %}
+  <tr>
+    <td style="%%total-label%%">{% if transaction.payment_details.credit_card_company != blank %}{{ transaction.payment_details.credit_card_company }} ending {{ transaction.payment_details.credit_card_last_four_digits }}{% else %}{{ transaction.gateway_display_name }}{% endif %}</td>
+    <td style="%%total-value%%">{{ transaction.amount | money }}</td>
+  </tr>
+      {%- elsif transaction.kind == 'refund' and transaction.status == 'success' %}
+  <tr>
+    <td style="%%total-label%%">Refunded to {% if transaction.payment_details.credit_card_company != blank %}{{ transaction.payment_details.credit_card_company }}{% else %}{{ transaction.gateway_display_name | default: transaction.gateway }}{% endif %}</td>
+    <td style="%%total-value%%">−{{ transaction.amount | money }}</td>
+  </tr>
+      {%- endif %}
+    {%- endfor %}
+  {%- endif %}
+</table>

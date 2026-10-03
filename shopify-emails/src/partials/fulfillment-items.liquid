@@ -1,0 +1,14 @@
+{%- comment -%} The products in this shipment (fulfillment.fulfillment_line_items). No prices. {%- endcomment -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for line in fulfillment.fulfillment_line_items %}
+  {%- if line.line_item.product.title != blank %}{% assign mk_item_title = line.line_item.product.title %}{% else %}{% assign mk_item_title = line.line_item.title %}{% endif -%}
+  {%- if line.line_item.image %}{% capture mk_item_image %}{{ line.line_item | img_url: '240x', format: 'jpg' }}{% endcapture %}{% else %}{% assign mk_item_image = '' %}{% endif -%}
+  {%- capture mk_item_meta -%}
+    {%- if line.line_item.variant.title != 'Default Title' and line.line_item.variant.title != blank %}{{ line.line_item.variant.title }}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif -%}
+    {%- if line.quantity < line.line_item.quantity %}{{ line.quantity }} of {{ line.line_item.quantity }}{% else %}Qty {{ line.quantity }}{% endif -%}
+  {%- endcapture -%}
+  {%- assign mk_item_note = '' -%}
+  {%- assign mk_item_price = '' -%}
+  {% render 'item-row' %}
+{%- endfor %}
+</table>

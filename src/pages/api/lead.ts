@@ -9,7 +9,9 @@ export const prerender = false;
 // checkOrigin).
 const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-const EVENTS = ['visit', 'page_view', 'product_view', 'add_to_cart', 'phone', 'address'] as const;
+const EVENTS = ['visit', 'page_view', 'product_view', 'add_to_cart', 'phone', 'address', 'booking_step'] as const;
+const BOOKING_FLOWS = ['try_at_home', 'private_viewing'] as const;
+const BOOKING_STEPS = ['cover', 'datetime', 'bags', 'details'] as const;
 
 export const POST: APIRoute = async ({ request }) => {
   let body: Record<string, unknown>;
@@ -58,6 +60,15 @@ export const POST: APIRoute = async ({ request }) => {
     bot: botName(request.headers.get('user-agent') ?? '') || str(body.bot, 40),
     country: str(body.country, 4),
     cart,
+    bookingFlow: (BOOKING_FLOWS as readonly string[]).includes(String(body.bookingFlow))
+      ? (body.bookingFlow as (typeof BOOKING_FLOWS)[number])
+      : undefined,
+    bookingStep: (BOOKING_STEPS as readonly string[]).includes(String(body.bookingStep))
+      ? (body.bookingStep as (typeof BOOKING_STEPS)[number])
+      : undefined,
+    bookingDate: str(body.bookingDate, 20),
+    bookingSlot: str(body.bookingSlot, 40),
+    bookingBagsCount: Number.isFinite(Number(body.bookingBagsCount)) ? Number(body.bookingBagsCount) : undefined,
   });
   return noContent();
 };

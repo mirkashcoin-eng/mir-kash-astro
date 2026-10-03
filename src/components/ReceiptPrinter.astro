@@ -1,5 +1,7 @@
 ---
-// A thermal receipt printer that prints the order confirmation.
+// A thermal receipt printer that prints the order confirmation — and, since
+// kind="appointment", the Try at Home / Private Viewing booking confirmation too
+// (src/components/BookDemo.astro, src/components/PrivateViewing.astro).
 //
 // Ported from a React + motion/react component to plain Astro/CSS: this project
 // has no React, Tailwind or animation library, and pulling three of them in for
@@ -8,7 +10,7 @@
 // in ten discrete jerks (as a real dot-matrix feed does) rather than gliding.
 //
 // Stages run processing -> printing -> complete on a timer, purely cosmetic: the
-// order is already confirmed server-side by the time this renders.
+// order/booking is already confirmed server-side by the time this renders.
 
 interface ReceiptItem {
   title: string;
@@ -17,13 +19,29 @@ interface ReceiptItem {
 }
 
 interface Props {
+  // 'order' (default) is checkout/return.astro's existing call — untouched.
+  // 'appointment' is a Try at Home / Private Viewing booking: no price, no
+  // order number, a "Service"/Date/Time meta block instead of Date/Payment, and
+  // its own closing line instead of the paid/COD thank-you copy.
+  kind?: 'order' | 'appointment';
   orderName?: string;
   items: ReceiptItem[];
   amount: number;
   isCod: boolean;
+  // appointment-only. BookDemo.astro/PrivateViewing.astro render this component
+  // at page load, before the visitor has picked anything — so these start as
+  // placeholders and the caller's own script overwrites them client-side once a
+  // booking actually succeeds, using the stable data-rp-field="service|date|slot"
+  // and data-rp-item-slot="<index>" hooks below (never select by the rp__* CSS
+  // classes for this — those are layout, not a contract, and may change).
+  serviceName?: string;   // e.g. "Private Viewing", "Try at Home"
+  apptDate?: string;      // e.g. "Mon, 2 Nov 2026" — already formatted by the caller
+  apptSlot?: string;      // e.g. "Afternoon (2–5 PM)"
+  thanksLine?: string;    // the closing line — no "Join" CTA, just the promise of a follow-up
 }
 
-const { orderName, items, amount, isCod } = Astro.props;
+const { kind = 'order', orderName, items, amount, isCod, serviceName, apptDate, apptSlot, thanksLine } = Astro.props;
+const isAppt = kind === 'appointment';
 
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -57,7 +75,7 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
         <div class="rp__screen-row">
           <div>
             <p class="rp__screen-title">Mir Kash</p>
-            <p class="rp__screen-sub">{isCod ? 'Cash on delivery' : 'Payment received'}</p>
+            <p class="rp__screen-sub">{isAppt ? (serviceName ?? 'Booking confirmed') : (isCod ? 'Cash on delivery' : 'Payment received')}</p>
           </div>
           {amount > 0 && <strong class="rp__screen-amount">{inr(amount)}</strong>}
         </div>
@@ -75,9 +93,9 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
             </svg>
           </span>
           <div class="rp__status-text" role="status" aria-live="polite">
-            <span data-stage-label="processing">Processing your order</span>
-            <span data-stage-label="printing">Printing your receipt</span>
-            <span data-stage-label="complete">Order complete</span>
+            <span data-stage-label="processing">{isAppt ? 'Processing your booking' : 'Processing your order'}</span>
+            <span data-stage-label="printing">{isAppt ? 'Printing your confirmation' : 'Printing your receipt'}</span>
+            <span data-stage-label="complete">{isAppt ? 'Booking confirmed' : 'Order complete'}</span>
           </div>
         </div>
       </div>
@@ -98,20 +116,30 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
         <div class="rp__rule"></div>
 
         <div class="rp__meta">
-          {orderName && <div class="rp__meta-row"><span>Order</span><span>{orderName}</span></div>}
-          <div class="rp__meta-row"><span>Date</span><span>{printedOn}</span></div>
-          <div class="rp__meta-row"><span>Payment</span><span>{isCod ? 'Cash on delivery' : 'Paid online'}</span></div>
+          {isAppt ? (
+            <>
+              {serviceName && <div class="rp__meta-row"><span>Service</span><span data-rp-field="service">{serviceName}</span></div>}
+              {apptDate && <div class="rp__meta-row"><span>Date</span><span data-rp-field="date">{apptDate}</span></div>}
+              {apptSlot && <div class="rp__meta-row"><span>Time</span><span data-rp-field="slot">{apptSlot}</span></div>}
+            </>
+          ) : (
+            <>
+              {orderName && <div class="rp__meta-row"><span>Order</span><span>{orderName}</span></div>}
+              <div class="rp__meta-row"><span>Date</span><span>{printedOn}</span></div>
+              <div class="rp__meta-row"><span>Payment</span><span>{isCod ? 'Cash on delivery' : 'Paid online'}</span></div>
+            </>
+          )}
         </div>
 
         <div class="rp__rule"></div>
 
         {items.length > 0 && (
           <ul class="rp__items">
-            {items.map((item) => (
-              <li class="rp__item">
-                <span class="rp__item-qty">{item.quantity}&#215;</span>
-                <span class="rp__item-title">{item.title}</span>
-                {item.price !== null && <span class="rp__item-price">{inr(item.price * item.quantity)}</span>}
+            {items.map((item, i) => (
+              <li class="rp__item" data-rp-item-slot={i}>
+                <span class="rp__item-qty" data-rp-field="qty">{item.quantity}&#215;</span>
+                <span class="rp__item-title" data-rp-field="title">{item.title}</span>
+                {item.price !== null && <span class="rp__item-price" data-rp-field="price">{inr(item.price * item.quantity)}</span>}
               </li>
             ))}
           </ul>
@@ -127,9 +155,11 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
         {(items.length > 0 || amount > 0) && <div class="rp__rule"></div>}
 
         <p class="rp__thanks">
-          {isCod
-            ? 'Thank you. Please keep the amount ready for your delivery partner.'
-            : 'Thank you for your order. A confirmation is on its way to you.'}
+          {isAppt
+            ? (thanksLine ?? 'Thank you. We’ll be in touch to confirm.')
+            : (isCod
+              ? 'Thank you. Please keep the amount ready for your delivery partner.'
+              : 'Thank you for your order. A confirmation is on its way to you.')}
         </p>
 
         <div class="rp__barcode" aria-hidden="true"></div>
@@ -429,6 +459,7 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
 
   .rp__items { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
   .rp__item { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; }
+  .rp__item[hidden] { display: none; }
   .rp__item-qty { color: #7a6a5c; }
   .rp__item-title { overflow-wrap: anywhere; }
   .rp__item-price { white-space: nowrap; }
@@ -522,15 +553,31 @@ const printedOn = new Intl.DateTimeFormat('en-IN', {
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (reduced) {
-      printer.dataset.stage = 'complete';
-    } else {
-      setTimeout(() => {
-        printer.dataset.stage = 'printing';
+    const run = () => {
+      if (reduced) {
+        printer.dataset.stage = 'complete';
+      } else {
         setTimeout(() => {
-          printer.dataset.stage = 'complete';
-        }, 1750);
-      }, 1400);
+          printer.dataset.stage = 'printing';
+          setTimeout(() => {
+            printer.dataset.stage = 'complete';
+          }, 1750);
+        }, 1400);
+      }
+    };
+
+    // On the booking pages the receipt is rendered up front inside a [hidden]
+    // confirmation panel and only revealed once the booking succeeds — so wait
+    // until it's actually on screen, or the animation finishes unseen.
+    if (printer.closest('[hidden]') && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        run();
+      });
+      io.observe(printer);
+    } else {
+      run();
     }
   }
 </script>

@@ -15,6 +15,7 @@ interface Body {
   date?: string; slot?: string; bags?: Bag[];
   name?: string; phone?: string; email?: string;
   address?: string; area?: string; pin?: string;
+  city?: string; country?: string;
 }
 
 // Public "Book a Home Demo" (Mumbai). Records the request as a tagged Shopify draft order.
@@ -34,6 +35,8 @@ export const POST: APIRoute = async ({ request }) => {
   const address = (body.address ?? '').trim();
   const area = (body.area ?? '').trim();
   const pin = (body.pin ?? '').trim();
+  const city = (body.city ?? '').trim();
+  const country = (body.country ?? 'IN').trim().toUpperCase();
 
   const bags = Array.isArray(body.bags)
     ? body.bags.filter((b): b is { variantId: string; title: string } => Boolean(b && b.variantId)).map((b) => ({ variantId: b.variantId, title: (b.title || 'Bag').toString() }))
@@ -45,9 +48,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (!name || !email || !phone || !address) return json({ error: 'Please fill in your name, phone, email and address.' }, 400);
   if (phone.length !== 10) return json({ error: 'Please enter a valid 10-digit phone number.' }, 400);
   if (!/^\d{6}$/.test(pin)) return json({ error: 'Please enter a valid 6-digit PIN code.' }, 400);
+  // The form switches anyone outside India to Private Viewing before they get here.
+  // The city isn't checked against the Mumbai list: the visitor may have typed a
+  // suburb we don't list and confirmed it's in the Mumbai area.
+  if (country !== 'IN') return json({ error: 'Try at Home is only available in Mumbai — please book a Private Viewing instead.' }, 400);
 
   const result = await createDemoBooking({
-    bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin,
+    bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin, city,
   });
 
   return result

@@ -1,0 +1,10 @@
+---
+name: Contact customer
+section: Customer accounts
+subject: A message from Mir Kash
+---
+{%- capture email_title -%}A note from Mir Kash{%- endcapture -%}
+{%- capture email_preheader -%}{{ custom_message | strip_html | truncate: 90 }}{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">{{ custom_message | newline_to_br }}</p>

@@ -1,0 +1,14 @@
+---
+name: Payment processing error
+section: Orders
+subject: Your payment couldn't be processed
+---
+{%- capture email_title -%}Your payment couldn't be processed{%- endcapture -%}
+{%- capture email_preheader -%}You haven't been charged, and your cart is still saved.{%- endcapture -%}
+{%- assign mk_eyebrow = '' -%}
+<!-- body -->
+<p style="%%p%%">Something went wrong while we were processing your payment. You haven't been charged, and everything is still in your cart.</p>
+
+{%- assign mk_button_url = url | default: mk_site -%}
+{%- assign mk_button_label = 'Return to your cart' -%}
+{% render 'button' %}

@@ -26,7 +26,7 @@ export interface CartSnapshot {
 
 export interface LeadInput {
   sessionId: string;
-  event: 'visit' | 'page_view' | 'product_view' | 'add_to_cart' | 'phone' | 'address';
+  event: 'visit' | 'page_view' | 'product_view' | 'add_to_cart' | 'phone' | 'address' | 'booking_step';
   phone?: string;
   email?: string;
   name?: string;
@@ -39,6 +39,15 @@ export interface LeadInput {
   province?: string;
   pin?: string;
   cart?: CartSnapshot; // full bag (add_to_cart)
+  // Try at Home / Private Viewing wizard progress (booking_step event) — fired on
+  // every step's Continue, with or without a phone/email known yet, so an
+  // abandoned booking is still visible against this session: furthest step
+  // reached, date/slot picked, how many bags shortlisted.
+  bookingFlow?: 'try_at_home' | 'private_viewing';
+  bookingStep?: 'cover' | 'datetime' | 'bags' | 'details';
+  bookingDate?: string;
+  bookingSlot?: string;
+  bookingBagsCount?: number;
   // Acquisition, sent on the first hit of a session only.
   referrer?: string;
   utmSource?: string;
@@ -107,6 +116,14 @@ export async function recordLead(l: LeadInput): Promise<void> {
     if (l.event === 'phone') patch.phoneAt = now;
     if (l.event === 'add_to_cart') patch.cartAt = now;
     if (l.event === 'address') patch.addressAt = now;
+    if (l.event === 'booking_step') {
+      patch.bookingStepAt = now;
+      if (l.bookingFlow) patch.bookingFlow = l.bookingFlow;
+      if (l.bookingStep) patch.bookingStep = l.bookingStep;
+      if (l.bookingDate) patch.bookingDate = l.bookingDate;
+      if (l.bookingSlot) patch.bookingSlot = l.bookingSlot;
+      if (typeof l.bookingBagsCount === 'number') patch.bookingBagsCount = l.bookingBagsCount;
+    }
     if (l.phone) patch.phone = l.phone;
     if (l.email) patch.email = l.email;
     if (l.name) patch.name = l.name;

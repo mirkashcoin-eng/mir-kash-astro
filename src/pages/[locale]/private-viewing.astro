@@ -1,0 +1,20 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PrivateViewing from '~/components/PrivateViewing.astro';
+import { getMarketBySlug } from '~/lib/markets';
+
+export const prerender = false;
+
+// Private Viewing is a live video appointment, offered to every market. The page is the
+// same everywhere (bags are listed from the India store, which is where bookings are
+// recorded); the /en-xx prefix just keeps visitors inside their own storefront chrome.
+const market = getMarketBySlug(Astro.params.locale!);
+if (!market || market.isDefault) return new Response(null, { status: 404 });
+---
+<BaseLayout
+  title="Private Viewing — Mir Kash"
+  path="/private-viewing"
+  description="Book a live video viewing with a Mir Kash client advisor. See the pieces you choose up close, from anywhere — complimentary, no obligation."
+>
+  <PrivateViewing />
+</BaseLayout>

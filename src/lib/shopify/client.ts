@@ -14,10 +14,14 @@ export function getClient(store: Store): StorefrontApiClient | null {
   const cached = clientCache.get(key);
   if (cached) return cached;
 
+  // A private Storefront token (shpat_…) is rejected with a 401 when sent as a
+  // public one, and vice versa — send each in its own header. This module only
+  // runs on the server, so a private token never reaches the browser.
+  const isPrivate = cfg.shopifyToken.startsWith('shpat_');
   const client = createStorefrontApiClient({
     storeDomain: cfg.shopifyDomain,
     apiVersion: API_VERSION,
-    publicAccessToken: cfg.shopifyToken,
+    ...(isPrivate ? { privateAccessToken: cfg.shopifyToken } : { publicAccessToken: cfg.shopifyToken }),
   });
   clientCache.set(key, client);
   return client;

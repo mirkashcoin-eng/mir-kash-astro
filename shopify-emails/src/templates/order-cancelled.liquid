@@ -1,0 +1,37 @@
+---
+name: Order canceled
+section: Orders
+subject: Order {{ name }} has been cancelled
+---
+{%- capture email_title -%}Your order has been cancelled{%- endcapture -%}
+{%- capture mk_reason -%}
+  {%- case cancel_reason -%}
+    {%- when 'customer' -%}at your request
+    {%- when 'inventory' -%}because the piece you chose is no longer in stock. We're sorry
+    {%- else -%}because we weren't able to complete it
+  {%- endcase -%}
+{%- endcapture -%}
+{%- capture mk_payment_line -%}
+  {%- if financial_status == 'voided' -%}
+    Your payment has been voided, so you haven't been charged.
+  {%- elsif financial_status == 'refunded' or financial_status == 'partially_refunded' -%}
+    Your payment has been refunded to the original payment method. Depending on your bank, it can take a few days to appear.
+  {%- elsif financial_status == 'pending' -%}
+    Nothing was charged.
+  {%- endif -%}
+{%- endcapture -%}
+{%- capture email_preheader -%}Order {{ order_name }} was cancelled {{ mk_reason }}.{%- endcapture -%}
+{%- assign mk_eyebrow = 'Order ' | append: order_name -%}
+<!-- body -->
+<p style="%%p%%">Order {{ order_name }} was cancelled {{ mk_reason }}. {{ mk_payment_line }}</p>
+<p style="%%p%%">If you have any questions, write to us at <a href="mailto:{{ mk_help_email }}" style="%%link%%">{{ mk_help_email }}</a>.</p>
+
+{%- assign mk_button_url = mk_site -%}
+{%- assign mk_button_label = 'Visit Mir Kash' -%}
+{% render 'button' %}
+
+{%- assign mk_section = 'Cancelled order' -%}
+{% render 'section-start' %}
+{% render 'order-items' %}
+{% render 'totals' %}
+{% render 'section-end' %}
