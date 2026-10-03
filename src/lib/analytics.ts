@@ -103,6 +103,58 @@ export async function getPromptStats(days = 30): Promise<PromptStats | null> {
   }
 }
 
+// Cart "Before you go" panel counters, in the same daily doc. Per event: a total plus an
+// optional split by offer, e.g. cx_shown, cx_shown_tryhome. Impressions, not unique people.
+// `total` is untouched so the visitor funnel is unaffected.
+export const CART_EXIT_EVENTS = [
+  'cx_shown', 'cx_dismiss',
+  'cx_reason_seeit', 'cx_reason_size', 'cx_reason_price', 'cx_reason_looking',
+  'cx_book_click', 'cx_saved', 'cx_checkout_click',
+] as const;
+export type CartExitEvent = (typeof CART_EXIT_EVENTS)[number];
+export const CART_EXIT_OFFERS = ['tryhome', 'viewing'] as const;
+
+export async function recordCartExitEvent(name: string, offer: string): Promise<void> {
+  if (!(CART_EXIT_EVENTS as readonly string[]).includes(name)) return;
+  const db = adminDb();
+  if (!db) return;
+  const inc = () => FieldValue.increment(1);
+  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
+  if ((CART_EXIT_OFFERS as readonly string[]).includes(offer)) fields[`${name}_${offer}`] = inc();
+  try {
+    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
+  } catch { /* best-effort analytics; never surface */ }
+}
+
+export type CartExitCounts = Record<CartExitEvent, number>;
+export interface CartExitStats {
+  days: number;
+  counts: CartExitCounts;
+  byOffer: Record<(typeof CART_EXIT_OFFERS)[number], CartExitCounts>;
+}
+
+// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
+export async function getCartExitStats(days = 30): Promise<CartExitStats | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
+    const zero = (): CartExitCounts =>
+      Object.fromEntries(CART_EXIT_EVENTS.map((e) => [e, 0])) as CartExitCounts;
+    const out: CartExitStats = { days, counts: zero(), byOffer: { tryhome: zero(), viewing: zero() } };
+    snap.forEach((doc) => {
+      const v = doc.data() as Record<string, number>;
+      for (const e of CART_EXIT_EVENTS) {
+        out.counts[e] += Number(v[e] || 0);
+        for (const o of CART_EXIT_OFFERS) out.byOffer[o][e] += Number(v[`${e}_${o}`] || 0);
+      }
+    });
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export interface ProductStat {
   id: string;
   title: string;

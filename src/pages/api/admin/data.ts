@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getPrivateViewingBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders, type AbandonedCheckout } from '~/lib/shopify/admin';
-import { getFunnel, getProductStats, getPromptStats } from '~/lib/analytics';
+import { getCartExitStats, getFunnel, getProductStats, getPromptStats } from '~/lib/analytics';
 import { getPeople, personKey, type Person } from '~/lib/leads';
 import { getAffiliateSummary } from '~/lib/clicks';
 import { getSubscribers } from '~/lib/newsletter';
@@ -45,7 +45,7 @@ function daysBetween(from: string | null, to: string | null): number | null {
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt] = await Promise.all([
+  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit] = await Promise.all([
     getDemoBookings(),
     getPrivateViewingBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
@@ -57,6 +57,7 @@ export const GET: APIRoute = async ({ request }) => {
     getSubscribers(1000),    // newsletter signups (Firestore)
     getFunnelDaily(240),     // immutable per-day funnel counts (Daily funnel grid)
     getPromptStats(30),      // booking-prompt shown / closed / went ahead
+    getCartExitStats(30),    // cart "Before you go" panel: reasons and what they did next
   ]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -139,5 +140,5 @@ export const GET: APIRoute = async ({ request }) => {
     };
   });
 
-  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt });
+  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt, cartExit });
 };

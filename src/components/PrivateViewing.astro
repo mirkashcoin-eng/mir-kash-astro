@@ -361,6 +361,7 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
   import { COUNTRIES, flagEmoji, findCountry, type CountryDial } from '~/lib/countries';
   import { isMumbaiCity } from '~/lib/cities';
   import { makeCombobox, type ComboOption } from '~/lib/combobox';
+  import { parseBags } from '~/lib/cart-exit';
 
   type LeadData = NonNullable<Window['mkLead']> extends (data: infer D) => void ? D : never;
 
@@ -580,9 +581,10 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
     if (e.key === 'Escape' && menuEl && !menuEl.hidden) closeMenu();
   });
 
-  // ── Preselect from ?bag=<handle> (the product-page prompt links here) ──
-  const wantBag = new URLSearchParams(location.search).get('bag');
-  if (wantBag) {
+  // ── Preselect from ?bag=<handle> (product-page prompt) or ?bags=a,b,c (cart "Before you go") ──
+  const wantQuery = new URLSearchParams(location.search);
+  for (const wantBag of parseBags(wantQuery.get('bags'), wantQuery.get('bag'))) {
+    if (selected.size >= 6) break; // page limit — don't trip the "already 6" toast
     const esc = window.CSS?.escape ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
     const tile = document.querySelector<HTMLElement>(`.pv-bag[data-handle="${esc}"]`);
     if (tile) {

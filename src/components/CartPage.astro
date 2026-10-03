@@ -5,6 +5,7 @@ import { getCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { formatMoney } from '~/lib/markets';
 import SiteFooter from './SiteFooter.astro';
+import CartExitPanel from './CartExitPanel.astro';
 
 const { market, marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
@@ -21,6 +22,14 @@ const count = cart?.totalQuantity ?? 0;
 const currency = cart?.currency || marketConfig.currency;
 const money = (n: number) => formatMoney({ amount: String(n), currencyCode: currency }, marketConfig.locale);
 const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#');
+
+// "Before you go" panel: only for a cart with something in it. `astro dev` with ?cx=1 renders it
+// with sample bags too, so its design can be checked without a live Shopify cart.
+const exitLines = lines.length
+  ? lines.map((l) => ({ id: l.id, handle: l.handle, title: l.title, image: l.image }))
+  : import.meta.env.DEV && Astro.url.searchParams.has('cx')
+    ? [{ id: 'sample-1', handle: 'gigi-mini-bag', title: 'Sample bag', image: null }, { id: 'sample-2', handle: 'tory-structured-bag', title: 'Sample bag', image: null }]
+    : [];
 ---
 
 <div class="sheet cart-page" data-market={market}>
@@ -93,6 +102,7 @@ const checkoutHref = market === 'india' ? '/checkout' : (cart?.checkoutUrl ?? '#
 </div>
 
 <SiteFooter />
+{exitLines.length > 0 && <CartExitPanel lines={exitLines} checkoutHref={checkoutHref} />}
 
 <script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })) }}>
   const main = document.querySelector('.cart-page');

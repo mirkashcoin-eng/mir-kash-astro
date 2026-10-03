@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { recordEvent, recordPromptEvent } from '~/lib/analytics';
+import { recordCartExitEvent, recordEvent, recordPromptEvent } from '~/lib/analytics';
 
 export const prerender = false;
 
@@ -17,6 +17,9 @@ async function handle(request: Request, url: URL, bot: string): Promise<Response
   if (e.startsWith('vp_')) {
     // Booking-prompt impressions/outcomes. Crawlers run page scripts too; keep them out of the rates.
     if (!bot) await recordPromptEvent(e, (url.searchParams.get('page') || '').slice(0, 12), (url.searchParams.get('offer') || '').slice(0, 12));
+  } else if (e.startsWith('cx_')) {
+    // Cart "Before you go" panel. Same crawler exclusion as the booking prompt.
+    if (!bot) await recordCartExitEvent(e.slice(0, 40), (url.searchParams.get('offer') || '').slice(0, 12));
   } else if (e) await recordEvent(e.slice(0, 40), product || undefined);
   return noContent();
 }

@@ -385,6 +385,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   import { COUNTRIES, flagEmoji, findCountry } from '~/lib/countries';
   import { isMumbaiArea } from '~/lib/cities';
   import { makeCombobox, type ComboOption } from '~/lib/combobox';
+  import { parseBags } from '~/lib/cart-exit';
 
   interface BagInfo { title: string; description: string; images: string[]; handle: string }
   let BAGS: Record<string, BagInfo> = {};
@@ -458,13 +459,15 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     btn.addEventListener('click', (e) => { e.stopPropagation(); toggleBag(btn.dataset.add!); });
   });
 
-  // ── Preselect from ?bag=<handle> (the product-page prompt links here) ──
+  // ── Preselect from ?bag=<handle> (product-page prompt) or ?bags=a,b,c (cart "Before you go") ──
   function preselectFromQuery() {
-    const wantBag = new URLSearchParams(location.search).get('bag');
-    if (!wantBag) return;
-    const esc = (window.CSS && CSS.escape) ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
-    const wantTile = document.querySelector<HTMLElement>(`.bd-bag[data-handle="${esc}"]`);
-    if (wantTile && !selectedBags.has(wantTile.dataset.vid!)) toggleBag(wantTile.dataset.vid!);
+    const q = new URLSearchParams(location.search);
+    for (const wantBag of parseBags(q.get('bags'), q.get('bag'))) {
+      if (selectedBags.size >= 6) break; // page limit — don't trip the "already 6" toast
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
+      const wantTile = document.querySelector<HTMLElement>(`.bd-bag[data-handle="${esc}"]`);
+      if (wantTile && !selectedBags.has(wantTile.dataset.vid!)) toggleBag(wantTile.dataset.vid!);
+    }
   }
 
   // ── Quick-view modal ──

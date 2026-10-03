@@ -70,6 +70,7 @@ const imgSrc = image || '/ed-tophandle.jpeg';
 
 <script>
   import { readState, mark, canShow, shownThisSession, markShownThisSession, productReady } from '~/lib/viewing-prompt';
+  import { createDialog } from '~/lib/dialog';
 
   type Offer = 'tryhome' | 'viewing';
   type Copy = Record<Offer, { eyebrow: string; heading: string; body: string; cta: string; href: string }>;
@@ -97,8 +98,6 @@ const imgSrc = image || '/ed-tophandle.jpeg';
     const force = import.meta.env.DEV && new URLSearchParams(location.search).has('vp');
     if (!force && !canShow(readState(ls, page), shownThisSession(ss, page), Date.now())) return;
 
-    // Direct child of <body>, so the page behind can be made inert without inerting the dialog.
-    document.body.appendChild(el);
 
     // Start fetching the photo once the page is idle, so the dialog never opens with an empty panel.
     const img = el.querySelector('img');
@@ -118,33 +117,8 @@ const imgSrc = image || '/ed-tophandle.jpeg';
       if (!force) window.mkTrack?.(event.replace('viewing_prompt_', 'vp_'), { page, offer });
     };
 
-    // ── Modal plumbing: scroll lock, inert page, focus ──
-    let previousFocus: Element | null = null;
-    let inerted: Element[] = [];
-    const root = document.documentElement;
-
-    function lockPage() {
-      const gap = window.innerWidth - root.clientWidth; // classic scrollbar width; 0 for overlay scrollbars
-      root.style.overflow = 'hidden';
-      if (gap > 0) root.style.paddingRight = `${gap}px`;
-      inerted = [...document.body.children].filter((n) => n !== el && !/^(SCRIPT|STYLE|LINK|NOSCRIPT)$/.test(n.tagName) && !(n as HTMLElement).inert);
-      inerted.forEach((n) => { (n as HTMLElement).inert = true; });
-    }
-    function unlockPage() {
-      root.style.overflow = '';
-      root.style.paddingRight = '';
-      inerted.forEach((n) => { (n as HTMLElement).inert = false; });
-      inerted = [];
-    }
-    function trapTab(e: KeyboardEvent) {
-      if (e.key !== 'Tab') return;
-      const focusables = [...card.querySelectorAll<HTMLElement>('a[href], button')].filter((n) => n.offsetParent !== null);
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && (document.activeElement === first || document.activeElement === card)) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
+    // Scroll lock, inert page, focus and the fixed-length exit live in ~/lib/dialog.
+    const dialog = createDialog(el, card, EXIT_MS);
 
     // ── Show / hide ──
     let triggered = false;
@@ -163,13 +137,7 @@ const imgSrc = image || '/ed-tophandle.jpeg';
         const c = copy[o];
         el.querySelectorAll<HTMLElement>('[data-vp]').forEach((n) => { n.textContent = c[n.dataset.vp as keyof typeof c] ?? ''; });
         el.querySelector<HTMLAnchorElement>('[data-vp-cta]')!.href = c.href;
-        previousFocus = document.activeElement;
-        el.hidden = false;
-        lockPage();
-        void el.offsetWidth; // commit the start state so the entrance transitions
-        el.classList.add('is-in');
-        card.focus({ preventScroll: true });
-        document.addEventListener('keydown', trapTab);
+        dialog.open();
         open = true;
         markShownThisSession(ss, page);
         track('viewing_prompt_shown');
@@ -179,13 +147,7 @@ const imgSrc = image || '/ed-tophandle.jpeg';
     function hide() {
       if (!open) return;
       open = false;
-      el.classList.remove('is-in');
-      document.removeEventListener('keydown', trapTab);
-      unlockPage();
-      if (previousFocus instanceof HTMLElement) previousFocus.focus({ preventScroll: true });
-      // Fixed length, matching the exit transitions below. transitionend isn't used: it bubbles up from
-      // whichever child finishes first and would hide the dialog mid-fade.
-      setTimeout(() => { if (!open) el.hidden = true; }, EXIT_MS);
+      dialog.close();
     }
 
     function dismiss() {

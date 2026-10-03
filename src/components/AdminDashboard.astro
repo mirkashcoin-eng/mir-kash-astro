@@ -61,6 +61,7 @@
         <h1 class="ad-display ad-h1">Overview</h1>
         <div class="ad-kpis" id="kpis"></div>
         <div id="promptBody"></div>
+        <div id="cartExitBody"></div>
         <div id="productsBody"></div>
         <div id="countryBody"></div>
         <div class="ad-panel">
@@ -403,6 +404,7 @@
       renderRevenue(orders, abandoned);
       renderFulfilment(orders);
       renderPrompt(data.prompt);
+      renderCartExit(data.cartExit);
       renderProducts(data.products);
       renderCountries(PEOPLE);
       renderAffiliates(data.affiliates);
@@ -853,6 +855,28 @@
       }).join('');
       body.innerHTML = hbars('Booking prompt', 'last ' + p.days + ' days · went ahead = tapped Book', rows) +
         (splitRows ? hbars('Booking prompt by page and offer', 'saw · closed · went ahead', splitRows) : '');
+    }
+
+    // ── Cart "Before you go" panel ────────────────────────────────────────────
+    // Reasons are a share of everyone who saw it; follow-ups are a share of those who
+    // picked the answer that leads to them (book: see it / size, number: just looking).
+    function renderCartExit(cx) {
+      var body = $('cartExitBody'); if (!body) return;
+      var c = cx && cx.counts;
+      if (!c || !c.cx_shown) { body.innerHTML = ''; return; }
+      var shown = c.cx_shown;
+      function share(label, n, d) { return hbarRow(label, n + ' · ' + pct(n, d) + '%', pct(n, d), ''); }
+      var why = hbarRow('Saw it', String(shown), 100, '') +
+        share('Want to see it in person', c.cx_reason_seeit, shown) +
+        share('Unsure about size or colour', c.cx_reason_size, shown) +
+        share('More than planned', c.cx_reason_price, shown) +
+        share('Just looking', c.cx_reason_looking, shown) +
+        share('Closed without answering', c.cx_dismiss, shown);
+      var next = share('Went to book a viewing', c.cx_book_click, c.cx_reason_seeit + c.cx_reason_size) +
+        share('Left a number', c.cx_saved, c.cx_reason_looking) +
+        share('Continued to checkout', c.cx_checkout_click, shown);
+      body.innerHTML = hbars('Why people leave the cart', 'last ' + cx.days + ' days · share of everyone who saw it', why) +
+        hbars('What they did next', '', next);
     }
 
     // ── Most-viewed products ──────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import type { CartView } from '~/types/shopify';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { STATES } from '~/lib/india-locations';
 import SiteFooter from './SiteFooter.astro';
+import { returnDaysFor, shippingFor, deliveryBy } from '~/lib/merchant-policy';
 
 // Custom checkout = INDIA store only. Design ported from Rahul's
 // "Mir Kash Checkout (standalone).html" (accordion: Contact → Delivery → Payment).
@@ -18,6 +19,12 @@ const { cart, isBuyNow } = Astro.props;
 // Indian digit grouping (₹1,09,700) to match the design.
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const count = cart.totalQuantity;
+
+// Quiet reassurance under the pay note — static facts from merchant-policy, nothing interactive.
+const { marketConfig } = Astro.locals;
+const returnDays = returnDaysFor(marketConfig.countryCode);
+const arrivesBy = new Intl.DateTimeFormat(marketConfig.locale, { weekday: 'short', day: 'numeric', month: 'short' })
+  .format(deliveryBy(shippingFor(marketConfig.countryCode)));
 const thumbGradients = [
   'linear-gradient(160deg,#c4938f,#8b1a1a)',
   'linear-gradient(160deg,#a0808a,#5c2d3e)',
@@ -259,6 +266,13 @@ const thumbGradients = [
           <svg width="11" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <span id="payNoteTxt">You'll complete payment securely with Cashfree (UPI · cards · netbanking).</span>
         </p>
+
+        <ul class="assure" aria-label="Good to know">
+          <li><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>{returnDays}-day returns</li>
+          <li><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"></path></svg>1-year warranty</li>
+          <li><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>Cash on Delivery available</li>
+          <li><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 6h13v10H1z"></path><path d="M14 9h4l3 3v4h-7z"></path><circle cx="5.5" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>Arrives by {arrivesBy}</li>
+        </ul>
 
         <p class="co-err" id="err-payment" hidden></p>
         <button class="btn-cta" id="placeBtn" type="button" style="margin-top:18px;">
@@ -944,6 +958,9 @@ const thumbGradients = [
   .pay-opt.sel .pay-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--cherry); }
   .pay-note { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--mid); margin: 14px 2px 0; line-height: 1.5; }
   .pay-note svg { flex-shrink: 0; stroke: var(--mid); }
+  .assure { list-style: none; margin: 16px 2px 0; padding: 14px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 7px; }
+  .assure li { display: flex; align-items: center; gap: 8px; font-size: 11.5px; line-height: 1.5; color: var(--mid); }
+  .assure svg { flex-shrink: 0; stroke: var(--soft); }
 
   .btn-cta { width: 100%; height: 52px; background: var(--depth); color: #fff; border: none; cursor: pointer; font-size: 11px; letter-spacing: var(--caps); text-transform: uppercase; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 13px; transition: background .22s; margin-top: 6px; }
   .btn-cta:hover { background: var(--cherry); }
