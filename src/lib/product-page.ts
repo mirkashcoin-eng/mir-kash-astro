@@ -54,10 +54,10 @@ const fmtDate = (d: Date, market: MarketConfig) =>
   new Intl.DateTimeFormat(market.locale, { weekday: 'short', day: 'numeric', month: 'short' }).format(d);
 
 /** One true, country-specific line under Add to bag (brand-wiki/LOCAL-MARKET-PAGES.md). */
-export function trustLine(market: MarketConfig): string[] {
+export function trustLine(market: MarketConfig, opts: { warranty?: boolean } = {}): string[] {
   const s = shippingFor(market.countryCode);
   const returns = `${returnDaysFor(market.countryCode)}-day returns`;
-  if (market.countryCode === 'IN') return ['Free shipping across India', '1-year warranty', returns];
+  if (market.countryCode === 'IN') return ['Free shipping across India', ...(opts.warranty === false ? [] : ['1-year warranty']), returns];
   const days = `${s.handlingDays[0] + s.transitDays[0]}–${s.handlingDays[1] + s.transitDays[1]} business days`;
   const where = market.countryCode === 'US' ? 'the US' : market.countryCode === 'GB' ? 'the UK' : market.countryName;
   return [

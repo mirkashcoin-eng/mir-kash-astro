@@ -260,10 +260,13 @@ const COLOR_HEX: Record<string, string> = {
   grey: '#8a8a8a', gray: '#8a8a8a', silver: '#C4C7CC',
   pink: '#C9A09A', rose: '#C9A09A', coral: '#F0908A', 'coral pink': '#F0908A',
   caramel: '#C88A46', gold: '#C6A44E', nude: '#E3C3A8', oat: '#E0D4BE',
-  fig: '#4A1942',
+  fig: '#4A1942', sage: '#8E9E7E', sky: '#9DBCE0',
 };
 // Match the full name, then any two-word phrase, then any single colour word.
-const hexFor = (raw: string) => {
+// Two-colour names ("Rose & Sage", "Cream & Cherry Red") get a split swatch, half each colour.
+const hexFor = (raw: string): string => {
+  const parts = raw.split(/\s*&\s*/).filter(Boolean);
+  if (parts.length === 2) return `linear-gradient(135deg, ${hexFor(parts[0])} 50%, ${hexFor(parts[1])} 50%)`;
   const key = raw.trim().toLowerCase();
   if (COLOR_HEX[key]) return COLOR_HEX[key];
   const words = key.split(/[^a-z]+/).filter(Boolean);
@@ -310,23 +313,26 @@ const shippingList = toLines(mf(product.shippingReturn));
 const shipLines = shippingList.length ? shippingList : FALLBACK_SHIPPING;
 const returnsRef = shipLines.at(-1)?.match(/^(.*?\.\s+)?([^.]*?)Returns page([^.]*\.?)$/);
 if (returnsRef) shipLines.splice(-1, 1, ...(returnsRef[1] ? [returnsRef[1].trim()] : []));
+const hasWarranty = !product.tags.includes('no-warranty');
 type Accordion = { title: string; vegan?: boolean; lines?: string[]; text?: string; sub?: { title: string; lines: string[] }; link?: { href: string; before: string; label: string; after: string } };
 const accordions: Accordion[] = [
   // Details, size and care in one dropdown (decided 29 Sep): details → dimensions → a "Care" sub-list.
-  { title: 'Product Details & Care', lines: detailsList, ...(careLines.length ? { sub: { title: 'Care', lines: careLines } } : {}) },
+  // Products without care tips (e.g. charms) are titled just "Product Details".
+  { title: careLines.length ? 'Product Details & Care' : 'Product Details', lines: detailsList, ...(careLines.length ? { sub: { title: 'Care', lines: careLines } } : {}) },
   // The material dropdown carries a small Forest Green leaf: the one quiet "vegan" mark on the page.
   ...(mf(product.materialName) && mf(product.materialStory) ? [{ title: mf(product.materialName), vegan: true, text: mf(product.materialStory) }] : []),
   { title: 'Shipping & Returns', lines: shipLines,
     link: { href: `${prefix}/pages/shipping-returns`, label: 'Returns page',
             ...(returnsRef ? { before: returnsRef[2], after: returnsRef[3] } : { before: 'Visit our ', after: ' for more information.' }) } },
-  { title: '1-Year Warranty', text: mf(product.warranty) || 'Every Mir Kash bag is covered against manufacturing defects for one year from purchase.',
-    link: { href: `${prefix}/pages/shipping-returns`, before: 'Read the full ', label: 'warranty terms', after: '.' } },
+  // Products tagged "no-warranty" (e.g. charms) carry no warranty: no dropdown, and no warranty in the trust line.
+  ...(hasWarranty ? [{ title: '1-Year Warranty', text: mf(product.warranty) || 'Every Mir Kash bag is covered against manufacturing defects for one year from purchase.',
+    link: { href: `${prefix}/pages/shipping-returns`, before: 'Read the full ', label: 'warranty terms', after: '.' } }] : []),
 ];
 
 // Buying-area extras: one-line hook, ways to carry, per-country trust + delivery lines, breadcrumb category.
 const tagline = mf(product.tagline);
 const ways = carryWays(product, detailLines);
-const trust = trustLine(marketConfig);
+const trust = trustLine(marketConfig, { warranty: hasWarranty });
 const delivery = deliveryLines(marketConfig);
 const maxDays = shipTerms.handlingDays[1] + shipTerms.transitDays[1];
 const faq = faqFor(product, marketConfig);
