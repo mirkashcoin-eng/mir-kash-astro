@@ -525,6 +525,7 @@ img { display: block; max-width: 100%; }
   gap: 0;
   margin-bottom: clamp(56px, 7vw, 88px);
 }
+.fi-cols--two { grid-template-columns: repeat(2, 1fr); }
 .fi-col {
   display: flex;
   flex-direction: column;

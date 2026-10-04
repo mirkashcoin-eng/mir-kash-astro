@@ -21,6 +21,7 @@ function normalizeCat(productType: string, tags: string[]): string {
   if (/clutch/.test(haystack))                  return 'clutches';
   if (/tote/.test(haystack))                    return 'tote-bags';
   if (/mini/.test(haystack))                    return 'mini-bags';
+  if (/travel/.test(haystack))                  return 'travel-accessories';
   if (/hand\s*bag|handbag|bag/.test(haystack))  return 'handbags';
   return 'handbags';
 }

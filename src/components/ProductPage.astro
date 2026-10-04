@@ -621,7 +621,7 @@ const faq = faqFor(product, marketConfig);
 </div>
 <ViewingPrompt page="product" handle={product.handle} title={product.title} image={images[firstVisible]?.full} />
 
-<SiteFooter />
+<SiteFooter hideWarranty={!hasWarranty} />
 
 <script type="application/json" id="pdpData" set:html={JSON.stringify(clientData)}></script>
 <script define:vars={{ pvTitle: product.title }}>

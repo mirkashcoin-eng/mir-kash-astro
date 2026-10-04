@@ -2,6 +2,12 @@
 import CountrySelector from './CountrySelector.astro';
 import { RETURN_DAYS } from '~/lib/merchant-policy';
 
+interface Props {
+  /** Products tagged "no-warranty" (e.g. charms) make no warranty claim, so the footer drops that column. */
+  hideWarranty?: boolean;
+}
+
+const { hideWarranty = false } = Astro.props;
 const { marketConfig } = Astro.locals;
 const prefix = marketConfig.urlPrefix;
 ---
@@ -14,7 +20,7 @@ const prefix = marketConfig.urlPrefix;
 
     <h3 class="fi-heading">The Mir Kash <em>promise</em></h3>
 
-    <div class="fi-cols">
+    <div class:list={['fi-cols', { 'fi-cols--two': hideWarranty }]}>
       <div class="fi-col">
         <p class="fi-label">Note from Founder</p>
         <p class="fi-val">Made slowly.<br />Worn forever. Hurts nothing.</p>
@@ -23,10 +29,12 @@ const prefix = marketConfig.urlPrefix;
         <p class="fi-label">Order it. Try it.</p>
         <p class="fi-val">{RETURN_DAYS[marketConfig.store]} days to decide.<br />Easy returns.</p>
       </div>
-      <div class="fi-col">
-        <p class="fi-label">Built to Last</p>
-        <p class="fi-val">1-year warranty</p>
-      </div>
+      {!hideWarranty && (
+        <div class="fi-col">
+          <p class="fi-label">Built to Last</p>
+          <p class="fi-val">1-year warranty</p>
+        </div>
+      )}
     </div>
 
     <form class="fi-news" data-newsletter>

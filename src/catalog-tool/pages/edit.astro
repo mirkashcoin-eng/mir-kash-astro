@@ -134,20 +134,20 @@ const init = JSON.stringify({ ...state, categories: CATEGORY_OPTIONS, live }).re
   const BADGES = [['new', 'New'], ['best-seller', 'Best seller'], ['selling-fast', 'Selling fast']];
   const OTHER = [['size-mini', 'Mini size'], ['edit-woven', 'Woven edit'], ['laptop-friendly', 'Fits a laptop']];
   const KNOWN = new Set([...MATERIALS, ...OCCASIONS, ...BADGES, ...OTHER].map(([t]) => t).concat('no-warranty'));
-  const TYPES = ['Shoulder Bags', 'Crossbody Bags', 'Tote Bags', 'Mini Bags', 'Clutch Bags', 'Charms'];
+  const TYPES = ['Shoulder Bags', 'Crossbody Bags', 'Tote Bags', 'Mini Bags', 'Clutch Bags', 'Charms', 'Travel Accessories'];
   const GROUPS = { Mini: 10, Small: 20, Medium: 30, Large: 40, Accessory: 90 };
   const AVOID = ['sustainable', 'sustainability', 'eco-friendly', 'eco friendly', 'luxury', 'luxurious', 'premium', 'ethical', 'conscious', 'curated', 'elevate', '100% cruelty-free', 'journey', 'handcrafted', 'mimic', 'cactus', 'mushroom'];
 
   // ── state ──────────────────────────────────────────────────────────────────────────────────
   const S = { ...init, removed: {}, dirty: false, attrs: null, attrsFor: '', log: '', busy: false, external: false, saving: false };
-  const isAccessory = () => /TaxonomyCategory\/aa-4/.test(S.P.category);
+  const isAccessory = () => /TaxonomyCategory\/(aa-4|aa-5-1\b)/.test(S.P.category);
   function fromP(P) {
     const care = linesOf(P.custom.care_guide);
     const cards = parseList(P.custom.feature_cards);
     return {
       details: linesOf(P.custom.product_details).join('\n'),
       care: care.join('\n'),
-      hasCare: care.length > 0 || (!P.custom.product_details && !/aa-4/.test(P.category)),
+      hasCare: care.length > 0 || (!P.custom.product_details && !/aa-4|aa-5-1\b/.test(P.category)),
       description: htmlToText(P.descriptionHtml),
       cards: cards.length ? cards : [{ eyebrow: 'What it holds', title: '', body: '' }, { eyebrow: 'Wear it to', title: '', body: '' }, { eyebrow: 'Good to know', title: '', body: '' }],
       slides: parseList(P.custom.story_slides),

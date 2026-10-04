@@ -20,10 +20,11 @@ const more = Math.max(0, lines.length - thumbs.length);
 const one = lines.length === 1;
 
 // The safety net around the price: the same lines the product page shows, plus warranty and COD.
-const trust = trustLine(marketConfig);
+// The warranty covers handbags only (charms and other accessories have none), so it says so.
+const trust = trustLine(marketConfig, { warranty: false });
 const reassure = [
   ...trust,
-  ...(trust.some((t) => /warranty/i.test(t)) ? [] : ['1-year warranty']),
+  '1-year warranty on all handbags',
   ...(isIndia ? ['Cash on Delivery available'] : []),
   deliveryLines(marketConfig).arrives,
 ];

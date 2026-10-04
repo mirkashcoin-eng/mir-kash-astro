@@ -92,6 +92,19 @@ export const CATEGORIES: Category[] = [
     seoDescription:
       'Shop the Mir Kash apple leather tote: long handles, zipped pockets and room for a 13-inch laptop and your whole day.',
   },
+  {
+    slug: 'travel-accessories',
+    title: 'Travel Accessories',
+    short: 'Travel',
+    h1: ['Travel', 'Accessories'],
+    // No collection on either store yet: the productType match fills the page.
+    collection: null,
+    match: /travel/i,
+    sub: 'Small pieces for the trip: a passport cover in pebbled vegan leather, with a place for every card, ticket and currency.',
+    seoTitle: 'Vegan Leather Travel Accessories | Mir Kash',
+    seoDescription:
+      'Shop Mir Kash travel accessories, from a pebbled vegan leather passport cover with slots for cards, SIMs, tickets and cash.',
+  },
 ];
 
 export function getCategory(slug: string): Category | undefined {
