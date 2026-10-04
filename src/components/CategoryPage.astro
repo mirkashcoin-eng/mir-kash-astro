@@ -128,7 +128,7 @@ const jsonLd = [
       <h2 class="cat-row__title">Shop by <em class="accent">shape</em></h2>
       <span class="cat-row__hint">{all.length} styles total</span>
     </div>
-    <div class="cat-row__grid" style="grid-template-columns:repeat(6, minmax(0, 1fr))">
+    <div class="cat-row__grid" style={`grid-template-columns:repeat(${listCategories().length + 1}, minmax(0, 1fr))`}>
       {listCategories().map((c, i) => (
         <a
           class:list={['cat-tile', { 'is-active': c.slug === cat.slug }]}

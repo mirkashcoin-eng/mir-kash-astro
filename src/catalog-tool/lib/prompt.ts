@@ -89,7 +89,7 @@ export async function buildPrompt(id: string): Promise<string> {
     .replace('{{EXISTING}}', () => existing)
     .replace('{{PHOTOS}}', () => photos)
     .replace('{{SKELETON}}', () => JSON.stringify(skeleton, null, 2))
-    .replace('{{TYPES}}', () => list(['Shoulder Bags', 'Crossbody Bags', 'Tote Bags', 'Mini Bags', 'Clutch Bags', 'Charms']))
+    .replace('{{TYPES}}', () => list(['Shoulder Bags', 'Crossbody Bags', 'Tote Bags', 'Mini Bags', 'Clutch Bags', 'Charms', 'Travel Accessories']))
     .replace('{{CATEGORIES}}', () => CATEGORY_OPTIONS.map((c) => `  - "${c.id}" (${c.name})`).join('\n'))
     .replace('{{MATERIALS}}', () => list(['apple-leather', 'vegan-leather', 'velvet', 'satin']))
     .replace('{{OCCASIONS}}', () => list(['occasion-everyday', 'occasion-work', 'occasion-evening', 'occasion-party', 'occasion-travel']))

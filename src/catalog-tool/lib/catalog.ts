@@ -40,6 +40,7 @@ export const CATEGORY_OPTIONS = [
   { id: 'gid://shopify/TaxonomyCategory/aa-5-4-5', name: 'Clutch bags' },
   { id: 'gid://shopify/TaxonomyCategory/aa-5-4', name: 'Handbags (general, e.g. mini bags)' },
   { id: 'gid://shopify/TaxonomyCategory/aa-4-8', name: 'Bag charms' },
+  { id: 'gid://shopify/TaxonomyCategory/aa-5-1-1', name: 'Passport holders (travel accessories)' },
 ];
 
 // The store-wide Shipping & Returns text every bag carries (live on Braidey, 4 Oct 2026).
