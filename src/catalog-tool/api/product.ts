@@ -1,12 +1,22 @@
 // GET: everything the editor shows. PUT: save the editor (product file, notes, photo order/labels, colour folders).
 import type { APIRoute } from 'astro';
-import { readProduct, writeProduct, writeNotes, arrangePhotos, renameColourFolder, tidyAssets, type ProductFile } from '../lib/catalog';
+import { productExists, productStamp, isPending, readProduct, writeProduct, writeNotes, arrangePhotos, renameColourFolder, tidyAssets, type ProductFile } from '../lib/catalog';
 import { editorState } from '../lib/state';
 import { slug } from '../lib/paths.mjs';
 import { json, fail } from '../lib/http';
 
-export const GET: APIRoute = async ({ params }) => {
-  try { return json(await editorState(params.id!)); } catch (e) { return fail(e, 404); }
+export const GET: APIRoute = async ({ params, url }) => {
+  const id = params.id!;
+  // ?stamp: a cheap "has the file appeared or changed?" check, polled while waiting for Claude Code.
+  if (url.searchParams.has('stamp')) {
+    try {
+      const exists = productExists(id);
+      let error = '';
+      if (exists) { try { readProduct(id); } catch (e) { error = e instanceof Error ? e.message : String(e); } }
+      return json({ exists, pending: isPending(id), stamp: productStamp(id), error });
+    } catch (e) { return fail(e); }
+  }
+  try { return json(await editorState(id)); } catch (e) { return fail(e, 404); }
 };
 
 type SaveBody = { P: ProductFile; notes: string; photos?: Record<string, { order: Array<{ file: string; label: string }>; removed: string[] }> };

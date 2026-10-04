@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PRODUCTS, PHOTOS, NOTES_FILE, IMAGE_EXT, slug } from './paths.mjs';
 import { colourPhotos } from './photos.mjs';
+import { googleFields } from './google.mjs';
 
 export type Colour = { name: string; folder: string; sku: string };
 export type ProductFile = {
@@ -42,12 +43,11 @@ export const CATEGORY_OPTIONS = [
 ];
 
 // The store-wide Shipping & Returns text every bag carries (live on Braidey, 4 Oct 2026).
-const BAG_SHIPPING = {
+export const BAG_SHIPPING = {
   india: 'Free shipping across India. All prices include GST.\nOrders are delivered within 7–10 working days of purchase. If you need delivery earlier, please send us a message on WhatsApp.\n\nReturns are accepted within 7 days of delivery if the bag is unused, with its dust bag and Mir Kash box. Return shipping is paid by the customer: send it to our Mumbai office. Refunds of the item price are issued within 14 days of receiving the return. For more information, check the Returns page.',
   global: "Ships from Hong Kong by tracked express. Orders leave within 1–3 business days and arrive within 10 business days of shipping date, depending on your country. Shipping is free in Hong Kong and charged by region elsewhere, shown at checkout.\n\nDuties and import taxes are included in the price at checkout; however, if additional charges are imposed at the receiving country's customs, the customer is liable to pay them.\n\nReturns are accepted within 15 days of delivery if the bag is unused, with its dust bag and Mir Kash box. Return shipping is paid by the customer: send it to our Hong Kong office. Refunds of the item price are issued within 14 days of receiving the return.",
 };
 
-const titleCase = (s: string) => s.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const fileOf = (id: string) => {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error('Bad product id');
   return path.join(PRODUCTS, `${id}.json`);
@@ -61,72 +61,126 @@ const safeFolder = (f: string) => {
   return f;
 };
 
-export function listProducts() {
+const pendingOf = (id: string) => fileOf(id).replace(/\.json$/, '.pending.json');
+const JSON_FIELDS = ['feature_cards', 'story_slides', 'faq'];
+
+export type Listed = { id: string; title: string; colours: string[]; photos: number; pushed: Record<string, { at: string }>; updated: number; waiting: boolean; broken?: string };
+
+export function listProducts(): Listed[] {
   if (!fs.existsSync(PRODUCTS)) return [];
-  return fs.readdirSync(PRODUCTS)
-    .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
-    .map((f) => {
-      const id = f.replace(/\.json$/, '');
+  const out: Listed[] = [];
+  for (const f of fs.readdirSync(PRODUCTS)) {
+    if (f.startsWith('_') || f.startsWith('.') || !f.endsWith('.json')) continue;
+    const updated = fs.statSync(path.join(PRODUCTS, f)).mtimeMs;
+    if (f.endsWith('.pending.json')) {
+      const id = f.replace(/\.pending\.json$/, '');
+      if (fs.existsSync(fileOf(id))) continue;
+      out.push({ id, title: readPending(id).name, colours: [], photos: inboxPhotos(id).length, pushed: {}, updated, waiting: true });
+      continue;
+    }
+    const id = f.replace(/\.json$/, '');
+    try {
       const P = readProduct(id);
       const photos = P.colours.reduce((n, c) => n + colourPhotos(P.key, c.folder).length, 0);
-      return { id, title: P.title, name: P.name || P.title, colours: P.colours.map((c) => c.name), photos, pushed: P.pushed ?? {}, updated: fs.statSync(path.join(PRODUCTS, f)).mtimeMs };
-    })
-    .sort((a, b) => b.updated - a.updated);
+      out.push({ id, title: P.title, colours: P.colours.map((c) => c.name), photos, pushed: P.pushed ?? {}, updated, waiting: false });
+    } catch (e) {
+      out.push({ id, title: id, colours: [], photos: 0, pushed: {}, updated, waiting: true, broken: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return out.sort((a, b) => b.updated - a.updated);
+}
+
+export const productExists = (id: string) => fs.existsSync(fileOf(id));
+export const productStamp = (id: string) => (fs.existsSync(fileOf(id)) ? Math.round(fs.statSync(fileOf(id)).mtimeMs) : 0);
+
+/** Fills in anything missing, and accepts arrays where the file format wants JSON text, so a hand- or Claude-written file always opens. */
+function normalise(P: ProductFile): ProductFile {
+  P.name ||= P.title;
+  P.title ||= P.name || '';
+  P.handle ||= slug(P.title);
+  P.productType ??= '';
+  P.category ||= CATEGORY_OPTIONS[5].id;
+  P.tags = Array.isArray(P.tags) ? P.tags.map(String) : [];
+  P.seoTitle ??= '';
+  P.seoDescription = { india: '', global: '', ...(P.seoDescription ?? {}) };
+  P.descriptionHtml ??= '';
+  P.colours = (Array.isArray(P.colours) ? P.colours : []).map((c) => ({ name: String(c.name ?? ''), folder: c.folder || slug(c.name), sku: c.sku || `MK-${P.key}-${slug(c.name)}`.toUpperCase() }));
+  P.price = { india: '', global: '', ...(P.price ?? {}) };
+  P.stock = { india: 0, global: 0, ...(P.stock ?? {}) };
+  P.grams = Number(P.grams) || 0;
+  P.custom ??= {};
+  for (const [k, v] of Object.entries(P.custom)) {
+    if (JSON_FIELDS.includes(k) && typeof v !== 'string') P.custom[k] = JSON.stringify(v ?? []);
+    else if (Array.isArray(v)) P.custom[k] = v.map((l) => `• ${String(l).replace(/^[•\s]+/, '')}`).join('\n');
+    else if (typeof v !== 'string') P.custom[k] = v == null ? '' : String(v);
+  }
+  P.categoryAttrs ??= {};
+  P.banner ??= {};
+  P.shippingReturn = { ...BAG_SHIPPING, ...(P.shippingReturn ?? {}) };
+  P.google ??= {};
+  return P;
 }
 
 export function readProduct(id: string): ProductFile {
   const file = fileOf(id);
   if (!fs.existsSync(file)) throw new Error(`No product file catalog/products/${id}.json`);
-  const P = JSON.parse(fs.readFileSync(file, 'utf8')) as ProductFile;
-  P.custom ??= {};
-  P.categoryAttrs ??= {};
-  P.banner ??= {};
-  return P;
+  let P: ProductFile;
+  try { P = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+    throw new Error(`catalog/products/${id}.json isn't valid JSON (${e instanceof Error ? e.message : e})`);
+  }
+  P.key ||= id;
+  return normalise(P);
 }
 
 export function writeProduct(id: string, P: ProductFile) {
   fs.mkdirSync(PRODUCTS, { recursive: true });
   P.google = googleFields(P);
   fs.writeFileSync(fileOf(id), JSON.stringify(P, null, 1) + '\n');
+  if (fs.existsSync(pendingOf(id))) fs.rmSync(pendingOf(id));
 }
 
-function googleFields(P: ProductFile): Record<string, string> {
-  const accessory = /TaxonomyCategory\/aa-4/.test(P.category);
-  const occasion = P.tags.find((t) => t.startsWith('occasion-'))?.replace('occasion-', '') || 'everyday';
-  return {
-    google_product_category: accessory ? 'Apparel & Accessories > Handbag & Wallet Accessories' : 'Apparel & Accessories > Handbags, Wallets & Cases > Handbags',
-    gender: 'female', age_group: 'adult', condition: 'new',
-    custom_label_0: P.productType, custom_label_1: occasion, custom_product: 'true',
-  };
+// ── A new product waits for Claude Code: name + notes saved, photos in catalog/photos/<key>/, no product file yet ──
+export function readPending(id: string): { name: string; created: string } {
+  return JSON.parse(fs.readFileSync(pendingOf(id), 'utf8'));
 }
+export const isPending = (id: string) => fs.existsSync(pendingOf(id)) && !fs.existsSync(fileOf(id));
 
-/** A new product file. Colour folders already sitting in catalog/photos/<key>/ become its colours. */
-export function createProduct(name: string): string {
+export function createPending(name: string, notes: string): string {
+  name = name.trim();
   const key = slug(name);
   if (!key) throw new Error('Give the product a name');
-  if (['photo', 'api', 'catalog'].includes(key)) throw new Error('Please choose a different name');
-  if (fs.existsSync(fileOf(key))) throw new Error(`A product called "${name}" already exists`);
-  const folders = fs.existsSync(path.join(PHOTOS, key))
-    ? fs.readdirSync(path.join(PHOTOS, key), { withFileTypes: true }).filter((d) => d.isDirectory() && /^[a-z0-9]/.test(d.name) && !['story', 'banner'].includes(d.name)).map((d) => d.name)
-    : [];
-  const P: ProductFile = {
-    key, name, title: name, handle: key, productType: '', category: CATEGORY_OPTIONS[5].id,
-    tags: ['new', 'occasion-everyday'],
-    seoTitle: '', seoDescription: { india: '', global: '' }, descriptionHtml: '',
-    colours: folders.map((f) => ({ name: titleCase(f), folder: f, sku: `MK-${key}-${f}`.toUpperCase() })),
-    price: { india: '', global: '' }, stock: { india: 100, global: 100 }, grams: 0,
-    custom: { product_details: '', dimensions: '', care_guide: '', material_name: '', material_story: '', feature_cards: '[]', story_slides: '[]', faq: '[]', size_group: '', size_order: '' },
-    banner: { desktop: '', mobile: '' },
-    shippingReturn: { ...BAG_SHIPPING },
-    google: {},
-    categoryAttrs: {
-      'target-gender': ['Female'], 'age-group': ['Adults'], 'bag-case-material': ['Faux leather'],
-      'bag-case-features': ['Vegan-friendly'], 'bag-case-storage-features': ['Built-in compartments'],
-    },
-    writerNotes: '',
-  };
-  writeProduct(key, P);
+  if (['photo', 'api', 'catalog', 'new'].includes(key)) throw new Error('Please choose a different name');
+  if (fs.existsSync(fileOf(key))) throw new Error(`There is already a product called "${name}"`);
+  if (!notes.trim()) throw new Error('Add your notes about the product');
+  fs.mkdirSync(PRODUCTS, { recursive: true });
+  fs.writeFileSync(pendingOf(key), JSON.stringify({ name, created: new Date().toISOString() }, null, 1) + '\n');
+  writeNotes(name, notes);
   return key;
+}
+
+/** Photos dropped in for Claude Code to sort: loose files in catalog/photos/<key>/ and its _unsorted/ folder. */
+export function inboxPhotos(key: string): string[] {
+  const out: string[] = [];
+  for (const sub of ['', '_unsorted']) {
+    const dir = path.join(PHOTOS, safeKey(key), sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.startsWith('.') && IMAGE_EXT.test(f) && fs.statSync(path.join(dir, f)).isFile()) out.push(sub ? `${sub}/${f}` : f);
+    }
+  }
+  return out.sort();
+}
+
+export async function addInboxPhotos(key: string, files: File[]) {
+  const dir = path.join(PHOTOS, safeKey(key));
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of files) {
+    if (!IMAGE_EXT.test(f.name)) continue;
+    const base = path.basename(f.name).replace(/[^\w.\- ]+/g, '_');
+    let name = base;
+    for (let n = 2; fs.existsSync(path.join(dir, name)); n++) name = base.replace(/(\.[^.]+)$/, `-${n}$1`);
+    fs.writeFileSync(path.join(dir, name), Buffer.from(await f.arrayBuffer()));
+  }
 }
 
 // ── Founder's notes: one **Name** section per product in Master-Product descriptions.md ──────────────

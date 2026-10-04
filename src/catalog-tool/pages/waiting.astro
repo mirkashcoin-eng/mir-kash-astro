@@ -1,0 +1,24 @@
+---
+// A new product waiting for Claude Code to write its file, or a file Claude Code needs to fix.
+import Shell from '../Shell.astro';
+import Waiting from '../Waiting.astro';
+import { inboxPhotos, isPending, productExists, readNotes, readPending, readProduct } from '../lib/catalog';
+
+const id = Astro.params.id!;
+let error = '';
+try {
+  if (productExists(id)) {
+    readProduct(id);
+    return Astro.redirect(`/catalog-tool/${id}`);
+  }
+  if (!isPending(id)) return Astro.redirect('/catalog-tool');
+} catch (e) {
+  if (!productExists(id)) return Astro.redirect('/catalog-tool');
+  error = e instanceof Error ? e.message : String(e);
+}
+let name = id;
+try { name = readPending(id).name; } catch { /* the marker is gone once the editor has saved */ }
+---
+<Shell title={name}>
+  <Waiting id={id} name={name} notes={readNotes(name)} photos={inboxPhotos(id)} error={error} />
+</Shell>

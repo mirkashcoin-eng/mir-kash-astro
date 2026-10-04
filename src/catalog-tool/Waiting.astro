@@ -1,0 +1,105 @@
+---
+// Shown for a product that has notes and photos but no product file yet (or a file Claude Code needs to fix).
+import { photoUrl } from './lib/catalog';
+
+interface Props { id: string; name: string; notes: string; photos: string[]; error?: string }
+const { id, name, notes, photos, error } = Astro.props;
+---
+<section class="wait">
+  <p class="muted small" style="margin:0 0 6px">New product</p>
+  <h1>{name}</h1>
+
+  {error ? (
+    <div class="card problem">
+      <h2>Claude Code's file has a problem</h2>
+      <p>{error}</p>
+      <p>Tell Claude Code: <b>"catalog/products/{id}.json has a problem: {error}. Please fix it."</b> This page opens the product as soon as it's fixed.</p>
+    </div>
+  ) : (
+    <div class="card next">
+      <h2>Now let Claude Code build it</h2>
+      <ol>
+        <li>Press <b>Copy the prompt</b>.</li>
+        <li>Open Claude Code in the website folder (where you usually talk to Claude about the site), paste it and send it.</li>
+        <li>Claude sorts your photos by colour, writes all the product details, and asks you if anything is missing, such as a price. Answer it there.</li>
+        <li>Come back here. This page opens the finished product by itself, ready for you to check.</li>
+      </ol>
+      <div class="row"><button type="button" class="btn primary" id="copy">Copy the prompt</button><span class="muted small" id="copyMsg"></span></div>
+      <details class="more"><summary>See the prompt</summary><textarea id="promptText" rows="12" readonly></textarea></details>
+      <p class="status"><span class="dot"></span> Waiting for Claude Code…</p>
+    </div>
+  )}
+
+  <div class="card">
+    <h2>What you gave</h2>
+    <label class="f" style="margin-top:12px"><span>Your notes</span><textarea id="notes" rows="9">{notes}</textarea>
+      <div class="hint">Change them here if you need to, then press Save notes <b>before</b> sending the prompt.</div></label>
+    <div class="row" style="margin-top:10px"><button type="button" class="btn" id="saveNotes">Save notes</button><span class="muted small" id="notesMsg"></span></div>
+
+    <p class="lbl">Photos ({photos.length})</p>
+    <div class="thumbs" id="thumbs">
+      {photos.map((f) => <img src={photoUrl(id, f, 240)} alt={f} title={f} loading="lazy" />)}
+      <label class="add"><input type="file" accept="image/*" multiple hidden id="more" /><span>+ Add photos</span></label>
+    </div>
+    <div class="row" style="margin-top:12px"><button type="button" class="btn ghost" id="openFolder">Open the photo folder in Finder</button></div>
+  </div>
+</section>
+
+<style>
+  .wait { display: grid; gap: 20px; max-width: 820px; }
+  .wait h1 { margin-bottom: 4px; }
+  .wait h2 { font-size: 20px; }
+  .next ol { margin: 12px 0 16px 20px; padding: 0; line-height: 1.85; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .problem { border-color: var(--red); background: #fdf3f3; }
+  .problem p { margin: 10px 0 0; }
+  .status { display: flex; align-items: center; gap: 10px; margin: 16px 0 0; color: var(--amber); font-size: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+  details.more > summary { cursor: pointer; font-size: 14px; color: var(--mid); margin: 12px 0 6px; }
+  details.more textarea { font: 12.5px/1.5 ui-monospace, Menlo, monospace; }
+  .lbl { font-size: 13px; font-weight: 500; margin: 22px 0 8px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+  .thumbs img, .add { width: 100%; aspect-ratio: 4 / 5; border-radius: 8px; }
+  .thumbs img { object-fit: cover; background: #f1ebe2; }
+  .add { border: 1.5px dashed #cdbfae; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12.5px; color: var(--mid); cursor: pointer; background: #fff; }
+  .add:hover { border-color: var(--ink); color: var(--ink); }
+</style>
+
+<script define:vars={{ id }}>
+  const $ = (x) => document.getElementById(x);
+
+  $('copy')?.addEventListener('click', async () => {
+    const text = await (await fetch(`/catalog-tool/api/prompt/${id}`)).text();
+    $('promptText').value = text;
+    try { await navigator.clipboard.writeText(text); $('copyMsg').textContent = 'Copied. Now paste it into Claude Code.'; }
+    catch { $('promptText').closest('details').open = true; $('promptText').select(); $('copyMsg').textContent = 'Select all the text below and copy it.'; }
+  });
+
+  $('saveNotes').addEventListener('click', async () => {
+    const r = await fetch(`/catalog-tool/api/pending/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: $('notes').value }) });
+    $('notesMsg').textContent = r.ok ? 'Saved.' : (await r.json()).error;
+  });
+
+  $('more').addEventListener('change', async (e) => {
+    const data = new FormData();
+    data.append('inbox', '1');
+    for (const f of e.target.files) data.append('files', f);
+    e.target.closest('label').querySelector('span').textContent = 'Uploading…';
+    await fetch(`/catalog-tool/api/photos/${id}`, { method: 'POST', body: data });
+    location.reload();
+  });
+
+  $('openFolder').addEventListener('click', () => fetch(`/catalog-tool/api/open/${id}`, { method: 'POST' }));
+
+  // Open the product as soon as Claude Code's file appears (or changes, if it had a problem).
+  let last = null;
+  setInterval(async () => {
+    try {
+      const s = await (await fetch(`/catalog-tool/api/product/${id}?stamp=1`)).json();
+      if (last !== null && s.stamp !== last) location.reload();
+      if (s.exists && !s.error) location.reload();
+      last = s.stamp;
+    } catch { /* server restarting */ }
+  }, 3000);
+</script>

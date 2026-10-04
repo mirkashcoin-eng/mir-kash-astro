@@ -8,14 +8,21 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', 
 <Shell title="Products">
   <button slot="top" class="btn ghost" id="openCatalog" type="button">Open catalog folder</button>
 
-  <section class="intro">
+  <section>
     <h1>Add a product</h1>
-    <p class="muted">Type the product's short name (the one you use for it, e.g. "Luna"), then fill in its page step by step. Nothing goes live until you press Push.</p>
-    <form id="newForm" class="new">
-      <input id="newName" placeholder="Product name, e.g. Luna" autocomplete="off" required />
-      <button class="btn primary" type="submit">Start</button>
+    <p class="muted lead">Give it a name, write everything you know about it, and add all its photos (any order, every colour). Claude Code does the rest; you check it before anything goes live.</p>
+    <form id="newForm" class="card new">
+      <label class="f"><span>Product name</span><input name="name" placeholder="The name you use for it, e.g. Luna" autocomplete="off" required /></label>
+      <label class="f"><span>Your notes</span>
+        <textarea name="notes" rows="10" required placeholder="The idea behind it, the design details, what it holds, when to wear it, the material, the colours, price in India and on Global, stock, dimensions, weight, care… Typos are fine."></textarea>
+        <div class="hint">Saved into Master-Product descriptions.md. Mention the prices and stock, or Claude will ask you.</div></label>
+      <div class="f"><span class="lbl">Photos</span>
+        <label class="drop" id="drop"><input type="file" name="files" accept="image/*" multiple hidden id="files" />
+          <span class="big">+</span><span id="dropText">Add photos, or drop them here</span></label>
+        <div class="thumbs" id="thumbs"></div>
+        <div class="hint">All colours together is fine: Claude sorts them by colour and names them. You can also add more later.</div></div>
+      <div class="actions"><button class="btn primary" type="submit" id="go">Save and continue</button><span class="err" id="err" hidden></span></div>
     </form>
-    <p class="err" id="newErr" hidden></p>
   </section>
 
   <section>
@@ -26,11 +33,15 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', 
         <a class="row card" href={`/catalog-tool/${p.id}`}>
           <div>
             <strong>{p.title}</strong>
-            <div class="muted small">{p.colours.join(' · ') || 'No colours yet'} · {p.photos} photos</div>
+            <div class="muted small">{p.waiting ? `${p.photos} photo(s) waiting to be sorted` : `${p.colours.join(' · ') || 'No colours yet'} · ${p.photos} photos`}</div>
           </div>
           <div class="chips">
-            <span class={`chip ${p.pushed.global ? 'on' : ''}`}>{p.pushed.global ? `Global · ${when(p.pushed.global.at)}` : 'Not on Global'}</span>
-            <span class={`chip ${p.pushed.india ? 'on' : ''}`}>{p.pushed.india ? `India · ${when(p.pushed.india.at)}` : 'Not on India'}</span>
+            {p.broken ? <span class="chip bad">The file needs fixing</span>
+              : p.waiting ? <span class="chip wait">Waiting for Claude Code</span>
+              : <>
+                  <span class={`chip ${p.pushed.global ? 'on' : ''}`}>{p.pushed.global ? `Global · ${when(p.pushed.global.at)}` : 'Not on Global'}</span>
+                  <span class={`chip ${p.pushed.india ? 'on' : ''}`}>{p.pushed.india ? `India · ${when(p.pushed.india.at)}` : 'Not on India'}</span>
+                </>}
           </div>
         </a>
       ))}
@@ -41,9 +52,17 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', 
 
 <style>
   section { margin-bottom: 40px; }
-  .intro p { max-width: 640px; }
-  .new { display: flex; gap: 10px; max-width: 520px; margin-top: 14px; }
-  .err { color: var(--red); }
+  .lead { max-width: 660px; margin: 8px 0 18px; }
+  .new { display: grid; gap: 18px; max-width: 760px; }
+  .lbl { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+  .drop { border: 1.5px dashed #cdbfae; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 22px;
+    color: var(--mid); cursor: pointer; background: #fdfbf8; }
+  .drop:hover, .drop.over { border-color: var(--ink); color: var(--ink); }
+  .big { font-size: 22px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 10px; }
+  .thumbs img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 8px; background: #f1ebe2; }
+  .actions { display: flex; align-items: center; gap: 14px; }
+  .err { color: var(--red); font-size: 14px; }
   h2 { margin-bottom: 14px; }
   .list { display: grid; gap: 10px; margin-bottom: 12px; }
   .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; padding: 16px 20px; }
@@ -51,20 +70,56 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', 
   .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #f1ebe2; color: var(--mid); white-space: nowrap; }
   .chip.on { background: #e5efe8; color: var(--green); }
+  .chip.wait { background: #f6ecd9; color: var(--amber); }
+  .chip.bad { background: #f6e3e3; color: var(--red); }
   @media (max-width: 640px) { .row { flex-direction: column; align-items: flex-start; } .chips { justify-content: flex-start; } }
 </style>
 
 <script>
   const form = document.getElementById('newForm') as HTMLFormElement;
-  const err = document.getElementById('newErr')!;
+  const input = document.getElementById('files') as HTMLInputElement;
+  const drop = document.getElementById('drop')!;
+  const thumbs = document.getElementById('thumbs')!;
+  const err = document.getElementById('err')!;
+  let picked: File[] = [];
+
+  function show() {
+    thumbs.innerHTML = '';
+    for (const f of picked) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      img.alt = f.name;
+      thumbs.append(img);
+    }
+    document.getElementById('dropText')!.textContent = picked.length ? `${picked.length} photo(s) added. Add more, or drop them here` : 'Add photos, or drop them here';
+  }
+  const add = (files: FileList | File[]) => { picked = [...picked, ...[...files].filter((f) => f.type.startsWith('image/'))]; show(); };
+  input.addEventListener('change', () => { add(input.files!); input.value = ''; });
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); add(e.dataTransfer!.files); });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.hidden = true;
-    const name = (document.getElementById('newName') as HTMLInputElement).value.trim();
-    const r = await fetch('/catalog-tool/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-    const j = await r.json();
-    if (!r.ok) { err.textContent = j.error; err.hidden = false; return; }
-    location.href = `/catalog-tool/${j.id}`;
+    const go = document.getElementById('go') as HTMLButtonElement;
+    go.disabled = true;
+    go.textContent = picked.length ? `Saving ${picked.length} photo(s)…` : 'Saving…';
+    const data = new FormData();
+    data.append('name', (form.elements.namedItem('name') as HTMLInputElement).value);
+    data.append('notes', (form.elements.namedItem('notes') as HTMLTextAreaElement).value);
+    for (const f of picked) data.append('files', f);
+    try {
+      const r = await fetch('/catalog-tool/api/products', { method: 'POST', body: data });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      location.href = `/catalog-tool/${j.id}`;
+    } catch (x) {
+      err.textContent = (x as Error).message;
+      err.hidden = false;
+      go.disabled = false;
+      go.textContent = 'Save and continue';
+    }
   });
   document.getElementById('openCatalog')!.addEventListener('click', () => fetch('/catalog-tool/api/open/catalog', { method: 'POST' }));
 </script>

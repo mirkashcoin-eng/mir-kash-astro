@@ -2,7 +2,7 @@
 import sharp from 'sharp';
 import { colourPhotos, altFor } from './photos.mjs';
 import { slug } from './paths.mjs';
-import { readProduct, readNotes, photoUrl, type ProductFile } from './catalog';
+import { readProduct, readNotes, photoUrl, productStamp, inboxPhotos, type ProductFile } from './catalog';
 import type { ProductDetail, ShopifyImage } from '~/types/shopify';
 
 export type PhotoInfo = { file: string; label: string; thumb: string; full: string; width: number; height: number; warn: string[] };
@@ -39,7 +39,7 @@ export async function editorState(id: string) {
   const P = readProduct(id);
   const photos: Record<string, PhotoInfo[]> = {};
   for (const c of P.colours) if (c.folder) photos[c.folder] = await colourPhotoInfo(P.key, c.folder);
-  return { id, P, notes: readNotes(P.name || P.title), photos };
+  return { id, P, notes: readNotes(P.name || P.title), photos, unsorted: inboxPhotos(P.key), stamp: productStamp(id) };
 }
 
 const local = (P: ProductFile, v?: string) => (!v ? '' : /^https:\/\//.test(v) ? v : photoUrl(P.key, v, 2000));

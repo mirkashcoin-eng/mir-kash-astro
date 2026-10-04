@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import { admin } from './admin.mjs';
 import { PHOTOS, slug } from './paths.mjs';
 import { colourPhotos, altFor } from './photos.mjs';
+import { googleFields } from './google.mjs';
 
 const TYPES = {
   product_details: 'multi_line_text_field', dimensions: 'single_line_text_field', care_guide: 'multi_line_text_field',
@@ -118,7 +119,7 @@ export async function pushProduct(P, store, { log = console.log, dryRun = false,
   const filled = Object.entries(custom).filter(([k, v]) => TYPES[k] && String(v ?? '').trim() !== '');
   const empty = Object.keys(TYPES).filter((k) => !filled.some(([f]) => f === k) && k !== 'warranty');
   const metafields = filled.map(([key, value]) => ({ namespace: 'custom', key, type: TYPES[key], value: String(value) }));
-  for (const [key, value] of Object.entries(P.google ?? {})) {
+  for (const [key, value] of Object.entries(googleFields(P))) {
     if (String(value ?? '') !== '') metafields.push({ namespace: 'mm-google-shopping', key, type: key === 'custom_product' ? 'boolean' : 'single_line_text_field', value: String(value) });
   }
   const input = {
