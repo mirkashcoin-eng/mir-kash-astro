@@ -380,17 +380,24 @@ function toPerson(d: FirebaseFirestore.QueryDocumentSnapshot): Person {
 
 // The People table's dataset: the `recent` most-recently-active people, PLUS every
 // person who ever showed intent (cart / phone / address — flagged `intent` on the
-// doc). The second query is unbounded but tiny (only leads, not the anonymous-
-// visitor flood), so a real lead can never scroll out of view no matter how long
-// ago they last visited. Merged by id, newest-active first. Null if no service acct.
+// doc), so a real lead can never scroll out of view no matter how long ago they
+// last visited. Merged by id, newest-active first. Null if no service acct.
+//
+// The intent query is capped far above real lead volume purely as a cost backstop.
+// No orderBy on purpose: that would need a composite index, and would silently drop
+// any lead doc missing the ordered field.
+const INTENT_CAP = 2000;
 export async function getPeople(recent = 500): Promise<Person[] | null> {
   const db = adminDb();
   if (!db) return null;
   try {
     const [recentSnap, intentSnap] = await Promise.all([
       db.collection('people').orderBy('lastSeen', 'desc').limit(recent).get(),
-      db.collection('people').where('intent', '==', true).get(),
+      db.collection('people').where('intent', '==', true).limit(INTENT_CAP).get(),
     ]);
+    if (intentSnap.size >= INTENT_CAP) {
+      console.warn(`[leads] intent query hit its ${INTENT_CAP} cap — some older leads may be missing from /admin`);
+    }
     const byId = new Map<string, Person>();
     for (const d of recentSnap.docs) byId.set(d.id, toPerson(d));
     for (const d of intentSnap.docs) if (!byId.has(d.id)) byId.set(d.id, toPerson(d));

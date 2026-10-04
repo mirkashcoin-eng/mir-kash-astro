@@ -87,17 +87,18 @@ export async function affiliatesForClicks(clickIds: string[]): Promise<Map<strin
 }
 
 // How many clicks each affiliate has driven, for the conversion-rate column.
-export async function clickCounts(): Promise<Map<string, number>> {
+// A server-side count() aggregation per slug — billed ~1 read per 1,000 clicks —
+// rather than downloading the whole `clicks` collection, which grows forever.
+export async function clickCounts(slugs: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   const db = adminDb();
-  if (!db) return out;
-  try {
-    const snap = await db.collection('clicks').select('affiliateId').get();
-    snap.forEach((d) => {
-      const id = String((d.data() as Record<string, unknown>).affiliateId || '');
-      if (id) out.set(id, (out.get(id) || 0) + 1);
-    });
-  } catch { /* best-effort */ }
+  if (!db || !slugs.length) return out;
+  await Promise.all(slugs.map(async (slug) => {
+    try {
+      const snap = await db.collection('clicks').where('affiliateId', '==', slug).count().get();
+      out.set(slug, snap.data().count);
+    } catch { /* best-effort — this affiliate just shows 0 clicks */ }
+  }));
   return out;
 }
 
@@ -120,7 +121,7 @@ export async function getAffiliateSummary(
 
   const live = orders.filter((o) => !o.cancelled && o.clickId);
   const bySlug = await affiliatesForClicks(live.map((o) => o.clickId as string));
-  const counts = await clickCounts();
+  const counts = await clickCounts(affiliates.map((a) => a.slug));
 
   const sales = new Map<string, { orders: number; revenue: number; currency: string }>();
   for (const o of live) {

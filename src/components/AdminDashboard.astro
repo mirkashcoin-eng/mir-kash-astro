@@ -413,13 +413,13 @@
       renderBadges(); // after renderFulfilment, which computes the pending count
 
       // Re-bind only the (regenerated) KPI cards; the static sidebar nav is bound
-      // once at setup so auto-refresh re-renders don't stack listeners.
+      // once at setup so re-renders (e.g. the "Show test records" toggle) don't
+      // stack listeners.
       var kpis = $('kpis').querySelectorAll('[data-view]');
       for (var i = 0; i < kpis.length; i++) {
         (function (el) { el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); }); })(kpis[i]);
       }
       stampUpdated();
-      startAutoRefresh();
       // The open tab can't have unread items — mark it read on the first paint.
       if (!FIRST_PAINT_DONE) {
         FIRST_PAINT_DONE = true;
@@ -820,8 +820,7 @@
     // The restricted 'affiliate' role's entire dashboard: just this one tab. Unlike
     // render(), this never touches /api/admin/data — AFFILIATES comes straight from
     // /api/admin/affiliate, the only feed that role can reach — so no other section
-    // (which this role has no data for) ever tries to draw, and auto-refresh (which
-    // render() starts) never runs.
+    // (which this role has no data for) ever tries to draw.
     function renderAffiliateOnly(rows) {
       $('gate').hidden = true;
       $('shell').hidden = false;
@@ -1150,39 +1149,25 @@
     });
 
     $('lockBtn').addEventListener('click', async function () {
-      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
       try { await signOut(); } catch (e) {}
       location.reload();
     });
 
-    // ── Auto-refresh (keeps leads / orders / funnel live without a reload) ─────
-    var refreshTimer = null;
+    // Data loads once per page load — no background polling. Every poll re-read
+    // thousands of Firestore docs and exhausted the project's read quota; reload
+    // the page for fresh numbers. This stamp says how old the current view is.
     function stampUpdated() {
       var el = $('updated'); if (!el) return;
-      try { el.textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
+      try { el.textContent = 'Loaded ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
     }
-    async function refresh() {
-      if (document.hidden) return;               // skip while the tab is hidden
-      if (!$('drawer').hidden) return;           // don't yank data while a detail panel is open
-      var headers = await authHeaders();
-      if (!headers) return;
-      var r = await callData(headers);
-      if (r && r.data) render(r.data);           // preserves the active view
-    }
-    function startAutoRefresh() {
-      if (refreshTimer) return;
-      refreshTimer = setInterval(refresh, 45000); // every 45s
-    }
-    // Refresh immediately when the founder returns to the tab.
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
 
     // Bind the static sidebar nav + "view all" buttons once (KPI cards are bound per-render).
     document.querySelectorAll('.ad-nav__item[data-view], .ad-panel__more[data-view]').forEach(function (el) {
       el.addEventListener('click', function () { switchView(el.getAttribute('data-view')); });
     });
 
-    // People: filter chips + search + row → journey. Delegated, so re-renders (and the
-    // 45s auto-refresh) never stack listeners.
+    // People: filter chips + search + row → journey. Delegated, so re-renders never
+    // stack listeners.
     $('peopleFilters').addEventListener('click', function (e) {
       var b = e.target.closest('[data-filter]'); if (!b) return;
       FILTER = b.getAttribute('data-filter');
@@ -1249,7 +1234,9 @@
         if (!resp.ok || !res || !res.ok) { affMsg((res && res.error) || 'Could not create the link.', true); btn.disabled = false; return; }
         $('affSlug').value = ''; $('affLabel').value = '';
         affMsg('Created ' + affLink(res.slug) + ' — click it below to copy.');
-        refresh();
+        // Re-fetch just the affiliates list (works for both roles), not the whole dashboard.
+        var ar = await callAffiliates(headers);
+        if (ar.data) { AFFILIATES = ar.data.affiliates || []; renderAffiliates(AFFILIATES); }
       } catch (err) { affMsg('Network error — try again.', true); }
       btn.disabled = false;
     });
