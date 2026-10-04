@@ -1,8 +1,8 @@
 ---
 // "Before you go": a quiet question for someone leaving a full cart, and an answer that helps.
 // Never a discount. Shown on the back button (phones), the mouse heading for the tab bar
-// (desktop), or a long pause on the cart; at most once per visit, quiet for two weeks after
-// an answer or a close (see ~/lib/cart-exit.ts). Same visual language as ViewingPrompt.
+// (desktop), or a long pause on the cart, every time someone visits the cart and is about to
+// leave (once per page view, never twice in a row). Same visual language as ViewingPrompt.
 import { shopifyImage } from '~/lib/shopifyImage';
 import { trustLine, deliveryLines } from '~/lib/product-page';
 import { MAX_BAGS } from '~/lib/cart-exit';
@@ -136,7 +136,6 @@ const data = {
 
 <script>
   import {
-    readCx, markCx, canShowCx, shownCxThisVisit, markCxShown, checkoutStartedThisVisit, markCheckoutStarted,
     CX_LINGER_MS, CX_EXIT_MIN_MS,
   } from '~/lib/cart-exit';
   import { createDialog } from '~/lib/dialog';
@@ -156,26 +155,19 @@ const data = {
   const root = document.getElementById('cx');
   if (root) init(root);
 
-  function storage(kind: 'localStorage' | 'sessionStorage'): Storage | null {
-    try { return window[kind]; } catch { return null; }
-  }
-
   function init(root: HTMLElement) {
     const data = JSON.parse(document.getElementById('cxData')?.textContent || '{}') as Data;
     const card = root.querySelector<HTMLElement>('.cx__card')!;
-    const ls = storage('localStorage');
-    const ss = storage('sessionStorage');
     // Dev only: ?cx=1 (or a step name) opens the panel at once; ?cx=live keeps the real triggers,
     // with the sample bags CartPage renders, so the back-button behaviour can be tried locally.
     const cxParam = import.meta.env.DEV ? new URLSearchParams(location.search).get('cx') : null;
     const devLive = cxParam === 'live';
     const force = cxParam !== null && !devLive;
 
-    // Going to checkout from the cart means they didn't leave: no panel for the rest of the visit.
-    document.getElementById('checkoutBtn')?.addEventListener('click', () => markCheckoutStarted(ss));
-
-    const allowed = () => force || canShowCx(readCx(ls), shownCxThisVisit(ss), checkoutStartedThisVisit(ss), Date.now());
-    if (!allowed()) return;
+    // Shown every time someone is about to leave a full cart: once per visit to the cart page (the
+    // `shown` flag below), with no cross-visit memory. Within one page view it never repeats, so a
+    // second back press always leaves.
+    const allowed = () => true;
 
     const dialog = createDialog(root, card, EXIT_MS);
 
@@ -225,7 +217,7 @@ const data = {
 
     root.querySelectorAll<HTMLButtonElement>('[data-reason]').forEach((b) => b.addEventListener('click', () => {
       const reason = b.dataset.reason!;
-      if (!answered) { answered = true; if (!force) markCx(ls, 'answeredAt', Date.now()); }
+      answered = true;
       track(`cx_reason_${reason}`);
       if (reason === 'seeit' || reason === 'size') {
         fillOffer();
@@ -237,7 +229,7 @@ const data = {
     }));
     root.querySelectorAll('[data-cx-back]').forEach((b) => b.addEventListener('click', () => go('ask')));
     root.querySelector('[data-cx-book]')?.addEventListener('click', () => track('cx_book_click'));
-    root.querySelector('[data-cx-checkout]')?.addEventListener('click', () => { markCheckoutStarted(ss); track('cx_checkout_click'); });
+    root.querySelector('[data-cx-checkout]')?.addEventListener('click', () => track('cx_checkout_click'));
 
     // ── Keep my bag ──
     const form = root.querySelector<HTMLFormElement>('[data-cx-form]');
@@ -279,14 +271,12 @@ const data = {
       stopTriggers();
       offerReady.then(() => {
         dialog.open();
-        if (!force) markCxShown(ss);
         track('cx_shown');
       });
     }
     function close() {
       if (!dialog.isOpen) return;
       if (!answered) {
-        if (!force) markCx(ls, 'dismissedAt', Date.now());
         track('cx_dismiss');
       }
       dialog.close();
