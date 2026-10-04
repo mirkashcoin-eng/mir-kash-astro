@@ -1,0 +1,36 @@
+---
+// The draft rendered by the real product page (same component, layout and styles as the live site).
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import ProductPage from '~/components/ProductPage.astro';
+import { INDIA_MARKET, getMarketBySlug } from '~/lib/markets';
+import { readProduct } from '../lib/catalog';
+import { previewProduct } from '../lib/state';
+
+const id = Astro.params.id!;
+const marketSlug = Astro.url.searchParams.get('market') ?? '';
+const marketConfig = (marketSlug && getMarketBySlug(marketSlug)) || INDIA_MARKET;
+Astro.locals.market = marketConfig.store;
+Astro.locals.marketConfig = marketConfig;
+Astro.locals.catalogPreview = true;
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+let P;
+try { P = readProduct(id); } catch { return Astro.redirect('/catalog-tool'); }
+const product = await previewProduct(P, marketConfig.store);
+const other = marketConfig.store === 'india' ? { slug: 'en-us', label: 'See the US version' } : { slug: '', label: 'See the India version' };
+---
+<BaseLayout title={`Preview: ${P.seoTitle || P.title}`} description={P.seoDescription[marketConfig.store]} path={`/products/${P.handle}`} type="product">
+  <div class="ct-bar">
+    <span><strong>Preview</strong> · {marketConfig.store === 'india' ? 'India' : `Global (${marketConfig.countryName})`} · not live. Add to bag won't work here.</span>
+    <a href={`/catalog-tool/${id}/preview${other.slug ? `?market=${other.slug}` : ''}`}>{other.label}</a>
+    <a href={`/catalog-tool/${id}`}>Back to editing</a>
+  </div>
+  <ProductPage product={product} />
+</BaseLayout>
+
+<style>
+  .ct-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 9999; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    justify-content: center; max-width: calc(100vw - 32px); padding: 10px 18px; border-radius: 999px; background: #2C1A0E; color: #fff;
+    font: 13px/1.4 'Brooklyn', sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+  .ct-bar a { color: #fff; text-decoration: underline; white-space: nowrap; }
+</style>

@@ -1,0 +1,751 @@
+---
+import Shell from '../Shell.astro';
+import { editorState } from '../lib/state';
+import { CATEGORY_OPTIONS } from '../lib/catalog';
+import { getAllProducts } from '~/lib/shopify/queries';
+
+const id = Astro.params.id!;
+let state;
+try { state = await editorState(id); } catch { return Astro.redirect('/catalog-tool'); }
+// Shop All order today (Global store), so a new product can be slotted in by size.
+const live = await getAllProducts('global', 'US', 100)
+  .then((ps) => ps.map((p) => ({ title: p.title, handle: p.handle, order: Number(p.sizeOrder?.value) || 0 })).filter((p) => p.order > 0).sort((a, b) => a.order - b.order))
+  .catch(() => []);
+const init = JSON.stringify({ ...state, categories: CATEGORY_OPTIONS, live }).replace(/</g, '\\u003c');
+---
+<Shell title={state.P.title}>
+  <Fragment slot="top">
+    <span id="saveState" class="state"></span>
+    <a class="btn ghost" id="pvIndia" href={`/catalog-tool/${id}/preview`} target="_blank">Preview India</a>
+    <a class="btn ghost" id="pvUs" href={`/catalog-tool/${id}/preview?market=en-us`} target="_blank">Preview US</a>
+    <button class="btn primary" id="saveBtn" type="button">Save</button>
+  </Fragment>
+  <div id="app"></div>
+  <script type="application/json" id="init" set:html={init}></script>
+</Shell>
+
+<style is:global>
+  .state { font-size: 13px; color: var(--mid); }
+  .state.dirty { color: var(--amber); }
+  .step { margin-bottom: 22px; }
+  .step > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .step > header .n { font-family: var(--serif); font-size: 15px; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transform: translateY(-3px); }
+  .step > p.lead { color: var(--mid); margin: 0 0 18px 42px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px 18px; }
+  .grid .wide { grid-column: 1 / -1; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+  .stack > * + * { margin-top: 16px; }
+  .count { float: right; font-weight: 400; color: var(--soft); }
+  .count.bad { color: var(--red); }
+  .colour { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; background: #fdfbf8; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-left: 6px; border: 1px solid rgba(0,0,0,.15); }
+  .swhint { color: var(--amber); }
+  .colour-head { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: start; margin-bottom: 14px; }
+  .colour-head > .btn { margin-top: 30px; }
+  .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .ph { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .ph .img { position: relative; aspect-ratio: 4 / 5; background: #f1ebe2; }
+  .ph .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph .num { position: absolute; top: 6px; left: 6px; background: rgba(44,26,14,.85); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 999px; }
+  .ph .num.main { background: var(--red); }
+  .ph .warn { font-size: 11px; line-height: 1.35; color: var(--amber); margin-top: 5px; }
+  .ph .body { padding: 8px; }
+  .ph .body input { font-size: 12.5px; padding: 6px 8px; }
+  .ph .tools { display: flex; justify-content: space-between; margin-top: 6px; }
+  .ph .tools button { border: 1px solid var(--line); background: #fff; border-radius: 6px; width: 30px; height: 26px; cursor: pointer; font-size: 13px; }
+  .ph .tools button:hover { border-color: var(--ink); }
+  .drop { border: 1.5px dashed #cdbfae; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    text-align: center; padding: 14px; aspect-ratio: 4 / 5; color: var(--mid); font-size: 13px; cursor: pointer; background: #fff; }
+  .drop:hover, .drop.over { border-color: var(--ink); color: var(--ink); }
+  .drop.off { opacity: .5; cursor: not-allowed; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid #d9cfc2; background: #fff; border-radius: 999px; padding: 5px 11px; font: 13px var(--font); cursor: pointer; color: var(--ink); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .group { margin-bottom: 16px; }
+  .group > b { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+  .check input { margin-top: 3px; }
+  .item { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #fdfbf8; margin-bottom: 12px; }
+  .item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; color: var(--mid); }
+  .item-head .btns { display: flex; gap: 4px; }
+  .slide { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
+  .shot { border: 1.5px dashed #cdbfae; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--mid); font-size: 12.5px; cursor: pointer; overflow: hidden; position: relative; padding: 8px; }
+  .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .shot.r32 { aspect-ratio: 3 / 2; } .shot.r219 { aspect-ratio: 21 / 9; } .shot.r45 { aspect-ratio: 4 / 5; max-width: 220px; }
+  .shot-tools { display: flex; gap: 6px; margin-top: 6px; }
+  .live { font-size: 12.5px; color: var(--mid); margin-top: 8px; line-height: 1.7; }
+  .live b { color: var(--ink); font-weight: 500; }
+  .paste textarea { min-height: 150px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; margin-top: 12px; }
+  .msg.ok { background: #e5efe8; color: var(--green); }
+  .msg.bad { background: #f6e3e3; color: var(--red); }
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .checks li { display: flex; gap: 10px; font-size: 14px; }
+  .checks .i { width: 18px; flex-shrink: 0; text-align: center; font-weight: 600; }
+  .checks .err .i { color: var(--red); } .checks .warn .i { color: var(--amber); } .checks .ok .i { color: var(--green); }
+  .pushrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  pre.log { background: #2C1A0E; color: #f3ede4; border-radius: 10px; padding: 14px 16px; font: 12.5px/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap;
+    max-height: 420px; overflow: auto; margin-top: 14px; }
+  .pushed { font-size: 14px; margin-top: 12px; display: grid; gap: 4px; }
+  .pushed a { color: var(--green); }
+  details.more > summary { cursor: pointer; font-size: 14px; color: var(--mid); margin: 6px 0; }
+  @media (max-width: 760px) {
+    .two, .colour-head, .slide { grid-template-columns: 1fr; }
+    .colour-head > .btn { margin-top: 0; justify-self: start; }
+    .photos { grid-template-columns: repeat(2, 1fr); }
+    .ct-main { padding: 16px 16px 120px; }
+    .step > p.lead { margin-left: 0; }
+  }
+</style>
+
+<script>
+  // @ts-nocheck
+  import { hexFor, swatchKnown } from '~/lib/colour-swatch';
+  const init = JSON.parse(document.getElementById('init').textContent);
+  const app = document.getElementById('app');
+  const saveBtn = document.getElementById('saveBtn');
+  const saveState = document.getElementById('saveState');
+
+  // ── helpers ────────────────────────────────────────────────────────────────────────────────
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const escText = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const slug = (s) => String(s ?? '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const skuFor = (key, colour) => `MK-${key}-${slug(colour)}`.toUpperCase();
+  const linesOf = (t) => String(t ?? '').split(/\r?\n/).map((l) => l.replace(/^[\s•\-–—*]+/, '').trim()).filter(Boolean);
+  const parseList = (v) => { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+  const htmlToText = (h) => {
+    const d = new DOMParser().parseFromString(String(h || '').replace(/<\/p>\s*<p[^>]*>/gi, '\n\n').replace(/<br\s*\/?>/gi, '\n'), 'text/html');
+    return (d.body.textContent || '').trim();
+  };
+  const textToHtml = (t) => String(t || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${escText(p).replace(/\n/g, '<br>')}</p>`).join('');
+  const words = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).length;
+  const photoSrc = (rel, w = 600) => (/^https:\/\//.test(rel) ? rel : `/catalog-tool/photo/${S.P.key}/${rel.split('/').map(encodeURIComponent).join('/')}?w=${w}`);
+
+  const MATERIALS = [['apple-leather', 'Apple leather'], ['vegan-leather', 'Vegan leather'], ['velvet', 'Velvet'], ['satin', 'Satin']];
+  const OCCASIONS = [['occasion-everyday', 'Everyday'], ['occasion-work', 'Work'], ['occasion-evening', 'Evening'], ['occasion-party', 'Party'], ['occasion-travel', 'Travel']];
+  const BADGES = [['new', 'New'], ['best-seller', 'Best seller'], ['selling-fast', 'Selling fast']];
+  const OTHER = [['size-mini', 'Mini size'], ['edit-woven', 'Woven edit'], ['laptop-friendly', 'Fits a laptop']];
+  const KNOWN = new Set([...MATERIALS, ...OCCASIONS, ...BADGES, ...OTHER].map(([t]) => t).concat('no-warranty'));
+  const TYPES = ['Shoulder Bags', 'Crossbody Bags', 'Tote Bags', 'Mini Bags', 'Clutch Bags', 'Charms'];
+  const GROUPS = { Mini: 10, Small: 20, Medium: 30, Large: 40, Accessory: 90 };
+  const AVOID = ['sustainable', 'sustainability', 'eco-friendly', 'eco friendly', 'luxury', 'luxurious', 'premium', 'ethical', 'conscious', 'curated', 'elevate', '100% cruelty-free', 'journey', 'handcrafted', 'mimic', 'cactus', 'mushroom'];
+
+  // ── state ──────────────────────────────────────────────────────────────────────────────────
+  const S = { ...init, removed: {}, dirty: false, attrs: null, attrsFor: '', msg: null, log: '', busy: false };
+  const isAccessory = () => /TaxonomyCategory\/aa-4/.test(S.P.category);
+  function fromP(P) {
+    const care = linesOf(P.custom.care_guide);
+    const cards = parseList(P.custom.feature_cards);
+    return {
+      details: linesOf(P.custom.product_details).join('\n'),
+      care: care.join('\n'),
+      hasCare: care.length > 0 || (!P.custom.product_details && !/aa-4/.test(P.category)),
+      description: htmlToText(P.descriptionHtml),
+      cards: cards.length ? cards : [{ eyebrow: 'What it holds', title: '', body: '' }, { eyebrow: 'Wear it to', title: '', body: '' }, { eyebrow: 'Good to know', title: '', body: '' }],
+      slides: parseList(P.custom.story_slides),
+      faq: parseList(P.custom.faq),
+      extraTags: P.tags.filter((t) => !KNOWN.has(t)).join(', '),
+    };
+  }
+  function prepColours() {
+    for (const c of S.P.colours) c._skuEdited = !!c.sku && c.sku !== skuFor(S.P.key, c.name);
+  }
+  S.ui = fromP(S.P);
+  prepColours();
+
+  function toP() {
+    const P = structuredClone(S.P);
+    const u = S.ui;
+    P.colours = P.colours.map(({ name, folder, sku }) => ({ name, folder: folder || '', sku: sku || skuFor(P.key, name) }));
+    P.custom.product_details = linesOf(u.details).map((l) => `• ${l}`).join('\n');
+    P.custom.care_guide = u.hasCare ? linesOf(u.care).map((l) => `• ${l}`).join('\n') : '';
+    P.descriptionHtml = textToHtml(u.description);
+    P.custom.feature_cards = JSON.stringify(u.cards.filter((c) => c.title || c.body).map(({ eyebrow = '', title = '', body = '' }) => ({ eyebrow, title, body })));
+    P.custom.story_slides = JSON.stringify(u.slides.filter((s) => s.title || s.body).map(({ eyebrow = '', title = '', body = '', image = '' }) => ({ eyebrow, title, body, image })));
+    P.custom.faq = JSON.stringify(u.faq.filter((f) => f.q && f.a).map(({ q, a }) => ({ q, a })));
+    P.custom.size_order = P.custom.size_order === '' || P.custom.size_order == null ? '' : String(P.custom.size_order);
+    const extra = u.extraTags.split(',').map((t) => slug(t)).filter(Boolean);
+    P.tags = [...new Set([...P.tags.filter((t) => KNOWN.has(t)), ...extra])];
+    P.grams = Number(P.grams) || 0;
+    P.stock = { india: Number(P.stock.india) || 0, global: Number(P.stock.global) || 0 };
+    return P;
+  }
+
+  // ── paths for data-k bindings ──────────────────────────────────────────────────────────────
+  const getPath = (p) => p.split('.').reduce((o, k) => (o == null ? o : o[k]), S);
+  function setPath(p, v) {
+    const parts = p.split('.');
+    let o = S;
+    for (const k of parts.slice(0, -1)) o = o[k];
+    o[parts.at(-1)] = v;
+  }
+  const val = (p) => esc(getPath(p) ?? '');
+  const field = (label, k, { hint = '', type = 'text', area = false, rows = 3, count = '', cls = '', placeholder = '' } = {}) => `
+    <label class="f ${cls}"><span>${label}${count ? ` <span class="count" data-count="${count}"></span>` : ''}</span>
+      ${area ? `<textarea data-k="${k}" rows="${rows}" placeholder="${esc(placeholder)}">${val(k)}</textarea>` : `<input type="${type}" data-k="${k}" value="${val(k)}" placeholder="${esc(placeholder)}" ${type === 'number' ? 'data-num' : ''} />`}
+      ${hint ? `<div class="hint">${hint}</div>` : ''}</label>`;
+  const step = (n, title, lead, body) => `<section class="step card"><header><span class="n">${n}</span><h2>${title}</h2></header>${lead ? `<p class="lead">${lead}</p>` : ''}${body}</section>`;
+  const tagChip = ([t, label]) => `<button type="button" class="chip ${S.P.tags.includes(t) ? 'on' : ''}" data-tag="${t}">${label}</button>`;
+
+  // ── render ─────────────────────────────────────────────────────────────────────────────────
+  function render() {
+    const P = S.P;
+    const own = P.pushed?.global?.handle || P.pushed?.india?.handle || P.handle;
+    const liveList = S.live.filter((l) => l.handle !== own).map((l) => `<b>${l.order}</b> ${esc(l.title)}`).join(' · ');
+    app.innerHTML = [
+      `<div style="margin-bottom:22px"><h1>${esc(P.name || P.title)}</h1><p class="muted small" style="margin:6px 0 0">Saved in catalog/products/${esc(S.id)}.json · photos in catalog/photos/${esc(P.key)}/</p></div>`,
+
+      step(1, 'The basics', 'What Shopify needs to list it. The title can wait until Claude suggests one in step 5.', `
+        <div class="grid">
+          ${field('Title on the page', 'P.title', { hint: 'Name and type, e.g. "Braidey Shoulder Bag".', cls: 'wide' })}
+          ${field('Web address', 'P.handle', { hint: `mirkash.com/products/<b data-handle>${esc(P.handle)}</b>${P.pushed?.global || P.pushed?.india ? ' · already live: changing it breaks old links' : ''}` })}
+          <label class="f"><span>Product type</span><input data-k="P.productType" value="${val('P.productType')}" list="types" /><datalist id="types">${TYPES.map((t) => `<option value="${t}">`).join('')}</datalist><div class="hint">Decides which shop category page shows it.</div></label>
+          <label class="f"><span>Shopify category</span><select data-k="P.category">${S.categories.map((c) => `<option value="${c.id}" ${c.id === P.category ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+          <label class="f"><span>Size group</span><select data-k="P.custom.size_group"><option value="">Choose…</option>${Object.keys(GROUPS).map((g) => `<option ${P.custom.size_group === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
+          <label class="f"><span>Place in Shop All</span><input type="number" data-k="P.custom.size_order" value="${val('P.custom.size_order')}" data-num />
+            <div class="hint"><button type="button" class="btn tiny" data-act="lastInGroup">Put it last in its size group</button></div></label>
+          ${field('Price in India (₹)', 'P.price.india', { type: 'number' })}
+          ${field('Price on Global (US$)', 'P.price.global', { type: 'number' })}
+          ${field('Stock per colour, India', 'P.stock.india', { type: 'number', hint: 'Only used when the product is first created. After that, change stock in Shopify.' })}
+          ${field('Stock per colour, Global', 'P.stock.global', { type: 'number' })}
+          ${field('Weight (grams)', 'P.grams', { type: 'number' })}
+        </div>
+        ${liveList ? `<div class="live">Shop All order today (smallest first): ${liveList}</div>` : ''}`),
+
+      step(2, 'Colours and photos', 'One block per colour. The first photo is the main one. Under each photo, write a few words about it ("worn on the shoulder", "inside view"): this becomes its description for Google and screen readers. Photos should be portrait 4:5, at least 1600 px tall.', `
+        ${P.colours.map((c, i) => colourBlock(c, i)).join('')}
+        <div class="pushrow"><button type="button" class="btn" data-act="addColour">+ Add a colour</button>
+          <button type="button" class="btn ghost" data-act="openFolder">Open the photo folder in Finder</button></div>`),
+
+      step(3, 'Your notes', 'Everything you know about the product, in your own words: the idea, the design details, what it holds, when to wear it, the material, the colours, dimensions, weight and care. Typos are fine. This is saved into Master-Product descriptions.md.', `
+        <div class="stack">
+          ${field('Notes', 'notes', { area: true, rows: 12, placeholder: 'e.g. Luna is a half-moon shoulder bag. We wanted something that…' })}
+          ${field('Anything Claude must, or must not, mention (optional)', 'P.writerNotes', { area: true, rows: 3, placeholder: 'e.g. Don\'t mention the shells. The tutorial video is sent after ordering.' })}
+        </div>`),
+
+      step(4, 'Tags and shop details', 'These drive the shop filters, the badges on Shop All, and the details Shopify and Google read.', `
+        <div class="group"><b>Material</b><div class="chips">${MATERIALS.map(tagChip).join('')}</div></div>
+        <div class="group"><b>Occasions</b><div class="chips">${OCCASIONS.map(tagChip).join('')}</div></div>
+        <div class="group"><b>Badge on Shop All</b><div class="chips">${BADGES.map(tagChip).join('')}</div></div>
+        <div class="group"><b>Other</b><div class="chips">${OTHER.map(tagChip).join('')}</div></div>
+        <div class="group two">
+          <label class="check"><input type="checkbox" data-act="warranty" ${P.tags.includes('no-warranty') ? '' : 'checked'} /> Has the 1-year warranty</label>
+          <label class="check"><input type="checkbox" data-k="ui.hasCare" ${S.ui.hasCare ? 'checked' : ''} /> Has care instructions</label>
+        </div>
+        ${field('Other tags (optional, separated by commas)', 'ui.extraTags', {})}
+        <h3 style="font:500 15px var(--font);margin:22px 0 4px">Shopify product attributes</h3>
+        <p class="muted small" style="margin:0 0 12px">Shopify's own details for this category. "Carry options" also sets the ways-to-carry chips on the page.</p>
+        <div id="attrs">${attrsBlock()}</div>`),
+
+      step(5, 'Write the copy with Claude', 'Claude writes the title, Google text, description, details, story and FAQ from your notes, following the brand guide.', `
+        <ol style="margin:0 0 0 18px;padding:0;line-height:1.8">
+          <li>Press <b>Copy the prompt</b>. It saves your work first, then copies everything Claude needs.</li>
+          <li>Paste it into Claude (Claude Code or claude.ai) and send it.</li>
+          <li>Copy Claude's whole reply, paste it below, and press <b>Use this reply</b>. Every field in step 6 fills in for you to check.</li>
+        </ol>
+        <div class="pushrow" style="margin:14px 0"><button type="button" class="btn primary" data-act="copyPrompt">Copy the prompt</button><span class="muted small" id="promptMsg"></span></div>
+        <details class="more"><summary>See the prompt</summary><textarea id="promptText" rows="10" readonly placeholder="Press Copy the prompt first"></textarea></details>
+        <div class="paste" style="margin-top:14px"><label class="f"><span>Claude's reply</span><textarea id="reply" placeholder='Paste the reply here. It starts with { and ends with }.'></textarea></label>
+          <div class="pushrow" style="margin-top:10px"><button type="button" class="btn" data-act="applyReply">Use this reply</button></div>
+          ${S.msg ? `<div class="msg ${S.msg.ok ? 'ok' : 'bad'}">${S.msg.text}</div>` : ''}</div>`),
+
+      step(6, 'The page copy', 'Check and edit anything here. Your changes are kept when you Save.', `
+        <div class="stack">
+          ${field('Google title', 'P.seoTitle', { count: 'seoTitle', hint: '[Name] | [Material] [Type] | Mir Kash · 60 characters or fewer' })}
+          <div class="two">
+            ${field('Google description, India', 'P.seoDescription.india', { area: true, count: 'seoIndia', hint: '120–160 characters, ending "Free shipping across India."' })}
+            ${field('Google description, Global', 'P.seoDescription.global', { area: true, count: 'seoGlobal', hint: '120–160 characters, ending "Ships internationally."' })}
+          </div>
+          ${field('Short description', 'ui.description', { area: true, rows: 4, count: 'desc', hint: '2–3 sentences, about 40–60 words. Shown under the price, and on Google Shopping.' })}
+          <div class="two">
+            ${field('Product details (one per line)', 'ui.details', { area: true, rows: 8 })}
+            <div class="stack">
+              ${field('Dimensions', 'P.custom.dimensions', { hint: 'e.g. H 16 × L 18 × W 6 cm. US visitors also see inches.' })}
+              ${S.ui.hasCare ? field('Care (one per line)', 'ui.care', { area: true, rows: 5 }) : '<p class="muted small">No care section (turn it on in step 4).</p>'}
+            </div>
+          </div>
+          <div class="two">
+            ${field('Material name', 'P.custom.material_name', { hint: 'Title of the Material dropdown, shown with the leaf.' })}
+            ${field('Material story', 'P.custom.material_story', { area: true, rows: 4 })}
+          </div>
+          <h3 style="font:500 15px var(--font);margin:8px 0 0">At a glance: 3 cards</h3>
+          ${S.ui.cards.map((c, i) => `<div class="item"><div class="grid">${field('Small heading', `ui.cards.${i}.eyebrow`)}${field('Title', `ui.cards.${i}.title`)}${field('Text', `ui.cards.${i}.body`, { area: true, rows: 2, cls: 'wide' })}</div></div>`).join('')}
+          <h3 style="font:500 15px var(--font);margin:8px 0 0">Story slides (3–4, the material last)</h3>
+          <p class="muted small" style="margin:0">Close-up photo for each: 2400 × 1600 px (3:2). Without one, the slide borrows a gallery photo.</p>
+          ${S.ui.slides.map((s, i) => slideBlock(s, i)).join('')}
+          <div><button type="button" class="btn" data-act="addSlide">+ Add a slide</button></div>
+          <h3 style="font:500 15px var(--font);margin:8px 0 0">Full-width photo under the story</h3>
+          <p class="muted small" style="margin:0">One lifestyle photo, no text on it. Computer: 2520 × 1080 px (21:9). Phone: 1080 × 1350 px (4:5). Without them, the section is hidden.</p>
+          <div class="two">${bannerBlock('desktop', 'Computer (21:9)', 'r219')}${bannerBlock('mobile', 'Phone (4:5)', 'r45')}</div>
+          <h3 style="font:500 15px var(--font);margin:8px 0 0">FAQ (4–6 questions)</h3>
+          ${S.ui.faq.map((f, i) => `<div class="item"><div class="item-head"><span>Question ${i + 1}</span><span class="btns"><button class="btn tiny ghost" data-act="faqUp" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button><button class="btn tiny ghost" data-act="faqDown" data-i="${i}" ${i === S.ui.faq.length - 1 ? 'disabled' : ''}>↓</button><button class="btn tiny ghost" data-act="faqDel" data-i="${i}">Remove</button></span></div>
+            <div class="stack">${field('Question', `ui.faq.${i}.q`)}${field('Answer', `ui.faq.${i}.a`, { area: true, rows: 2 })}</div></div>`).join('')}
+          <div><button type="button" class="btn" data-act="addFaq">+ Add a question</button></div>
+          <details class="more"><summary>Shipping &amp; returns text (store-wide, change only if this product is different)</summary>
+            <div class="two" style="margin-top:10px">${field('India', 'P.shippingReturn.india', { area: true, rows: 8 })}${field('Global', 'P.shippingReturn.global', { area: true, rows: 8 })}</div></details>
+        </div>`),
+
+      step(7, 'Check, preview and push', 'Preview shows the real product page with your draft. Push puts it live on that store: created as active, on every sales channel.', `
+        <ul class="checks" id="checks"></ul>
+        <div class="pushrow" style="margin-top:18px">
+          <a class="btn ghost" href="/catalog-tool/${S.id}/preview" target="_blank">Preview India</a>
+          <a class="btn ghost" href="/catalog-tool/${S.id}/preview?market=en-us" target="_blank">Preview US</a>
+          <span style="flex:1"></span>
+          <button type="button" class="btn red" data-act="push" data-store="global" ${S.busy ? 'disabled' : ''}>Push to Global</button>
+          <button type="button" class="btn red" data-act="push" data-store="india" ${S.busy ? 'disabled' : ''}>Push to India</button>
+          <button type="button" class="btn red" data-act="push" data-store="both" ${S.busy ? 'disabled' : ''}>Push to both</button>
+        </div>
+        <div class="pushed">${pushedInfo()}</div>
+        ${S.log ? `<pre class="log" id="log">${esc(S.log)}</pre>` : '<pre class="log" id="log" hidden></pre>'}`),
+    ].join('');
+    refresh();
+  }
+
+  function colourBlock(c, i) {
+    const list = S.photos[c.folder] ?? [];
+    const named = !!c.name.trim();
+    return `<div class="colour">
+      <div class="colour-head">
+        <label class="f"><span>Colour name <i class="sw" data-sw="${i}" style="background:${hexFor(c.name)}"></i></span><input data-k="P.colours.${i}.name" value="${esc(c.name)}" placeholder="e.g. Cherry Red" />
+          <div class="hint swhint" data-swhint="${i}" ${!c.name.trim() || swatchKnown(c.name) ? 'hidden' : ''}>The website has no swatch for this colour yet, so it shows grey. Ask Claude to add it.</div></label>
+        <label class="f"><span>SKU</span><input data-k="P.colours.${i}.sku" value="${esc(c.sku)}" data-sku="${i}" /></label>
+        <button type="button" class="btn ghost tiny" data-act="delColour" data-i="${i}">Remove colour</button>
+      </div>
+      <div class="photos">
+        ${list.map((p, j) => `<div class="ph">
+          <div class="img"><img src="${esc(p.thumb)}" alt="" loading="lazy" /><span class="num ${j === 0 ? 'main' : ''}">${j === 0 ? 'Main photo' : String(j + 1).padStart(2, '0')}</span></div>
+          <div class="body"><input data-k="photos.${c.folder}.${j}.label" value="${esc(p.label)}" placeholder="What's in the photo" />
+            ${p.warn.length ? `<div class="warn">${esc(p.warn.join(' · '))}</div>` : ''}
+            <div class="tools"><button title="Move earlier" data-act="phLeft" data-f="${c.folder}" data-j="${j}" ${j === 0 ? 'disabled' : ''}>◀</button>
+              <button title="Remove (moved to a _removed folder, not deleted)" data-act="phDel" data-f="${c.folder}" data-j="${j}">✕</button>
+              <button title="Move later" data-act="phRight" data-f="${c.folder}" data-j="${j}" ${j === list.length - 1 ? 'disabled' : ''}>▶</button></div></div>
+        </div>`).join('')}
+        <label class="drop ${named ? '' : 'off'}" data-drop="${i}">
+          <input type="file" accept="image/*" multiple hidden data-upload="${i}" ${named ? '' : 'disabled'} />
+          <span style="font-size:22px">+</span><span>${named ? 'Add photos<br><span class="small">or drop them here</span>' : 'Name the colour first'}</span>
+        </label>
+      </div></div>`;
+  }
+
+  function slideBlock(s, i) {
+    return `<div class="item"><div class="item-head"><span>Slide ${i + 1}</span><span class="btns">
+        <button class="btn tiny ghost" data-act="slideUp" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="btn tiny ghost" data-act="slideDown" data-i="${i}" ${i === S.ui.slides.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="btn tiny ghost" data-act="slideDel" data-i="${i}">Remove</button></span></div>
+      <div class="slide"><div>${imagePicker(s.image, `slide:${i}`, 'r32', 'Add close-up<br>2400 × 1600')}</div>
+        <div class="stack">${field('Small heading', `ui.slides.${i}.eyebrow`)}${field('Title', `ui.slides.${i}.title`)}${field('Text', `ui.slides.${i}.body`, { area: true, rows: 2 })}</div></div></div>`;
+  }
+
+  function bannerBlock(which, label, ratio) {
+    return `<div><b style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">${label}</b>${imagePicker(S.P.banner?.[which], `banner:${which}`, ratio, which === 'desktop' ? 'Add photo<br>2520 × 1080' : 'Add photo<br>1080 × 1350')}</div>`;
+  }
+
+  function imagePicker(rel, slot, ratio, empty) {
+    return `<label class="shot ${ratio}"><input type="file" accept="image/*" hidden data-asset="${slot}" />${rel ? `<img src="${esc(photoSrc(rel))}" alt="" />` : `<span>${empty}</span>`}</label>
+      ${rel ? `<div class="shot-tools"><button type="button" class="btn tiny ghost" data-act="assetDel" data-slot="${slot}">Remove photo</button></div>` : ''}`;
+  }
+
+  function attrsBlock() {
+    if (!S.attrs) return '<p class="muted small">Loading Shopify attributes…</p>';
+    if (S.attrs.error) return `<p class="muted small">Couldn't load the attributes from Shopify (${esc(S.attrs.error)}). You can still save; try again later.</p>`;
+    return S.attrs.map((a) => {
+      const chosen = S.P.categoryAttrs[a.key] ?? [];
+      return `<div class="group"><b>${esc(a.name)}</b><div class="chips">${a.values.map((v) => `<button type="button" class="chip ${chosen.some((x) => x.toLowerCase() === v.toLowerCase()) ? 'on' : ''}" data-attr="${esc(a.key)}" data-val="${esc(v)}">${esc(v)}</button>`).join('')}</div></div>`;
+    }).join('');
+  }
+
+  function pushedInfo() {
+    const p = S.P.pushed ?? {};
+    const when = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const rows = [];
+    if (p.global) rows.push(`Global: pushed ${when(p.global.at)} · <a href="https://www.mirkash.com/en-us/products/${esc(p.global.handle)}" target="_blank">see it live</a>`);
+    if (p.india) rows.push(`India: pushed ${when(p.india.at)} · <a href="https://www.mirkash.com/products/${esc(p.india.handle)}" target="_blank">see it live</a>`);
+    return rows.length ? rows.join('<br>') : '<span class="muted">Not pushed to either store yet.</span>';
+  }
+
+  // ── checks (also run on every keystroke) ────────────────────────────────────────────────────
+  function checks() {
+    const P = toP();
+    const out = [];
+    const err = (t) => out.push(['err', t]);
+    const warn = (t) => out.push(['warn', t]);
+    if (!P.title.trim()) err('No title yet');
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(P.handle)) err('The web address can only use a–z, 0–9 and dashes');
+    if (!P.productType.trim()) err('No product type');
+    if (!(Number(P.price.india) > 0)) err('No India price');
+    if (!(Number(P.price.global) > 0)) err('No Global price');
+    if (!P.colours.length) err('No colours');
+    for (const c of P.colours) {
+      const list = S.photos[c.folder] ?? [];
+      if (!list.length) err(`${c.name || 'A colour'} has no photos`);
+      if (c.name.trim() && !swatchKnown(c.name)) warn(`The website has no swatch colour for "${c.name}", so its swatch shows grey. Ask Claude to add it to src/lib/colour-swatch.ts`);
+      const odd = list.filter((p) => p.warn.length).length;
+      if (odd) warn(`${c.name}: ${odd} photo(s) are small or not 4:5 (see the note under each)`);
+      const unlabeled = list.slice(1).filter((p) => !p.label.trim()).length;
+      if (unlabeled) warn(`${c.name}: ${unlabeled} photo(s) have no description`);
+    }
+    if (!S.notes.trim()) warn('No notes yet (step 3)');
+    if (!P.descriptionHtml) err('No short description');
+    if (!P.seoTitle.trim()) err('No Google title');
+    else if (P.seoTitle.length > 60) warn(`Google title is ${P.seoTitle.length} characters (60 or fewer)`);
+    for (const [k, end, where] of [['india', 'Free shipping across India.', 'India'], ['global', 'Ships internationally.', 'Global']]) {
+      const d = P.seoDescription[k] ?? '';
+      if (!d.trim()) err(`No ${where} Google description`);
+      else {
+        if (d.length < 120 || d.length > 160) warn(`${where} Google description is ${d.length} characters (120–160)`);
+        if (!d.trim().endsWith(end)) warn(`${where} Google description should end "${end}"`);
+      }
+    }
+    const w = words(S.ui.description);
+    if (w && (w < 35 || w > 70)) warn(`Short description is ${w} words (about 40–60)`);
+    if (!linesOf(S.ui.details).length) warn('No product details');
+    if (!P.custom.material_name || !P.custom.material_story) warn('No material name or story: the Material dropdown is hidden');
+    if (parseList(P.custom.feature_cards).length !== 3) warn('At a glance needs 3 cards');
+    const slides = parseList(P.custom.story_slides);
+    if (slides.length < 3 || slides.length > 4) warn(`${slides.length} story slides (3–4)`);
+    if (slides.length && slides.some((s) => !s.image)) warn(`${slides.filter((s) => !s.image).length} story slide(s) have no close-up photo yet (they borrow a gallery photo)`);
+    if (!P.banner?.desktop) warn('No full-width photo: that section is hidden');
+    const faq = parseList(P.custom.faq);
+    if (faq.length < 4) warn(`${faq.length} FAQ question(s) (4–6)`);
+    if (!P.custom.size_group || !P.custom.size_order) warn('No size group or Shop All place: it sorts last');
+    if (!P.categoryAttrs['carry-options']?.length && !isAccessory()) warn('No carry options chosen (step 4)');
+    const text = [P.title, P.seoTitle, P.seoDescription.india, P.seoDescription.global, S.ui.description, S.ui.details, S.ui.care, P.custom.material_name,
+      P.custom.material_story, P.custom.feature_cards, P.custom.story_slides, P.custom.faq].join(' \n ').toLowerCase();
+    for (const bad of AVOID) if (text.includes(bad)) warn(`Uses "${bad}", which the brand guide avoids`);
+    if (/<\/?(em|i)>/.test(P.descriptionHtml)) warn('Italics in the description (the brand guide says no italics)');
+    if (S.dirty) warn('Unsaved changes');
+    if (!out.length) out.push(['ok', 'Everything looks ready']);
+    return out;
+  }
+
+  function refresh() {
+    const P = S.P;
+    const c = (k, n, ok) => document.querySelectorAll(`[data-count="${k}"]`).forEach((el) => { el.textContent = n; el.classList.toggle('bad', !ok); });
+    const st = P.seoTitle ?? '', si = P.seoDescription.india ?? '', sg = P.seoDescription.global ?? '';
+    c('seoTitle', `${st.length}/60`, st.length <= 60);
+    c('seoIndia', `${si.length} characters`, !si || (si.length >= 120 && si.length <= 160));
+    c('seoGlobal', `${sg.length} characters`, !sg || (sg.length >= 120 && sg.length <= 160));
+    const w = words(S.ui.description);
+    c('desc', `${w} words`, !w || (w >= 35 && w <= 70));
+    document.querySelectorAll('[data-handle]').forEach((el) => (el.textContent = P.handle));
+    const list = document.getElementById('checks');
+    if (list) list.innerHTML = checks().map(([k, t]) => `<li class="${k}"><span class="i">${k === 'ok' ? '✓' : k === 'err' ? '✗' : '!'}</span><span>${esc(t)}</span></li>`).join('');
+    saveState.textContent = S.dirty ? 'Unsaved changes' : 'All changes saved';
+    saveState.classList.toggle('dirty', S.dirty);
+  }
+  const markDirty = () => { S.dirty = true; refresh(); };
+
+  // ── server calls ────────────────────────────────────────────────────────────────────────────
+  async function save() {
+    saveBtn.disabled = true;
+    saveState.textContent = 'Saving…';
+    const photos = {};
+    for (const c of S.P.colours) if (c.folder) photos[c.folder] = { order: (S.photos[c.folder] ?? []).map((p) => ({ file: p.file, label: p.label })), removed: S.removed[c.folder] ?? [] };
+    try {
+      const r = await fetch(`/catalog-tool/api/product/${S.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ P: toP(), notes: S.notes, photos }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      Object.assign(S, { P: j.P, photos: j.photos, notes: j.notes, removed: {}, dirty: false });
+      S.ui = fromP(S.P);
+      prepColours();
+      const y = scrollY;
+      render();
+      scrollTo(0, y);
+      return true;
+    } catch (e) {
+      saveState.textContent = `Not saved: ${e.message}`;
+      saveState.classList.add('dirty');
+      alert(`Couldn't save: ${e.message}`);
+      return false;
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  async function loadAttrs() {
+    const cat = S.P.category;
+    if (S.attrsFor === cat && S.attrs) return;
+    S.attrsFor = cat;
+    S.attrs = null;
+    const box = document.getElementById('attrs');
+    if (box) box.innerHTML = attrsBlock();
+    try {
+      const r = await fetch(`/catalog-tool/api/taxonomy?category=${encodeURIComponent(cat)}`);
+      const j = await r.json();
+      S.attrs = r.ok ? j : { error: j.error };
+    } catch (e) { S.attrs = { error: e.message }; }
+    if (S.attrsFor !== cat) return;
+    const b = document.getElementById('attrs');
+    if (b) b.innerHTML = attrsBlock();
+  }
+
+  async function upload(i, files) {
+    const c = S.P.colours[i];
+    if (!c?.name.trim() || !files.length) return;
+    const form = new FormData();
+    form.append('folder', c.folder || slug(c.name));
+    for (const f of files) form.append('files', f);
+    const box = document.querySelector(`[data-drop="${i}"]`);
+    if (box) box.lastElementChild.innerHTML = 'Uploading…';
+    const r = await fetch(`/catalog-tool/api/photos/${S.id}`, { method: 'POST', body: form });
+    const j = await r.json();
+    if (!r.ok) { alert(j.error); render(); return; }
+    // Keep labels/order typed so far for photos already shown; take the new ones from the server.
+    const before = S.photos[j.folder] ?? [];
+    S.photos[j.folder] = [...before, ...j.photos.filter((p) => !before.some((b) => b.file === p.file))];
+    c.folder = j.folder;
+    S.dirty = true;
+    render();
+  }
+
+  async function uploadAsset(slot, file) {
+    const [kind, which] = slot.split(':');
+    const form = new FormData();
+    form.append('kind', kind === 'banner' ? 'banner' : 'story');
+    form.append('file', file);
+    const r = await fetch(`/catalog-tool/api/asset/${S.id}`, { method: 'POST', body: form });
+    const j = await r.json();
+    if (!r.ok) { alert(j.error); return; }
+    if (kind === 'banner') { S.P.banner ??= {}; S.P.banner[which] = j.path; } else S.ui.slides[Number(which)].image = j.path;
+    S.dirty = true;
+    render();
+  }
+
+  async function copyPrompt() {
+    if (S.dirty && !(await save())) return;
+    const r = await fetch(`/catalog-tool/api/prompt/${S.id}?care=${S.ui.hasCare ? 1 : 0}`);
+    const text = await r.text();
+    const box = document.getElementById('promptText');
+    box.value = text;
+    try { await navigator.clipboard.writeText(text); document.getElementById('promptMsg').textContent = 'Copied. Now paste it into Claude.'; }
+    catch { box.closest('details').open = true; box.select(); document.getElementById('promptMsg').textContent = 'Select all the text below and copy it.'; }
+  }
+
+  function applyReply() {
+    const raw = document.getElementById('reply').value;
+    let r;
+    try {
+      const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+      if (a < 0 || b < a) throw new Error('No { … } found');
+      r = JSON.parse(raw.slice(a, b + 1).replace(/[“”]/g, '"'));
+    } catch (e) {
+      S.msg = { ok: false, text: `That doesn't look like Claude's reply (${esc(e.message)}). Copy the whole reply, from { to }.` };
+      render();
+      return;
+    }
+    const P = S.P, u = S.ui, filled = [];
+    const neverPushed = !P.pushed?.global && !P.pushed?.india;
+    const str = (v) => (typeof v === 'string' ? v.trim() : '');
+    const list = (v) => (Array.isArray(v) ? v : []);
+    if (str(r.title)) {
+      if (neverPushed && (P.handle === P.key || P.handle === slug(P.title))) P.handle = slug(r.title);
+      P.title = str(r.title); filled.push('title');
+    }
+    if (str(r.seoTitle)) { P.seoTitle = str(r.seoTitle); filled.push('Google title'); }
+    if (str(r.seoDescriptionIndia)) { P.seoDescription.india = str(r.seoDescriptionIndia); filled.push('India Google description'); }
+    if (str(r.seoDescriptionGlobal)) { P.seoDescription.global = str(r.seoDescriptionGlobal); filled.push('Global Google description'); }
+    if (str(r.description)) { u.description = str(r.description); filled.push('description'); }
+    if (list(r.details).length) { u.details = list(r.details).map(String).join('\n'); filled.push('details'); }
+    if (typeof r.dimensions === 'string') { P.custom.dimensions = r.dimensions.trim(); if (r.dimensions.trim()) filled.push('dimensions'); }
+    if (Array.isArray(r.care)) { u.care = r.care.map(String).join('\n'); u.hasCare = r.care.length > 0; if (r.care.length) filled.push('care'); }
+    if (str(r.materialName)) { P.custom.material_name = str(r.materialName); filled.push('material name'); }
+    if (str(r.materialStory)) { P.custom.material_story = str(r.materialStory); filled.push('material story'); }
+    if (list(r.featureCards).length) { u.cards = list(r.featureCards).map((c) => ({ eyebrow: str(c.eyebrow), title: str(c.title), body: str(c.body) })); filled.push(`${u.cards.length} cards`); }
+    if (list(r.storySlides).length) {
+      u.slides = list(r.storySlides).map((s, i) => ({ eyebrow: str(s.eyebrow), title: str(s.title), body: str(s.body), image: u.slides[i]?.image ?? '' }));
+      filled.push(`${u.slides.length} story slides`);
+    }
+    if (list(r.faq).length) { u.faq = list(r.faq).map((f) => ({ q: str(f.q), a: str(f.a) })).filter((f) => f.q && f.a); filled.push(`${u.faq.length} FAQ`); }
+    S.msg = filled.length
+      ? { ok: true, text: `Filled in: ${filled.join(', ')}. Check step 6, then Save.` }
+      : { ok: false, text: 'Nothing in that reply matched the fields. Is it the whole reply?' };
+    if (filled.length) { document.getElementById('reply').value = ''; S.dirty = true; }
+    const y = scrollY;
+    render();
+    scrollTo(0, y);
+  }
+
+  async function push(which) {
+    const stores = which === 'both' ? ['global', 'india'] : [which];
+    const names = stores.map((s) => (s === 'india' ? 'India' : 'Global')).join(' and ');
+    const errs = checks().filter(([k]) => k === 'err');
+    if (errs.length) { alert(`Fix these first:\n\n• ${errs.map(([, t]) => t).join('\n• ')}`); return; }
+    if (!confirm(`Put "${S.P.title}" live on the ${names} store${stores.length > 1 ? 's' : ''}?\n\nIt becomes an active product on the website straight away.`)) return;
+    if (S.dirty && !(await save())) return;
+    S.busy = true;
+    S.log = '';
+    render();
+    document.getElementById('log').scrollIntoView({ block: 'nearest' });
+    const logEl = () => document.getElementById('log');
+    const add = (line) => { S.log += line + '\n'; const el = logEl(); el.hidden = false; el.textContent = S.log; el.scrollTop = el.scrollHeight; };
+    for (const store of stores) {
+      let ok = false;
+      try {
+        const r = await fetch(`/catalog-tool/api/push/${S.id}?store=${store}`, { method: 'POST' });
+        if (!r.body || (!r.ok && (r.headers.get('content-type') ?? '').includes('json'))) { add(`✗ ${(await r.json()).error}`); }
+        else {
+          const reader = r.body.getReader(), dec = new TextDecoder();
+          let buf = '';
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            let n;
+            while ((n = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, n); buf = buf.slice(n + 1);
+              if (line === 'FINISHED') ok = true; else if (line !== 'FAILED') add(line);
+            }
+          }
+        }
+      } catch (e) { add(`✗ ${e.message}`); }
+      add(ok ? '' : `Stopped: ${store === 'india' ? 'India' : 'Global'} was not finished.\n`);
+      if (!ok) break;
+    }
+    try {
+      const j = await (await fetch(`/catalog-tool/api/product/${S.id}`)).json();
+      S.P.pushed = j.P.pushed;
+      S.P.uploads = j.P.uploads;
+    } catch { /* keep what we have */ }
+    S.busy = false;
+    const y = scrollY;
+    render();
+    scrollTo(0, y);
+  }
+
+  // ── events ─────────────────────────────────────────────────────────────────────────────────
+  app.addEventListener('input', (e) => {
+    const el = e.target;
+    const k = el.dataset?.k;
+    if (!k) return;
+    let v = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.dataset.num !== undefined && v !== '') v = Number(v);
+    setPath(k, v);
+    const m = k.match(/^P\.colours\.(\d+)\.(name|sku)$/);
+    if (m) {
+      const c = S.P.colours[Number(m[1])];
+      if (m[2] === 'sku') c._skuEdited = true;
+      else {
+        if (!c._skuEdited) { c.sku = skuFor(S.P.key, c.name); const s = document.querySelector(`[data-sku="${m[1]}"]`); if (s) s.value = c.sku; }
+        const sw = document.querySelector(`[data-sw="${m[1]}"]`); if (sw) sw.style.background = hexFor(c.name);
+        const hint = document.querySelector(`[data-swhint="${m[1]}"]`); if (hint) hint.hidden = !c.name.trim() || swatchKnown(c.name);
+        const drop = document.querySelector(`[data-drop="${m[1]}"]`);
+        const named = !!c.name.trim();
+        if (drop && drop.classList.contains('off') === named) { const y = scrollY; markDirty(); render(); scrollTo(0, y); return; }
+      }
+    }
+    markDirty();
+  });
+
+  app.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.dataset?.k === 'P.category') loadAttrs();
+    if (el.dataset?.k === 'ui.hasCare') { const y = scrollY; render(); scrollTo(0, y); }
+    if (el.dataset?.act === 'warranty') {
+      S.P.tags = el.checked ? S.P.tags.filter((t) => t !== 'no-warranty') : [...new Set([...S.P.tags, 'no-warranty'])];
+      markDirty();
+    }
+    if (el.dataset?.upload !== undefined) upload(Number(el.dataset.upload), [...el.files]);
+    if (el.dataset?.asset && el.files[0]) uploadAsset(el.dataset.asset, el.files[0]);
+  });
+
+  app.addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-act], [data-tag], [data-attr]');
+    if (!el) return;
+    const rerender = () => { const y = scrollY; S.dirty = true; render(); scrollTo(0, y); };
+    if (el.dataset.tag) {
+      const t = el.dataset.tag;
+      const group = [MATERIALS].find((g) => g.some(([x]) => x === t));
+      let tags = S.P.tags.includes(t) ? S.P.tags.filter((x) => x !== t) : [...S.P.tags, t];
+      if (group && tags.includes(t)) tags = tags.filter((x) => x === t || !group.some(([g]) => g === x));
+      S.P.tags = tags;
+      return rerender();
+    }
+    if (el.dataset.attr) {
+      const k = el.dataset.attr, v = el.dataset.val;
+      const cur = S.P.categoryAttrs[k] ?? [];
+      S.P.categoryAttrs[k] = cur.some((x) => x.toLowerCase() === v.toLowerCase()) ? cur.filter((x) => x.toLowerCase() !== v.toLowerCase()) : [...cur, v];
+      if (!S.P.categoryAttrs[k].length) delete S.P.categoryAttrs[k];
+      el.classList.toggle('on');
+      return markDirty();
+    }
+    const i = Number(el.dataset.i);
+    const swap = (arr, a, b) => { [arr[a], arr[b]] = [arr[b], arr[a]]; };
+    switch (el.dataset.act) {
+      case 'addColour': S.P.colours.push({ name: '', folder: '', sku: '', _skuEdited: false }); return rerender();
+      case 'delColour':
+        if (!confirm(`Remove ${S.P.colours[i].name || 'this colour'} from the product? Its photos stay in the folder.`)) return;
+        S.P.colours.splice(i, 1); return rerender();
+      case 'openFolder': fetch(`/catalog-tool/api/open/${S.id}`, { method: 'POST' }); return;
+      case 'phLeft': case 'phRight': {
+        e.preventDefault();
+        const list = S.photos[el.dataset.f], j = Number(el.dataset.j);
+        swap(list, j, el.dataset.act === 'phLeft' ? j - 1 : j + 1); return rerender();
+      }
+      case 'phDel': {
+        e.preventDefault();
+        const f = el.dataset.f, j = Number(el.dataset.j);
+        const [gone] = S.photos[f].splice(j, 1);
+        (S.removed[f] ??= []).push(gone.file); return rerender();
+      }
+      case 'lastInGroup': {
+        const base = GROUPS[S.P.custom.size_group];
+        if (!base) { alert('Choose the size group first'); return; }
+        const own = S.P.pushed?.global?.handle || S.P.handle;
+        const inGroup = S.live.filter((l) => l.handle !== own && l.order > base && l.order < base + 10).map((l) => l.order);
+        S.P.custom.size_order = Math.min(base + 9, (inGroup.length ? Math.max(...inGroup) : base) + 1);
+        return rerender();
+      }
+      case 'copyPrompt': return copyPrompt();
+      case 'applyReply': return applyReply();
+      case 'addSlide': S.ui.slides.push({ eyebrow: '', title: '', body: '', image: '' }); return rerender();
+      case 'slideDel': S.ui.slides.splice(i, 1); return rerender();
+      case 'slideUp': swap(S.ui.slides, i, i - 1); return rerender();
+      case 'slideDown': swap(S.ui.slides, i, i + 1); return rerender();
+      case 'addFaq': S.ui.faq.push({ q: '', a: '' }); return rerender();
+      case 'faqDel': S.ui.faq.splice(i, 1); return rerender();
+      case 'faqUp': swap(S.ui.faq, i, i - 1); return rerender();
+      case 'faqDown': swap(S.ui.faq, i, i + 1); return rerender();
+      case 'assetDel': {
+        e.preventDefault();
+        const [kind, which] = el.dataset.slot.split(':');
+        if (kind === 'banner') S.P.banner[which] = ''; else S.ui.slides[Number(which)].image = '';
+        return rerender();
+      }
+      case 'push': return push(el.dataset.store);
+    }
+  });
+
+  // Drag photos straight onto a colour.
+  app.addEventListener('dragover', (e) => { const d = e.target.closest('[data-drop]'); if (d) { e.preventDefault(); d.classList.add('over'); } });
+  app.addEventListener('dragleave', (e) => { const d = e.target.closest('[data-drop]'); if (d) d.classList.remove('over'); });
+  app.addEventListener('drop', (e) => {
+    const d = e.target.closest('[data-drop]');
+    if (!d) return;
+    e.preventDefault();
+    upload(Number(d.dataset.drop), [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/')));
+  });
+
+  saveBtn.addEventListener('click', () => save());
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save(); } });
+  addEventListener('beforeunload', (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  // Previews show the saved file, so save first.
+  for (const id of ['pvIndia', 'pvUs']) document.getElementById(id).addEventListener('click', async (e) => {
+    if (!S.dirty) return;
+    e.preventDefault();
+    const href = e.currentTarget.href;
+    const w = window.open('about:blank', '_blank');
+    if (await save()) w.location = href; else w.close();
+  });
+  app.addEventListener('click', async (e) => {
+    const a = e.target.closest('a[href*="/preview"]');
+    if (!a || !S.dirty) return;
+    e.preventDefault();
+    const w = window.open('about:blank', '_blank');
+    if (await save()) w.location = a.href; else w.close();
+  });
+
+  render();
+  loadAttrs();
+</script>

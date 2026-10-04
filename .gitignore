@@ -30,6 +30,7 @@ pnpm-debug.log*
 
 # Local working folders (not part of the website)
 brand-wiki/
+catalog/
 Product images/
 Temp/
 AdilQadri/

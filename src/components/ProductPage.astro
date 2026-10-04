@@ -4,6 +4,7 @@ import SiteFooter from './SiteFooter.astro';
 import CountrySelector from './CountrySelector.astro';
 import ViewingPrompt from './ViewingPrompt.astro';
 import { shopifyImage } from '~/lib/shopifyImage';
+import { hexFor } from '~/lib/colour-swatch';
 import { getAllProducts, getProductRecommendations } from '~/lib/shopify/queries';
 import { formatMoney } from '~/lib/markets';
 import type { Product, ProductDetail } from '~/types/shopify';
@@ -48,15 +49,18 @@ const metafieldSlides: StorySlide[] = (() => {
   }
 })();
 // `astro dev` only: placeholder slides so the section's layout can be previewed
-// before any product has the metafield. Never used in a production build.
-const DEV_PREVIEW = import.meta.env.DEV;
+// before any product has the metafield. Never used in a production build, nor in the
+// catalog tool's preview, which must show exactly what the live page will.
+const DEV_PREVIEW = import.meta.env.DEV && !Astro.locals.catalogPreview;
+// Images are https addresses from Shopify; the catalog tool's preview serves local files from its own paths.
+const isImageUrl = (v: string) => /^https:\/\//.test(v) || (Astro.locals.catalogPreview === true && v.startsWith('/catalog-tool/'));
 const storySlides: StorySlide[] = metafieldSlides.length || !DEV_PREVIEW ? metafieldSlides : [
   { eyebrow: 'Sample', title: 'Placeholder slide one', body: 'Preview copy shown only in local development. Real slides come from the custom.story_slides metafield.' },
   { eyebrow: 'Sample', title: 'Placeholder slide two', body: 'Each slide pairs with the next photo from this product\'s gallery.' },
   { eyebrow: 'Sample', title: 'Placeholder slide three', body: 'The counter and progress bars follow however many slides there are.' },
 ];
 // Each slide can carry its own close-up (custom.story_slides[].image); otherwise it borrows a gallery photo.
-const storyImgArr = storySlides.map((s, i) => (/^https:\/\//.test(s.image ?? '') ? shopifyImage(s.image!, 1100) : pickImg(i)));
+const storyImgArr = storySlides.map((s, i) => (isImageUrl(s.image ?? '') ? shopifyImage(s.image!, 1100) : pickImg(i)));
 const fullBleedImg = pickImg(1); // dev-preview fallback only; production needs custom.fullbleed_image
 
 // Small JSON-in-a-metafield reader shared by the sections below. Bad or missing JSON → empty list → section hidden.
@@ -106,7 +110,7 @@ const featureCards: FeatureCard[] = metafieldCards.length || !DEV_PREVIEW ? meta
 
 // Full-bleed editorial image: custom.fullbleed_image (21:9, desktop) + custom.fullbleed_image_mobile (4:5, phones; optional —
 // without it phones crop the desktop image). https URLs. Falls back to the gallery only in `astro dev`.
-const httpsOr = (v: string) => (/^https:\/\//.test(v) ? v : '');
+const httpsOr = (v: string) => (isImageUrl(v) ? v : '');
 const fullbleedUrl = httpsOr(mf(product.fullbleedImage));
 const fullbleedMobileUrl = httpsOr(mf(product.fullbleedImageMobile));
 
@@ -248,36 +252,6 @@ const relatedProducts = relPool.map((p) => ({
     : null,
 }));
 
-// Colour name → swatch hex (best-effort; falls back to neutral).
-const COLOR_HEX: Record<string, string> = {
-  taupe: '#8B7355', onyx: '#1a1a1a', black: '#1a1a1a', cognac: '#C8895A',
-  stone: '#C4BFB6', plum: '#5C2D3E', tan: '#C8A06A', brown: '#6B4A2B',
-  beige: '#D9CBB5', cream: '#EDE5D5', ivory: '#F0E6D3', white: '#f4f1ea',
-  sand: '#D4B896', camel: '#C4882B', red: '#9B1B1B', cherry: '#8B1A1A',
-  'cherry red': '#8B1A1A', maroon: '#5C1A1A',
-  green: '#2D5016', forest: '#2D5016', olive: '#6E6B23', 'olive green': '#6E6B23',
-  navy: '#1A2340', blue: '#3A4A6B', midnight: '#1A2340',
-  grey: '#8a8a8a', gray: '#8a8a8a', silver: '#C4C7CC',
-  pink: '#C9A09A', rose: '#C9A09A', coral: '#F0908A', 'coral pink': '#F0908A',
-  caramel: '#C88A46', gold: '#C6A44E', nude: '#E3C3A8', oat: '#E0D4BE',
-  fig: '#4A1942', sage: '#8E9E7E', sky: '#9DBCE0',
-};
-// Match the full name, then any two-word phrase, then any single colour word.
-// Two-colour names ("Rose & Sage", "Cream & Cherry Red") get a split swatch, half each colour.
-const hexFor = (raw: string): string => {
-  const parts = raw.split(/\s*&\s*/).filter(Boolean);
-  if (parts.length === 2) return `linear-gradient(135deg, ${hexFor(parts[0])} 50%, ${hexFor(parts[1])} 50%)`;
-  const key = raw.trim().toLowerCase();
-  if (COLOR_HEX[key]) return COLOR_HEX[key];
-  const words = key.split(/[^a-z]+/).filter(Boolean);
-  for (let i = 0; i < words.length - 1; i++) {
-    const pair = `${words[i]} ${words[i + 1]}`;
-    if (COLOR_HEX[pair]) return COLOR_HEX[pair];
-  }
-  for (const w of words) if (COLOR_HEX[w]) return COLOR_HEX[w];
-  return '#bdb5a8';
-};
-
 const clientData = { variants: variantData, options: optionGroups.map((o) => ({ name: o.name, isColor: o.isColor })), colourGallery };
 
 // Hidden in production until real content is ready. Shown under `astro dev` so the
@@ -329,8 +303,7 @@ const accordions: Accordion[] = [
     link: { href: `${prefix}/pages/shipping-returns`, before: 'Read the full ', label: 'warranty terms', after: '.' } }] : []),
 ];
 
-// Buying-area extras: one-line hook, ways to carry, per-country trust + delivery lines, breadcrumb category.
-const tagline = mf(product.tagline);
+// Buying-area extras: ways to carry, per-country trust + delivery lines, breadcrumb category.
 const ways = carryWays(product, detailLines);
 const trust = trustLine(marketConfig, { warranty: hasWarranty });
 const delivery = deliveryLines(marketConfig);
@@ -382,7 +355,6 @@ const faq = faqFor(product, marketConfig);
     <!-- RIGHT: sticky info -->
     <div class="pdp__info">
       <h1 class="info-name">{product.title}</h1>
-      {tagline && <p class="info-hook">{tagline}</p>}
       <p class="info-price" id="infoPrice">{startPrice}</p>
       {ways.length > 0 && <ul class="ways" aria-label="Ways to carry">{ways.map((w) => <li>{w}</li>)}</ul>}
       <div class="info-desc" set:html={product.descriptionHtml || product.description}></div>
@@ -463,7 +435,6 @@ const faq = faqFor(product, marketConfig);
       <h1 class="info-name" style="margin:0;font-size:clamp(1.5rem,5vw,1.85rem)">{product.title}</h1>
       <p id="mobPrice" style="font-size:15px;font-weight:500;flex-shrink:0;margin-left:12px">{startPrice}</p>
     </div>
-    {tagline && <p class="info-hook" style="margin-top:0">{tagline}</p>}
     {ways.length > 0 && <ul class="ways" aria-label="Ways to carry">{ways.map((w) => <li>{w}</li>)}</ul>}
     <div class="info-desc" style="border:none;padding:0;margin-bottom:20px" set:html={product.descriptionHtml || product.description}></div>
 
@@ -1071,7 +1042,6 @@ const faq = faqFor(product, marketConfig);
   .trust { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; column-gap: 1.6em; row-gap: 2px; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--depth); font-weight: 500; line-height: 1.8; }
   .trust__item { white-space: nowrap; }
   .trust-sub { margin-top: 6px; font-size: 12px; color: var(--mid); }
-  .info-hook { font-size: 14px; line-height: 1.5; color: var(--mid); margin: -2px 0 12px; }
   .ways { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: -14px 0 22px; }
   .ways li { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--rule); border-radius: 99px; padding: 5px 11px; color: var(--depth); }
   .bc a { color: inherit; } .bc a:hover { color: var(--cherry); }

@@ -1,0 +1,63 @@
+---
+interface Props { title: string }
+const { title } = Astro.props;
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} · Mir Kash Catalog</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="/fonts/brand-fonts.css" />
+  </head>
+  <body>
+    <header class="ct-top">
+      <a href="/catalog-tool" class="ct-brand">Mir Kash <span>Catalog</span></a>
+      <slot name="top" />
+    </header>
+    <main class="ct-main"><slot /></main>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --ink: #2C1A0E; --mid: #6f6257; --soft: #9a8f86; --line: #e6ddd0; --paper: #FAF7F2; --card: #ffffff;
+    --red: #8B1A1A; --green: #3D6B4F; --amber: #9a6a12; --beige: #D9C7A8;
+    --serif: 'DM Serif Display', Georgia, serif; --font: 'Brooklyn', -apple-system, 'Helvetica Neue', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { font-synthesis: none; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--font); }
+  a { color: inherit; }
+  .ct-top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 24px; background: rgba(250, 247, 242, .96); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+  .ct-brand { font-family: var(--serif); font-size: 20px; text-decoration: none; margin-right: auto; }
+  .ct-brand span { font-family: var(--font); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); margin-left: 6px; }
+  .ct-main { max-width: 1080px; margin: 0 auto; padding: 24px 24px 120px; }
+  h1, h2 { font-family: var(--serif); font-weight: 400; margin: 0; }
+  h1 { font-size: 30px; }
+  h2 { font-size: 22px; }
+  .muted { color: var(--mid); }
+  .small { font-size: 13px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ink); background: var(--card); color: var(--ink);
+    font: 500 14px/1 var(--font); padding: 10px 16px; border-radius: 999px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .btn:hover { background: #f3ede4; }
+  .btn.primary { background: var(--ink); color: #fff; }
+  .btn.primary:hover { background: #4a3324; }
+  .btn.red { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn.red:hover { background: #6e1414; }
+  .btn.ghost { border-color: var(--line); }
+  .btn.tiny { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  input[type=text], input[type=number], input:not([type]), textarea, select {
+    width: 100%; font: 15px/1.45 var(--font); color: var(--ink); background: #fff; border: 1px solid #d9cfc2; border-radius: 8px; padding: 9px 11px; }
+  textarea { resize: vertical; min-height: 80px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--beige); border-color: var(--ink); }
+  label.f { display: block; }
+  label.f > span { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+  .hint { font-size: 12.5px; color: var(--soft); margin-top: 4px; }
+</style>

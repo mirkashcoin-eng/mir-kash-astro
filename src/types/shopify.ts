@@ -97,7 +97,6 @@ export interface ProductDetail extends Product {
   materialName?: Metafield;
   materialStory?: Metafield;
   warranty?: Metafield;
-  tagline?: Metafield;          // one-line hook under the name
   faq?: Metafield;              // [{ q, a }, …]
   sizeGroup?: Metafield;        // Mini / Small / Medium / Large
   // shopify.carry-options (standard category metafield): list of metaobject references, e.g. handle "crossbody-strap".

@@ -12,6 +12,7 @@ declare global {
       botName: string;   // '' for humans; 'ChatGPT', 'Googlebot', … for crawlers
       referrer: string;  // off-site Referer header only
       country: string;   // ISO code from the CDN edge
+      catalogPreview?: boolean; // set only by the local catalog tool's preview page
     }
   }
   interface Window {

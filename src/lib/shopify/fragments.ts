@@ -96,7 +96,6 @@ export const PRODUCT_PAGE_FRAGMENT = /* GraphQL */ `
     reels: metafield(namespace: "custom", key: "reels") {
       references(first: 10) { nodes { ... on Video { sources { url mimeType height } previewImage { url } } } }
     }
-    tagline: metafield(namespace: "custom", key: "tagline") { value }
     faq: metafield(namespace: "custom", key: "faq") { value }
     sizeGroup: metafield(namespace: "custom", key: "size_group") { value }
     carryOptions: metafield(namespace: "shopify", key: "carry-options") {

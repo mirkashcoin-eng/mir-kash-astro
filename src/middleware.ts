@@ -51,6 +51,7 @@ export function botName(ua: string): string {
 const SKIP_PATHS = [
   /^\/api\//, /^\/_astro\//, /^\/_image/, /^\/favicon/, /^\/sitemap/, /^\/robots\.txt$/,
   /^\/admin(\/|$)/,
+  /^\/catalog-tool(\/|$)/, // local-only product tool (astro dev); no market versions
   /^\/go(\/|$)/,
   /^\/account(\/|$)/,
   /^\/checkout(\/|$)/,

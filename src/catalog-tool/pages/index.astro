@@ -1,0 +1,70 @@
+---
+import Shell from '../Shell.astro';
+import { listProducts } from '../lib/catalog';
+
+const products = listProducts();
+const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+---
+<Shell title="Products">
+  <button slot="top" class="btn ghost" id="openCatalog" type="button">Open catalog folder</button>
+
+  <section class="intro">
+    <h1>Add a product</h1>
+    <p class="muted">Type the product's short name (the one you use for it, e.g. "Luna"), then fill in its page step by step. Nothing goes live until you press Push.</p>
+    <form id="newForm" class="new">
+      <input id="newName" placeholder="Product name, e.g. Luna" autocomplete="off" required />
+      <button class="btn primary" type="submit">Start</button>
+    </form>
+    <p class="err" id="newErr" hidden></p>
+  </section>
+
+  <section>
+    <h2>Your products</h2>
+    {products.length === 0 && <p class="muted">None yet.</p>}
+    <div class="list">
+      {products.map((p) => (
+        <a class="row card" href={`/catalog-tool/${p.id}`}>
+          <div>
+            <strong>{p.title}</strong>
+            <div class="muted small">{p.colours.join(' · ') || 'No colours yet'} · {p.photos} photos</div>
+          </div>
+          <div class="chips">
+            <span class={`chip ${p.pushed.global ? 'on' : ''}`}>{p.pushed.global ? `Global · ${when(p.pushed.global.at)}` : 'Not on Global'}</span>
+            <span class={`chip ${p.pushed.india ? 'on' : ''}`}>{p.pushed.india ? `India · ${when(p.pushed.india.at)}` : 'Not on India'}</span>
+          </div>
+        </a>
+      ))}
+    </div>
+    <p class="muted small">Only products added through this tool are listed. The older bags are edited in Shopify.</p>
+  </section>
+</Shell>
+
+<style>
+  section { margin-bottom: 40px; }
+  .intro p { max-width: 640px; }
+  .new { display: flex; gap: 10px; max-width: 520px; margin-top: 14px; }
+  .err { color: var(--red); }
+  h2 { margin-bottom: 14px; }
+  .list { display: grid; gap: 10px; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; padding: 16px 20px; }
+  .row:hover { border-color: var(--ink); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #f1ebe2; color: var(--mid); white-space: nowrap; }
+  .chip.on { background: #e5efe8; color: var(--green); }
+  @media (max-width: 640px) { .row { flex-direction: column; align-items: flex-start; } .chips { justify-content: flex-start; } }
+</style>
+
+<script>
+  const form = document.getElementById('newForm') as HTMLFormElement;
+  const err = document.getElementById('newErr')!;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+    const name = (document.getElementById('newName') as HTMLInputElement).value.trim();
+    const r = await fetch('/catalog-tool/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const j = await r.json();
+    if (!r.ok) { err.textContent = j.error; err.hidden = false; return; }
+    location.href = `/catalog-tool/${j.id}`;
+  });
+  document.getElementById('openCatalog')!.addEventListener('click', () => fetch('/catalog-tool/api/open/catalog', { method: 'POST' }));
+</script>
