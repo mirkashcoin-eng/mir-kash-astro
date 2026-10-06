@@ -156,6 +156,19 @@ const summaryItems = items.map((i) => ({
           gtag('event', 'conversion', adsPayload);
         }
       } catch (e) { console.error('gtag purchase failed:', e); }
+      try {
+        // Same sessionStorage guard as the gtag purchase above — one fire per order.
+        var fbSeen = 'mk_fb_purchase_' + txnId;
+        if (!sessionStorage.getItem(fbSeen) && typeof fbq === 'function') {
+          sessionStorage.setItem(fbSeen, '1');
+          var fbPayload = {
+            currency: currency, content_type: 'product',
+            contents: items.map(function (i) { return { id: i.item_name, quantity: i.quantity }; }),
+          };
+          if (value > 0) fbPayload.value = value;
+          fbq('track', 'Purchase', fbPayload);
+        }
+      } catch (e) { console.error('fbq Purchase failed:', e); }
     </script>
   )}
 

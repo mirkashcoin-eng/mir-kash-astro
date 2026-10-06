@@ -739,6 +739,11 @@ const faq = faqFor(product, marketConfig);
           gtag('event', 'conversion', { send_to: 'AW-18098313640/HX8JCKX26J0cEKiz-bVD', value: state.amount, currency });
         }
       } catch (e) { console.error('gtag add_to_cart failed:', e); }
+      try {
+        if (typeof fbq === 'function') {
+          fbq('track', 'AddToCart', { content_ids: [state.variantId], content_type: 'product', content_name: productTitle, value: state.amount, currency });
+        }
+      } catch (e) { console.error('fbq AddToCart failed:', e); }
       document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
       btn.textContent = 'Added ✓';
       btn.classList.add('is-added');
@@ -934,6 +939,11 @@ const faq = faqFor(product, marketConfig);
               gtag('event', 'conversion', { send_to: 'AW-18098313640/HX8JCKX26J0cEKiz-bVD', currency });
             }
           } catch (e) { console.error('gtag add_to_cart failed:', e); }
+          try {
+            if (typeof fbq === 'function') {
+              fbq('track', 'AddToCart', { content_ids: [variantId], content_type: 'product', content_name: name, currency });
+            }
+          } catch (e) { console.error('fbq AddToCart failed:', e); }
           document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
           add.classList.add('is-added');
           add.textContent = 'Added ✓';

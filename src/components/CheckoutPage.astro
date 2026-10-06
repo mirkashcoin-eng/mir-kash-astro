@@ -316,6 +316,17 @@ const thumbGradients = [
       gtagFn('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value, currency: 'INR' });
     }
   } catch (e) { console.error('gtag begin_checkout failed:', e); }
+  try {
+    const fbqFn = (window as any).fbq;
+    if (typeof fbqFn === 'function') {
+      const value = Number(sheet.dataset.total) || 0;
+      const items = JSON.parse(sheet.dataset.items || '[]');
+      fbqFn('track', 'InitiateCheckout', {
+        currency: 'INR', value, content_type: 'product',
+        contents: items.map((i: any) => ({ id: i.item_id, quantity: i.quantity })),
+      });
+    }
+  } catch (e) { console.error('fbq InitiateCheckout failed:', e); }
   const buyNow = sheet?.dataset.buynow === '1';
 
   const ORDER = ['contact', 'delivery', 'payment'];

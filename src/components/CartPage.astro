@@ -119,6 +119,14 @@ const exitLines = lines.length
           gtag('event', 'conversion', { send_to: 'AW-18098313640/cK1RCKL26J0cEKiz-bVD', value: cartTotal, currency });
         }
       } catch (e) { console.error('gtag begin_checkout failed:', e); }
+      try {
+        if (typeof fbq === 'function') {
+          fbq('track', 'InitiateCheckout', {
+            currency, value: cartTotal, content_type: 'product',
+            contents: cartItems.map((i) => ({ id: i.item_id, quantity: i.quantity })),
+          });
+        }
+      } catch (e) { console.error('fbq InitiateCheckout failed:', e); }
     });
   }
 
