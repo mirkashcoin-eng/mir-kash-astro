@@ -166,7 +166,9 @@ const summaryItems = items.map((i) => ({
             contents: items.map(function (i) { return { id: i.item_name, quantity: i.quantity }; }),
           };
           if (value > 0) fbPayload.value = value;
-          fbq('track', 'Purchase', fbPayload);
+          // eventID matches the server-side Conversions API event_id (orderName, sent
+          // from completeDraftOrder) so Meta dedupes the two instead of double-counting.
+          fbq('track', 'Purchase', fbPayload, { eventID: txnId });
         }
       } catch (e) { console.error('fbq Purchase failed:', e); }
     </script>

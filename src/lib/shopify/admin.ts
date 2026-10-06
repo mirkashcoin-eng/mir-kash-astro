@@ -3,6 +3,8 @@
 // decrements inventory). Never import this from client-side code; it carries the
 // Admin token. See [[mir-kash-project]] India custom checkout plan.
 import type { Money } from '~/types/shopify';
+import { sendMetaEvent } from '~/lib/meta-capi';
+import { SITE_ORIGIN } from '~/lib/markets';
 
 const ADMIN_API_VERSION = '2025-01';
 
@@ -376,6 +378,28 @@ export async function completeDraftOrder(id: string, paymentPending = false): Pr
     await runAdminQuery(TAGS_ADD, { id: result.orderId, tags: [payTag] });
     await runAdminQuery(ORDER_UPDATE, { input: { id: result.orderId, note: `Payment: ${PAYMENT_LABEL[payTag]}` } });
   }
+
+  // Meta Conversions API — server-side mirror of the browser Purchase pixel (same
+  // event_id as the orderName used client-side in checkout/return.astro, so Meta dedupes
+  // the two instead of double-counting). Fires exactly once per order: this code only
+  // runs past the early "already COMPLETED" return above, and every completion path
+  // (COD, Cashfree webhook, the return page, the cron recovery job) converges here.
+  if (result?.orderName) {
+    await sendMetaEvent({
+      eventName: 'Purchase',
+      eventId: result.orderName,
+      sourceUrl: `${SITE_ORIGIN}/checkout/return`,
+      user: { email: result.email, phone: result.phone, externalId: result.orderName },
+      customData: {
+        currency: result.totalPrice.currencyCode,
+        value: Number(result.totalPrice.amount) || 0,
+        order_id: result.orderName,
+        content_type: 'product',
+        contents: result.items.map((i) => ({ id: i.title, quantity: i.quantity })),
+      },
+    });
+  }
+
   return result;
 }
 

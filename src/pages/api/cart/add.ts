@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
 import { createCart, addLines, updateBuyerIdentity } from '~/lib/shopify/cart';
 import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
+import { sendMetaEvent } from '~/lib/meta-capi';
+import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  let body: { merchandiseId?: string; quantity?: number; store?: string; countryCode?: string };
+export const POST: APIRoute = async (ctx) => {
+  const { request, cookies } = ctx;
+  let body: { merchandiseId?: string; quantity?: number; store?: string; countryCode?: string; fbEventId?: string };
   try {
     body = await request.json();
   } catch {
@@ -37,6 +40,34 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   persistCart(cookies, store, cart);
+
+  // Meta Conversions API — server-side mirror of the browser AddToCart pixel. Shares
+  // fbEventId with the client's fbq('track','AddToCart', …, {eventID}) call so Meta
+  // dedupes the two instead of double-counting. India only, same as the Purchase hook
+  // in completeDraftOrder: the Global pixel's AddToCart still fires client-side only.
+  if (store === 'india' && body.fbEventId) {
+    const added = cart.lines.find((l) => l.merchandiseId === merchandiseId);
+    let ip: string | undefined;
+    try { ip = ctx.clientAddress; } catch { /* unsupported on this adapter/route */ }
+    await sendMetaEvent({
+      eventName: 'AddToCart',
+      eventId: body.fbEventId,
+      sourceUrl: SITE_ORIGIN,
+      user: {
+        ip,
+        userAgent: request.headers.get('user-agent'),
+        fbp: cookies.get('_fbp')?.value,
+        fbc: cookies.get('_fbc')?.value,
+      },
+      customData: {
+        currency: cart.currency,
+        value: added ? added.price * quantity : undefined,
+        content_type: 'product',
+        contents: [{ id: merchandiseId, quantity }],
+      },
+    });
+  }
+
   return new Response(JSON.stringify(cart), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' },

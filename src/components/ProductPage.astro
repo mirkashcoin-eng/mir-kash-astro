@@ -715,6 +715,12 @@ const faq = faqFor(product, marketConfig);
   document.querySelectorAll('[data-opt][data-name].is-active').forEach((b) => { selected[b.dataset.opt] = b.dataset.name; });
   resolveVariant(true);
 
+  // Shared with the matching /api/cart/add Conversions API call, so Meta dedupes the
+  // browser pixel and the server-side event instead of double-counting.
+  function newFbEventId() {
+    return 'atc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
   // Add to bag — checkout:true => Buy Now (go to Shopify checkout); false => stay on page
   async function addItem(btn) {
     if (!state.variantId || btn.disabled) return;
@@ -722,11 +728,12 @@ const faq = faqFor(product, marketConfig);
     btn.dataset.label = original;
     btn.disabled = true;
     btn.textContent = 'Adding…';
+    const fbEventId = newFbEventId();
     try {
       const res = await fetch('/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchandiseId: state.variantId, quantity: 1, store, countryCode }),
+        body: JSON.stringify({ merchandiseId: state.variantId, quantity: 1, store, countryCode, fbEventId }),
       });
       if (!res.ok) throw new Error('add failed');
       const cart = await res.json();
@@ -741,7 +748,7 @@ const faq = faqFor(product, marketConfig);
       } catch (e) { console.error('gtag add_to_cart failed:', e); }
       try {
         if (typeof fbq === 'function') {
-          fbq('track', 'AddToCart', { content_ids: [state.variantId], content_type: 'product', content_name: productTitle, value: state.amount, currency });
+          fbq('track', 'AddToCart', { content_ids: [state.variantId], content_type: 'product', content_name: productTitle, value: state.amount, currency }, { eventID: fbEventId });
         }
       } catch (e) { console.error('fbq AddToCart failed:', e); }
       document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
@@ -922,11 +929,12 @@ const faq = faqFor(product, marketConfig);
         add.dataset.label = original;
         add.dataset.busy = '1';
         add.textContent = 'Adding…';
+        const fbEventId = newFbEventId();
         try {
           const res = await fetch('/api/cart/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ merchandiseId: variantId, quantity: 1, store, countryCode }),
+            body: JSON.stringify({ merchandiseId: variantId, quantity: 1, store, countryCode, fbEventId }),
           });
           if (!res.ok) throw new Error('add failed');
           const cart = await res.json();
@@ -941,7 +949,7 @@ const faq = faqFor(product, marketConfig);
           } catch (e) { console.error('gtag add_to_cart failed:', e); }
           try {
             if (typeof fbq === 'function') {
-              fbq('track', 'AddToCart', { content_ids: [variantId], content_type: 'product', content_name: name, currency });
+              fbq('track', 'AddToCart', { content_ids: [variantId], content_type: 'product', content_name: name, currency }, { eventID: fbEventId });
             }
           } catch (e) { console.error('fbq AddToCart failed:', e); }
           document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });

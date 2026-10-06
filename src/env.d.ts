@@ -66,6 +66,8 @@ interface ImportMetaEnv {
   readonly WHATSAPP_PHONE_NUMBER_ID: string; // = 1285100258018493
   readonly WHATSAPP_WABA_ID: string;         // optional; = 1608333530921964
   readonly CRON_SECRET: string;              // protects the cron endpoints
+  // Meta Conversions API — server-side mirror of the browser Pixel (secret).
+  readonly META_CAPI_TOKEN: string;
 }
 
 interface ImportMeta {
