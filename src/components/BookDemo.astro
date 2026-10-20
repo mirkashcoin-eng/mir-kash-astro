@@ -131,8 +131,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
           <div class="bd-intro__text">
             <p class="bd-intro__eyebrow">Try at Home &middot; By private appointment</p>
             <h1 class="bd-intro__h">Up to six pieces of your choosing, at home.</h1>
-            <p class="bd-intro__sub">A private appointment in your own space and your own light. Complimentary, and without obligation.</p>
-            <p class="bd-intro__meta"><span>Mumbai, Thane and Navi Mumbai</span><i></i><span>Morning, afternoon or evening</span></p>
+            <p class="bd-intro__sub">Choose the pieces you would like to see. A client advisor will bring them to your home and show you each one in person, so you can decide in your own space and your own light. Complimentary, and without obligation.</p>
           </div>
         </header>
         {selectionLine && <p class="bd-intro__sel">{selectionLine}</p>}
@@ -182,15 +181,6 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
         <div class="bd-sec__head"><h2 class="bd-sec__t">Your details</h2></div>
         <p class="bd-recap" id="detailsRecap"></p>
         <div class="bd-fields">
-          <label class="bd-field bd-field--half"><span>Country</span><div class="bw-combo"><input class="bd-input" id="f-country" type="text" value="India" spellcheck="false" /><div class="bw-combo__list" hidden></div></div></label>
-          <label class="bd-field bd-field--half"><span>City</span><input class="bd-input" id="f-city" type="text" autocomplete="address-level2" /></label>
-          <div class="bw-banner bd-field--full" id="cityCheck" hidden>
-            <p>We visit homes in the Mumbai area only. Is <strong id="cityCheckName"></strong> in or near Mumbai?</p>
-            <div class="bw-banner__actions">
-              <button type="button" class="bw-banner__btn" id="cityYes">Yes, it is</button>
-              <button type="button" class="bw-banner__btn" id="cityNo">No &mdash; book a video viewing</button>
-            </div>
-          </div>
           <label class="bd-field"><span>Full name</span><input class="bd-input" id="f-name" type="text" autocomplete="name" /></label>
           <label class="bd-field bd-field--phone">
             <span>Phone</span>
@@ -199,10 +189,22 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
               <input class="bd-input bd-phone__num" id="f-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" autocomplete="tel-national" />
             </div>
           </label>
-          <label class="bd-field bd-field--full"><span>Email</span><input class="bd-input" id="f-email" type="email" autocomplete="email" /></label>
+          <label class="bd-field bd-field--half"><span>PIN code</span><input class="bd-input" id="f-pin" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="postal-code" /></label>
+          <div class="bw-banner bd-field--full" id="cityCheck" hidden>
+            <p>We visit homes in the Mumbai area only. Is <strong id="cityCheckName"></strong> in or near Mumbai?</p>
+            <div class="bw-banner__actions">
+              <button type="button" class="bw-banner__btn" id="cityYes">Yes, it is</button>
+              <button type="button" class="bw-banner__btn" id="cityNo">No, book a video viewing</button>
+            </div>
+          </div>
           <label class="bd-field bd-field--full"><span>Address (flat / building / street)</span><input class="bd-input" id="f-addr" type="text" autocomplete="street-address" /></label>
-          <label class="bd-field bd-field--half"><span>Area / locality</span><input class="bd-input" id="f-area" type="text" /></label>
-          <label class="bd-field bd-field--half"><span>PIN code</span><input class="bd-input" id="f-pin" type="text" inputmode="numeric" maxlength="6" placeholder="Mumbai PIN" /></label>
+          <label class="bd-field bd-field--full"><span>Area / locality</span><input class="bd-input" id="f-area" type="text" /></label>
+          <!-- Filled in from the PIN (cityForPin in src/lib/cities.ts); the city can still be changed. -->
+          <div class="bd-fields__auto bd-field--full">
+            <label class="bd-field"><span>City</span><input class="bd-input" id="f-city" type="text" autocomplete="address-level2" /></label>
+            <label class="bd-field"><span>State</span><input class="bd-input" id="f-state" type="text" readonly tabindex="-1" /></label>
+            <label class="bd-field"><span>Country</span><div class="bw-combo"><input class="bd-input" id="f-country" type="text" value="India" spellcheck="false" /><div class="bw-combo__list" hidden></div></div></label>
+          </div>
         </div>
         <p class="bd-side__note">No pressure to buy. Confirm now, decide at home.</p>
       </div>
@@ -226,7 +228,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
       serviceName="Try at Home"
       apptDate="Date to be confirmed"
       apptSlot="Time to be confirmed"
-      thanksLine="Thank you. Your Try at Home visit is confirmed — we'll be in touch by WhatsApp and email."
+      thanksLine="Thank you. Your Try at Home visit is confirmed. We'll be in touch on WhatsApp."
     />
     <a class="bd-done__btn" href="/shop">Back to Shop</a>
   </section>
@@ -301,13 +303,6 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-intro__eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--cherry); margin: 0 0 12px; }
   .bd-intro__h { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; font-size: clamp(30px, 3.4vw, 42px); line-height: 1.08; color: var(--depth); margin: 0; }
   .bd-intro__sub { font-size: 15px; line-height: 1.6; color: var(--mid); margin: 12px 0 0; max-width: 48ch; }
-  .bd-intro__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 14px 0 0; font-size: 12px; letter-spacing: .04em; color: var(--mid); }
-  .bd-intro__meta i { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
-  /* Narrow text column: stack the two phrases rather than strand the dot. */
-  @media (max-width: 900px) {
-    .bd-intro__meta { flex-direction: column; align-items: flex-start; gap: 2px; }
-    .bd-intro__meta i { display: none; }
-  }
   .bd-intro__sel { margin: 0 0 22px; padding: 12px 16px; background: var(--cream); border: 1px solid var(--rule); font-size: 14px; line-height: 1.5; color: var(--depth); }
 
   /* "2 of 6 selected" sits where Back would be, on the bag step only. */
@@ -365,6 +360,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-field { display: flex; flex-direction: column; gap: 7px; }
   .bd-field--full { grid-column: 1 / -1; }
   .bd-fields .bw-banner { margin: 0; }
+  .bd-fields__auto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .bd-input[readonly] { color: var(--mid); }
   .bd-field > span:first-child { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--depth); font-weight: 500; }
   .bd-input { padding: 13px 14px; border: 1px solid var(--rule); background: #fff; font-family: inherit; font-size: 14px; color: var(--depth); width: 100%; }
   .bd-input:focus { outline: none; border-color: var(--depth); }
@@ -436,8 +433,6 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     .bd-intro__eyebrow { font-size: 10px; letter-spacing: .16em; margin-bottom: 8px; }
     .bd-intro__h { font-size: 24px; }
     .bd-intro__sub { font-size: 14px; line-height: 1.5; margin-top: 6px; }
-    .bd-intro__meta { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 11.5px; margin-top: 8px; }
-    .bd-intro__meta i { display: none; }
     .bd-intro__sel { margin-bottom: 14px; padding: 9px 12px; font-size: 13px; }
     .bd-stepwrap--pick .bd-sec__head { margin-bottom: 12px; }
     .bd-stepwrap--pick .bd-sec__t { font-size: 18px; }
@@ -462,6 +457,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     .bd-fields { gap: 8px; }
     .bd-field { grid-column: 1 / -1; gap: 0; padding: 7px 12px 0; border: 1px solid var(--rule); background: #fff; }
     .bd-field--half { grid-column: auto; }
+    .bd-fields__auto { gap: 8px; }
+    .bd-fields__auto .bd-field { grid-column: auto; }
     .bd-field:focus-within { border-color: var(--depth); }
     .bd-field > span:first-child { font-size: 9.5px; color: var(--mid); }
     .bd-field { position: relative; }
@@ -487,7 +484,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   } from '~/lib/booking-wizard';
   import { saveDraft, loadDraft, clearDraft, DRAFT_KEY_TRY_AT_HOME, DRAFT_KEY_PRIVATE_VIEWING, type BookingDraft, type BookingBag } from '~/lib/booking-draft';
   import { COUNTRIES, flagEmoji, findCountry } from '~/lib/countries';
-  import { isMumbaiArea } from '~/lib/cities';
+  import { isMumbaiArea, cityForPin } from '~/lib/cities';
   import { makeCombobox, type ComboOption } from '~/lib/combobox';
 
   interface BagInfo { title: string; colour: string; label: string; description: string; images: string[]; handle: string }
@@ -635,11 +632,10 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     return { hasDateTime: Boolean(selectedISO && selectedSlot), bagCount: selectedBags.size, detailsValid: computeDetailsValid() };
   }
   function computeDetailsValid(): boolean {
-    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
+    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''),
       addr = val('f-addr'), pin = val('f-pin');
-    if (!name || !phone || !email || !addr) return false;
+    if (!name || !phone || !addr) return false;
     if (phone.length !== 10) return false;
-    if (!/^\S+@\S+\.\S+$/.test(email)) return false;
     if (!/^\d{6}$/.test(pin)) return false;
     if (countryIso !== 'IN' || !cityOk()) return false;
     return true;
@@ -652,6 +648,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   // one-tap "is this in or near Mumbai?" check — "No" makes the same move.
   let countryIso = 'IN';
   let cityConfirmed = false;
+  // The city shown was filled in for them (from the PIN or /api/geo), so a new PIN may replace it.
+  let cityAuto = false;
   const comboList = (id: string) => $(id).parentElement!.querySelector<HTMLElement>('.bw-combo__list')!;
   const countryOpts: ComboOption[] = COUNTRIES.map((c) => ({ value: c.iso2, label: c.name, prefix: flagEmoji(c.iso2) }));
   const countryCombo = makeCombobox({
@@ -666,8 +664,9 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   });
   const cityCheck = $('cityCheck');
   const cityInput = $('f-city') as HTMLInputElement;
+  const stateInput = $('f-state') as HTMLInputElement;
   // Checked once they've finished typing — change fires on leaving the field.
-  cityInput.addEventListener('input', () => { cityConfirmed = false; cityCheck.hidden = true; });
+  cityInput.addEventListener('input', () => { cityConfirmed = false; cityAuto = false; cityCheck.hidden = true; });
   cityInput.addEventListener('change', () => { checkCity(); scheduleSave(); });
   function cityOk(): boolean {
     const city = val('f-city');
@@ -676,12 +675,35 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function checkCity() {
     const city = val('f-city');
     cityCheck.hidden = true;
+    // Every address we visit is in Maharashtra.
+    stateInput.value = cityOk() ? 'Maharashtra' : '';
     if (!city || isMumbaiArea(city) || cityConfirmed) return;
     $('cityCheckName').textContent = city;
     cityCheck.hidden = false;
   }
-  $('cityYes').addEventListener('click', () => { cityConfirmed = true; cityCheck.hidden = true; scheduleSave(); });
+  $('cityYes').addEventListener('click', () => { cityConfirmed = true; checkCity(); scheduleSave(); });
   $('cityNo').addEventListener('click', () => switchToViewing());
+
+  // ── PIN first ──
+  // A Mumbai-area PIN fills in the city, state and country. Any other PIN leaves the
+  // city for them to type, which gets the usual "in or near Mumbai?" check.
+  const pinInput = $('f-pin') as HTMLInputElement;
+  pinInput.addEventListener('input', () => {
+    const digits = pinInput.value.replace(/\D/g, '').slice(0, 6);
+    if (digits !== pinInput.value) pinInput.value = digits;
+    if (digits.length === 6) applyPin(digits);
+  });
+  function applyPin(pin: string) {
+    const city = cityForPin(pin);
+    if (city) {
+      if (!val('f-city') || cityAuto) { cityInput.value = city; cityAuto = true; cityConfirmed = false; }
+      countryIso = 'IN';
+      countryCombo.set(countryOpts.find((o) => o.value === 'IN') ?? null);
+    } else if (cityAuto) {
+      cityInput.value = ''; cityAuto = false; cityConfirmed = false;
+    }
+    checkCity();
+  }
 
   function switchToViewing() {
     const phone = val('f-phone').replace(/\D/g, '');
@@ -690,7 +712,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     saveDraft(DRAFT_KEY_PRIVATE_VIEWING, {
       step: 'details', dateISO: selectedISO, dateLabel: selectedLabel, slot: selectedSlot, bags: draftBags,
       fields: {
-        'f-name': val('f-name'), 'f-email': val('f-email'),
+        'f-name': val('f-name'),
         // The number was typed after a fixed +91.
         'f-phone-iso': phone ? 'IN' : '', 'f-phone-number': phone,
         'f-country': countryIso || 'IN',
@@ -702,7 +724,9 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     countryIso = 'IN';
     countryCombo.set(countryOpts.find((o) => o.value === 'IN') ?? null);
     cityInput.value = '';
+    stateInput.value = '';
     cityConfirmed = false;
+    cityAuto = false;
     clearTimeout(saveTimer);
     saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft());
     try { sessionStorage.setItem('mk_switched_from_tah', where || '1'); } catch { /* storage unavailable */ }
@@ -736,7 +760,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
   function currentDraft(): BookingDraft {
     const fields: Record<string, string> = {};
-    ['f-name', 'f-phone', 'f-email', 'f-city', 'f-addr', 'f-area', 'f-pin'].forEach((id) => { const v = val(id); if (v) fields[id] = v; });
+    ['f-name', 'f-phone', 'f-city', 'f-addr', 'f-area', 'f-pin'].forEach((id) => { const v = val(id); if (v) fields[id] = v; });
     if (countryIso) fields['f-country'] = countryIso;
     if (cityConfirmed) fields['f-city-ok'] = '1';
     const draftBags: BookingBag[] = []; selectedBags.forEach((title, variantId) => draftBags.push({ variantId, title }));
@@ -798,20 +822,17 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
   // ── Lead capture (best-effort, matches CheckoutPage.astro's pattern) ──
   let leadTimer = 0;
-  function maybeFirePhoneEmailLead() {
+  function maybeFirePhoneLead() {
     const phone = val('f-phone').replace(/\D/g, '');
-    const email = val('f-email');
-    if (phone.length === 10 && /^\S+@\S+\.\S+$/.test(email)) {
+    if (phone.length === 10) {
       clearTimeout(leadTimer);
       leadTimer = window.setTimeout(() => {
-        if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone, email, name: val('f-name') || undefined });
+        if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone, name: val('f-name') || undefined });
       }, 400);
     }
   }
-  ['f-phone', 'f-email'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) { el.addEventListener('input', maybeFirePhoneEmailLead); el.addEventListener('blur', maybeFirePhoneEmailLead); }
-  });
+  const phoneEl = document.getElementById('f-phone');
+  if (phoneEl) { phoneEl.addEventListener('input', maybeFirePhoneLead); phoneEl.addEventListener('blur', maybeFirePhoneLead); }
 
   // ── Draft autosave (debounced, mirrors CheckoutPage.astro) ──
   let saveTimer = 0;
@@ -843,10 +864,10 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
   // ── Submit ──
   function submit() {
-    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''), email = val('f-email'),
+    const name = val('f-name'), phone = val('f-phone').replace(/\D/g, ''),
       addr = val('f-addr'), area = val('f-area'), pin = val('f-pin');
     const city = val('f-city');
-    if (window.mkLead) window.mkLead({ event: 'address', address1: addr, city: city || 'Mumbai', province: 'Maharashtra', pin, name: name || undefined, email: email || undefined });
+    if (window.mkLead) window.mkLead({ event: 'address', address1: addr, city: city || 'Mumbai', province: 'Maharashtra', pin, name: name || undefined });
     nextBtn.disabled = true; nextBtn.textContent = 'Booking…';
     if (window.mkTrack) window.mkTrack('tryhome_submit');
     const bagList: BookingBag[] = []; selectedBags.forEach((title, variantId) => bagList.push({ variantId, title }));
@@ -854,7 +875,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     const fbEventId = 'sch-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     fetch('/api/book-demo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, email, address: addr, area, pin, city, country: countryIso, fbEventId }),
+      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, address: addr, area, pin, city, country: countryIso, fbEventId }),
     }).then((res) => res.json().then((data) => ({ ok: res.ok, data })))
       .then((r) => {
         if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
@@ -918,6 +939,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   window.mkGeo?.then((g) => {
     if (!g?.mumbai || val('f-city')) return;
     cityInput.value = g.city && isMumbaiArea(g.city) ? g.city : 'Mumbai';
+    cityAuto = true;
+    checkCity();
     scheduleSave();
   });
   if (window.mkTrack) window.mkTrack('tryhome_step_' + active);

@@ -22,6 +22,37 @@ export const MUMBAI_LOCALITIES = [
 ];
 const LOCALITY_RE = new RegExp(`\\b(${MUMBAI_LOCALITIES.map((l) => l.toLowerCase()).join('|')})\\b`);
 
+// PIN codes Try at Home visits, as inclusive ranges → the city to fill in. Kept to
+// ranges we're sure of: a PIN that isn't here is never refused, the form just asks
+// whether it's in or near Mumbai, the same as for a city it doesn't know.
+const MUMBAI_AREA_PINS: Array<[number, number, string]> = [
+  [400001, 400104, 'Mumbai'],
+  [400601, 400613, 'Thane'],
+  [400614, 400614, 'Navi Mumbai'], // CBD Belapur
+  [400615, 400615, 'Thane'],
+  [400701, 400710, 'Navi Mumbai'],
+  [410206, 410206, 'Panvel'],
+  [410210, 410210, 'Navi Mumbai'], // Kharghar
+  [401101, 401107, 'Mira-Bhayandar'],
+  [401201, 401209, 'Vasai-Virar'],
+  [401301, 401305, 'Vasai-Virar'],
+  [421001, 421005, 'Ulhasnagar'],
+  [421201, 421204, 'Dombivli'],
+  [421301, 421301, 'Kalyan'],
+  [421304, 421304, 'Kalyan'],
+  [421306, 421306, 'Kalyan'],
+  [421501, 421501, 'Ambernath'],
+  [421503, 421503, 'Badlapur'],
+  [421505, 421505, 'Ambernath'],
+];
+
+// The city a Mumbai-area PIN belongs to, or null for any other PIN (or not a PIN).
+export function cityForPin(pin: string): string | null {
+  if (!/^\d{6}$/.test(pin.trim())) return null;
+  const n = Number(pin.trim());
+  return MUMBAI_AREA_PINS.find(([lo, hi]) => n >= lo && n <= hi)?.[2] ?? null;
+}
+
 export function isMumbaiArea(city: string): boolean {
   const c = city.trim().toLowerCase();
   return c !== '' && (MUMBAI_AREA.some((m) => c.includes(m)) || LOCALITY_RE.test(c));

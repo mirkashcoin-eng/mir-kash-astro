@@ -55,8 +55,11 @@ export const POST: APIRoute = async (ctx) => {
   if (!date || !slot) return json({ error: 'Please choose a date and time for your Try at Home.' }, 400);
   if (bags.length < 1) return json({ error: 'Please select at least one bag.' }, 400);
   if (bags.length > 6) return json({ error: 'You can select up to 6 bags for a Try at Home.' }, 400);
-  if (!name || !email || !phone || !address) return json({ error: 'Please fill in your name, phone, email and address.' }, 400);
+  // Email is no longer asked for (the team follows up by WhatsApp); one sent by an
+  // older cached page is still kept if it looks like an address.
+  if (!name || !phone || !address) return json({ error: 'Please fill in your name, phone and address.' }, 400);
   if (phone.length !== 10) return json({ error: 'Please enter a valid 10-digit phone number.' }, 400);
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return json({ error: 'Please check your email address.' }, 400);
   if (!/^\d{6}$/.test(pin)) return json({ error: 'Please enter a valid 6-digit PIN code.' }, 400);
   // The form switches anyone outside India to Private Viewing before they get here.
   // The city isn't checked against the Mumbai list: the visitor may have typed a
@@ -66,7 +69,7 @@ export const POST: APIRoute = async (ctx) => {
   const fbp = cookies.get('_fbp')?.value;
   const fbc = cookies.get('_fbc')?.value;
   const result = await createDemoBooking({
-    bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin, city,
+    bags, date, slot, name, email: email || undefined, phone: `+91${phone}`, address, area, zip: pin, city,
     meta: { fbp, fbc, eventId: fbEventId },
   });
 
@@ -83,7 +86,7 @@ export const POST: APIRoute = async (ctx) => {
       eventId: fbEventId,
       sourceUrl: `${SITE_ORIGIN}/try-at-home`,
       user: {
-        email,
+        email: email || null,
         phone: `91${phone}`,
         firstName,
         lastName: rest.join(' ') || null,

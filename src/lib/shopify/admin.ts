@@ -636,7 +636,8 @@ export async function createDemoBooking(args: {
   date: string;
   slot: string;
   name: string;
-  email: string;
+  /** Not asked for on the Try at Home form any more; kept for older cached pages. */
+  email?: string;
   phone: string;
   address: string;
   area: string;
@@ -659,10 +660,11 @@ export async function createDemoBooking(args: {
   const note =
     `HOME DEMO — ${args.date}, ${args.slot} · ${city}\n` +
     `Bags: ${bagTitles}\n` +
-    `Contact: ${args.name} · ${args.phone} · ${args.email}`;
+    `Contact: ${[args.name, args.phone, args.email].filter(Boolean).join(' · ')}`;
 
   const input: Record<string, unknown> = {
-    email: args.email,
+    // Shopify rejects an empty email, so leave it off rather than send "".
+    ...(args.email ? { email: args.email } : {}),
     phone: args.phone,
     tags: ['home-demo'],
     note,
