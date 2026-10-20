@@ -3,7 +3,7 @@
 import type { MarketConfig } from '~/types/market';
 import type { ProductDetail } from '~/types/shopify';
 import { CATEGORIES } from '~/lib/categories';
-import { deliveryBy, returnDaysFor, returnOfficeFor, shippingFor, usesInches } from '~/lib/merchant-policy';
+import { deliveryBy, returnDaysFor, shippingFor, usesInches } from '~/lib/merchant-policy';
 
 export type FaqItem = { q: string; a: string };
 
@@ -67,13 +67,11 @@ export function trustLine(market: MarketConfig, opts: { warranty?: boolean } = {
   ];
 }
 
-/** "Order today, arrives by Thu, 9 Oct" + where returns go. */
-export function deliveryLines(market: MarketConfig, now = new Date()): { arrives: string; returns: string } {
+/** "Order today, arrives by Thu, 9 Oct" . */
+export function deliveryLines(market: MarketConfig, now = new Date()): { arrives: string } {
   const s = shippingFor(market.countryCode);
-  const office = returnOfficeFor(market.countryCode);
   return {
     arrives: `Order today, arrives by ${fmtDate(deliveryBy(s, now), market)}`,
-    returns: `Returns go to our ${office.city} office`,
   };
 }
 

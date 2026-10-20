@@ -1,0 +1,21 @@
+---
+// Row of circular feature marks under the colour picker. The artwork (ring, curved label, icon)
+// lives in public/icons; the 2-year warranty mark there is deliberately left out.
+const items = [
+  { label: 'Vegan Leather', src: '/icons/vegan-leather.png' },
+  { label: 'Scratch Resistant', src: '/icons/scratch-resistant.png' },
+  { label: 'Easy to Clean', src: '/icons/easy-to-clean.png' },
+  { label: 'Fits Phone', src: '/icons/fits-phone.png' },
+];
+---
+<ul class="pbadges" aria-label="Product features">
+  {items.map((it) => (
+    <li class="pbadge"><img src={it.src} alt={it.label} width="60" height="60" loading="lazy" decoding="async" /></li>
+  ))}
+</ul>
+
+<style>
+  .pbadges { display: flex; justify-content: space-between; gap: 8px; list-style: none; margin: 16px 0 18px; padding: 0; }
+  .pbadge { flex: 1; display: flex; justify-content: center; }
+  .pbadge img { width: 100%; max-width: 60px; height: auto; display: block; }
+</style>

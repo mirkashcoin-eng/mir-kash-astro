@@ -1,5 +1,6 @@
 ---
 import LeafIcon from './LeafIcon.astro';
+import ProductBadges from './ProductBadges.astro';
 import SiteFooter from './SiteFooter.astro';
 import CountrySelector from './CountrySelector.astro';
 import ViewingPrompt from './ViewingPrompt.astro';
@@ -392,6 +393,8 @@ const faq = faqFor(product, marketConfig);
         )
       ))}
 
+      <ProductBadges />
+
       <div class="cta-row">
         <button class="btn-atc btn-buy" id="buyNowBtn">Buy Now</button>
         <div class="btn-atc-wrap">
@@ -401,7 +404,7 @@ const faq = faqFor(product, marketConfig);
 
       <div class="trust-block">
         <p class="trust">{trust.map((x) => <span class="trust__item">{x}</span>)}</p>
-        <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span> · {delivery.returns}</p>
+        <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span></p>
       </div>
 
       <div>
@@ -471,9 +474,11 @@ const faq = faqFor(product, marketConfig);
       )
     ))}
 
+    <ProductBadges />
+
     <div class="trust-block">
       <p class="trust">{trust.map((x) => <span class="trust__item">{x}</span>)}</p>
-      <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span> · {delivery.returns}</p>
+      <p class="trust-sub"><span class="js-arrives" data-maxdays={maxDays} data-locale={marketConfig.locale}>{delivery.arrives}</span></p>
     </div>
 
     <div class="mob-acc">
