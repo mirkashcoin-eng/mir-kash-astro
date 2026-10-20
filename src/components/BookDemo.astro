@@ -5,27 +5,90 @@ import ReceiptPrinter from './ReceiptPrinter.astro';
 import { getAllProducts } from '~/lib/shopify/queries';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { flagEmoji } from '~/lib/countries';
+import { parseBags } from '~/lib/cart-exit';
 import '~/styles/booking-wizard.css';
 
 const products = await getAllProducts('india', 'IN', 48);
-const bags = products
-  .map((p) => ({
-    variantId: p.variants.edges[0]?.node.id ?? '',
-    handle: p.handle,
-    title: p.title,
-    image: shopifyImage(p.featuredImage?.url, 500),
-    images: (p.images?.edges ?? []).map((e) => shopifyImage(e.node.url, 900)),
-    // Shopify's plain `description` strips the tags without inserting any
-    // separator, which runs the spec lines together ("…cruelty-free)Exterior:").
-    // descriptionHtml keeps the paragraph and list structure.
-    description: (p.descriptionHtml || p.description || '').trim(),
-  }))
-  .filter((b) => b.variantId);
+
+// One card per colour, split the same way as Shop All (ShopAll.astro): only the
+// consolidated listings, which carry custom.size_order and colour-tagged photo alt
+// text ("… in Nude, view 2"), are split. Sold-out colours are left out, since we
+// can't bring a piece we don't have.
+type Bag = {
+  variantId: string; handle: string; title: string; colour: string; label: string;
+  image: string | null; images: string[]; description: string; size: number; order: number;
+};
+const bags: Bag[] = [];
+products.forEach((p, pi) => {
+  const imgs = (p.images?.edges ?? []).map((e) => e.node);
+  const size = Number(p.sizeOrder?.value) || 99;
+  // Shopify's plain `description` strips the tags without inserting any
+  // separator, which runs the spec lines together ("…cruelty-free)Exterior:").
+  // descriptionHtml keeps the paragraph and list structure.
+  const description = (p.descriptionHtml || p.description || '').trim();
+  const variants = (p.variants?.edges ?? []).map((e) => e.node);
+  const colourVariants = variants
+    .map((v) => ({ v, colour: v.selectedOptions.find((o) => /colou?r/i.test(o.name))?.value ?? '' }))
+    .filter((x) => x.colour);
+  if (p.sizeOrder?.value && colourVariants.length > 1) {
+    colourVariants.forEach(({ v, colour }, vi) => {
+      if (!v.availableForSale) return;
+      const tag = ` in ${colour.toLowerCase()}`;
+      const own = imgs.filter((i) => { const a = (i.altText ?? '').toLowerCase(); return a.endsWith(tag) || a.includes(tag + ','); });
+      const primary = v.image ?? own[0] ?? p.featuredImage;
+      const gallery = own.length ? own : (primary ? [primary] : []);
+      bags.push({
+        variantId: v.id, handle: p.handle, title: p.title, colour, label: `${p.title} (${colour})`,
+        image: primary ? shopifyImage(primary.url, 500) : null,
+        images: gallery.map((i) => shopifyImage(i.url, 900)),
+        description, size, order: pi * 100 + vi,
+      });
+    });
+  } else {
+    const v = variants.find((x) => x.availableForSale);
+    if (!v) return;
+    bags.push({
+      variantId: v.id, handle: p.handle, title: p.title, colour: '', label: p.title,
+      image: shopifyImage(p.featuredImage?.url, 500),
+      images: imgs.map((i) => shopifyImage(i.url, 900)),
+      description, size, order: pi * 100,
+    });
+  }
+});
+// Smallest first, as Shop All opens.
+bags.sort((a, b) => a.size - b.size || a.order - b.order);
+
+// ── Preselect from ?bag=<handle>[&color=<colour>] (ads, product-page prompt) or
+// ?bags=a,b,c (cart "Before you go") ──
+// Decided here rather than in the browser so the chosen piece is already first in
+// the grid when the page paints. ?color picks the colour of the ?bag piece; without
+// it, or when that colour is sold out, the first colour still available is used.
+const q = Astro.url.searchParams;
+const bagParam = (q.get('bag') ?? '').trim().toLowerCase();
+const wantColour = (q.get('color') ?? q.get('colour') ?? '').trim().toLowerCase();
+const preselected: Bag[] = [];
+for (const handle of parseBags(q.get('bags'), q.get('bag'))) {
+  const options = bags.filter((b) => b.handle === handle);
+  const pick = (handle === bagParam && wantColour && options.find((b) => b.colour.toLowerCase() === wantColour)) || options[0];
+  if (pick && !preselected.includes(pick) && preselected.length < 6) preselected.push(pick);
+}
+const gridBags = [...preselected, ...bags.filter((b) => !preselected.includes(b))];
+const preselectIds = new Set(preselected.map((b) => b.variantId));
+
+const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five'];
+const selectionLine = preselected.length
+  ? 'Your selection: ' +
+    preselected.map((b) => `the ${b.title}${b.colour ? ` in ${b.colour}` : ''}`)
+      .join(', ').replace(/, ([^,]*)$/, ' and $1') +
+    '.' + (preselected.length < 6 ? ` You may add up to ${NUMBER_WORDS[6 - preselected.length]} more.` : '')
+  : '';
 
 // Detail data for the quick-view modal, keyed by variant id.
 const bagData = Object.fromEntries(
   bags.map((b) => [b.variantId, {
     title: b.title,
+    colour: b.colour,
+    label: b.label,
     description: b.description,
     images: (b.images.length ? b.images : (b.image ? [b.image] : [])),
     handle: b.handle,
@@ -48,45 +111,43 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 <main class="bd">
   <div class="bw-shell" id="bwShell">
     <div class="bw-progress">
-      <span class="bw-progress__seg" data-step="cover"></span>
       <span class="bw-progress__seg" data-step="bags"></span>
       <span class="bw-progress__seg" data-step="datetime"></span>
       <span class="bw-progress__seg" data-step="details"></span>
     </div>
 
-    <!-- ══ COVER ══ -->
-    <section class="bw-step bw-cover" data-step="cover">
-      <div class="bw-cover__media"><img src="/ed-tophandle.jpeg" alt="A Mir Kash top-handle bag, held" loading="eager" fetchpriority="high" /></div>
-      <div class="bw-cover__body">
-        <div class="bw-cover__intro">
-          <p class="bw-cover__eyebrow">Mumbai &middot; Private Try at Home</p>
-          <h1 class="bw-cover__h">Try at home. Fall in love. No pressure.</h1>
-          <p class="bw-cover__sub">Book a personal visit &mdash; we bring up to six bags for you to try in your own space and your own light. Buy only if something is truly yours.</p>
-        </div>
-        <ol class="bw-cover__steps">
-          <li><span class="bw-cover__n">1</span>Choose up to six bags</li>
-          <li><span class="bw-cover__n">2</span>Pick a day &amp; time</li>
-          <li><span class="bw-cover__n">3</span>We bring them to you</li>
-        </ol>
-        <p class="bw-cover__meta">Complimentary<i></i>15&ndash;30 minutes<i></i>No obligation to buy</p>
-        <button class="bw-cover__cta" type="button" id="bwCoverCta">Book your visit <span class="ar">&rarr;</span></button>
-      </div>
-    </section>
-
-    <!-- ══ BAGS ══ -->
+    <!-- ══ BAGS (the first screen: the invitation, then every piece) ══ -->
     <section class="bw-step" data-step="bags">
-      <div class="bd-stepwrap">
-        <div class="bd-sec__head"><h2 class="bd-sec__t">Choose your bags</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
-        <p class="bd-choose-hint">Tap a bag to see it up close, or hit <strong>Select</strong> to add it straight to your visit.</p>
-        <p class="bd-maxmsg" id="maxMsg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
+      <div class="bd-stepwrap bd-stepwrap--pick">
+        <header class="bd-intro">
+          <!-- Crops of public/DSC03100.avif: a 6:5 band on phones (eyes to bag), 4:5 beside the words on wider screens. -->
+          <picture class="bd-intro__media">
+            <source media="(max-width: 620px)" type="image/avif" sizes="100vw" srcset="/try-at-home-banner-phone-780.avif 780w, /try-at-home-banner-phone-1170.avif 1170w" />
+            <source media="(max-width: 620px)" type="image/webp" sizes="100vw" srcset="/try-at-home-banner-phone-780.webp 780w, /try-at-home-banner-phone-1170.webp 1170w" />
+            <source type="image/avif" sizes="380px" srcset="/try-at-home-banner-desk-600.avif 600w, /try-at-home-banner-desk-900.avif 900w" />
+            <source type="image/webp" sizes="380px" srcset="/try-at-home-banner-desk-600.webp 600w, /try-at-home-banner-desk-900.webp 900w" />
+            <img src="/try-at-home-banner-desk-900.webp" alt="A Mir Kash mini bag, held by its twisted handle" width="900" height="1125" loading="eager" fetchpriority="high" decoding="async" />
+          </picture>
+          <div class="bd-intro__text">
+            <p class="bd-intro__eyebrow">Try at Home &middot; By private appointment</p>
+            <h1 class="bd-intro__h">Up to six pieces of your choosing, at home.</h1>
+            <p class="bd-intro__sub">A private appointment in your own space and your own light. Complimentary, and without obligation.</p>
+            <p class="bd-intro__meta"><span>Mumbai, Thane and Navi Mumbai</span><i></i><span>Morning, afternoon or evening</span></p>
+          </div>
+        </header>
+        {selectionLine && <p class="bd-intro__sel">{selectionLine}</p>}
+        <div class="bd-sec__head"><h2 class="bd-sec__t">Choose your pieces</h2><span class="bd-count"><span id="bagCount">0</span> / 6</span></div>
+        <p class="bd-choose-hint">Tap a piece to see it up close, or <strong>Select</strong> to add it to your appointment.</p>
+        <p class="bd-maxmsg" id="maxMsg" hidden>You have selected six pieces. Remove one to add another.</p>
         <div class="bd-grid">
-          {bags.map((b) => (
-            <div class="bd-bag" data-vid={b.variantId} data-handle={b.handle}>
-              <button class="bd-bag__view" type="button" data-open={b.variantId} aria-label={`View ${b.title}`}>
-                <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.title} loading="lazy" />}</span>
+          {gridBags.map((b, i) => (
+            <div class="bd-bag" data-vid={b.variantId} data-handle={b.handle} data-preselect={preselectIds.has(b.variantId) ? '' : undefined}>
+              <button class="bd-bag__view" type="button" data-open={b.variantId} aria-label={`View ${b.label}`}>
+                <span class="bd-bag__img">{b.image && <img src={b.image} alt={b.colour ? `${b.title} in ${b.colour}` : b.title} width="500" height="625" loading={i < 4 ? 'eager' : 'lazy'} />}</span>
                 <span class="bd-bag__name">{b.title}</span>
+                {b.colour && <span class="bd-bag__colour">{b.colour}</span>}
               </button>
-              <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.title}`}>
+              <button class="bd-bag__add" type="button" data-add={b.variantId} aria-pressed="false" aria-label={`Select ${b.label}`}>
                 <span class="add">Select</span>
                 <span class="added"><span aria-hidden="true">&check;</span> Selected</span>
               </button>
@@ -149,6 +210,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
     <div class="bw-stepbar">
       <button class="bw-stepbar__back" id="bwBack" hidden>Back</button>
+      <p class="bw-stepbar__count" id="bwCount"><b id="barCount">0</b> of 6 selected</p>
       <p class="bw-stepbar__err" id="bwErr" hidden></p>
       <button class="bw-stepbar__next" id="bwNext" type="button">Continue</button>
     </div>
@@ -181,6 +243,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
         </div>
         <div class="bd-modal__info">
           <h3 class="bd-display" id="mv-title"></h3>
+          <p class="bd-modal__colour" id="mv-colour" hidden></p>
           <div class="bd-modal__desc" id="mv-desc"></div>
           <button class="bd-cta bd-modal__add" type="button" id="mv-add"></button>
           <p class="bd-modal__msg" id="mv-msg" hidden>You’ve already selected 6 bags — remove one to add another.</p>
@@ -228,6 +291,30 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-hint { font-size: 13px; color: var(--faint); margin: 0 0 20px; }
   .bd-choose-hint { font-size: 13px; color: var(--mid); margin: 0 0 18px; }
   .bd-choose-hint strong { color: var(--depth); font-weight: 500; }
+
+  /* The invitation, set above the grid on the first screen (there is no cover). */
+  .bd-stepwrap--pick { max-width: 1100px; padding-top: clamp(24px,3vw,40px); }
+  .bd-intro { display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 34vw, 380px); align-items: center; gap: clamp(28px, 4vw, 56px); margin: 0 0 28px; }
+  .bd-intro__media { grid-column: 2; grid-row: 1; display: block; aspect-ratio: 4 / 5; overflow: hidden; background: #4f5236; }
+  .bd-intro__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .bd-intro__text { grid-column: 1; grid-row: 1; }
+  .bd-intro__eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--cherry); margin: 0 0 12px; }
+  .bd-intro__h { font-family: var(--serif-display); font-weight: 300; letter-spacing: 0; font-size: clamp(30px, 3.4vw, 42px); line-height: 1.08; color: var(--depth); margin: 0; }
+  .bd-intro__sub { font-size: 15px; line-height: 1.6; color: var(--mid); margin: 12px 0 0; max-width: 48ch; }
+  .bd-intro__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 14px 0 0; font-size: 12px; letter-spacing: .04em; color: var(--mid); }
+  .bd-intro__meta i { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
+  /* Narrow text column: stack the two phrases rather than strand the dot. */
+  @media (max-width: 900px) {
+    .bd-intro__meta { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .bd-intro__meta i { display: none; }
+  }
+  .bd-intro__sel { margin: 0 0 22px; padding: 12px 16px; background: var(--cream); border: 1px solid var(--rule); font-size: 14px; line-height: 1.5; color: var(--depth); }
+
+  /* "2 of 6 selected" sits where Back would be, on the bag step only. */
+  .bw-stepbar__count { display: none; margin: 0; font-size: 13px; color: var(--mid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bw-stepbar__count b { color: var(--depth); font-weight: 500; }
+  .bw-shell[data-step="bags"] .bw-stepbar__back { display: none; }
+  .bw-shell[data-step="bags"] .bw-stepbar__count { display: block; }
   .bd-maxmsg { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 300; margin: 0; background: var(--depth); color: #fff; font-size: 13.5px; letter-spacing: .01em; padding: 14px 24px; border-radius: 3px; box-shadow: 0 12px 34px rgba(0,0,0,.28); max-width: calc(100vw - 32px); text-align: center; animation: bd-toast-in .25s ease; }
   @keyframes bd-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
@@ -264,7 +351,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-bag__img img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
   .bd-bag:hover .bd-bag__img img { transform: scale(1.045); }
   .bd-bag__name { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--depth); margin: 10px 10px 0; }
-  .bd-bag__add { width: 100%; min-height: 42px; border: none; border-top: 1px solid var(--rule); background: #fff; color: var(--depth); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; line-height: 1; padding: 0 10px; transition: background .2s, color .2s; }
+  .bd-bag__colour { display: block; font-size: 12px; color: var(--mid); margin: 3px 10px 0; }
+  .bd-bag__add { width: 100%; min-height: 44px; border: none; border-top: 1px solid var(--rule); background: #fff; color: var(--depth); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; line-height: 1; padding: 0 10px; transition: background .2s, color .2s; }
   .bd-bag__add:hover { background: #f6f3ee; }
   .bd-bag__add .added { display: none; }
   .bd-bag.sel .bd-bag__add { background: var(--depth); border-top-color: var(--depth); color: #fff; }
@@ -306,6 +394,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-modal__thumbs img.on { border-color: var(--depth); }
   .bd-modal__info { padding: clamp(28px,4vw,48px); display: flex; flex-direction: column; }
   .bd-modal__info h3 { font-size: clamp(26px,3vw,38px); color: var(--depth); margin: 0 0 22px; }
+  .bd-modal__info h3:has(+ .bd-modal__colour:not([hidden])) { margin-bottom: 6px; }
+  .bd-modal__colour { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--mid); margin: 0 0 22px; }
   .bd-modal__desc { font-size: 14px; line-height: 1.75; color: var(--mid); margin: 0 0 28px; }
   .bd-modal__desc > :first-child { margin-top: 0; }
   .bd-modal__desc > :last-child { margin-bottom: 0; }
@@ -334,10 +424,24 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
   @media (max-width: 720px) { .bd-modal__grid { grid-template-columns: 1fr; } .bd-modal__main { aspect-ratio: 16/12; } }
   /* Phone: every step but the bag grid fits one screen (see booking-wizard.css
-     for the shell). The sticky Continue bar is the cover's call to action. */
+     for the shell). The sticky Continue bar stays in reach under the grid. */
   @media (max-width: 620px) {
 
     .bd-stepwrap { padding: 20px 20px 16px; }
+    /* Kept short so the first row of pieces shows above the Continue bar. */
+    .bd-stepwrap--pick { padding-top: 0; }
+    /* Full-bleed band under the progress lines; the words follow beneath it. */
+    .bd-intro { display: block; margin-bottom: 16px; }
+    .bd-intro__media { aspect-ratio: 6 / 5; margin: 10px -20px 16px; }
+    .bd-intro__eyebrow { font-size: 10px; letter-spacing: .16em; margin-bottom: 8px; }
+    .bd-intro__h { font-size: 24px; }
+    .bd-intro__sub { font-size: 14px; line-height: 1.5; margin-top: 6px; }
+    .bd-intro__meta { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 11.5px; margin-top: 8px; }
+    .bd-intro__meta i { display: none; }
+    .bd-intro__sel { margin-bottom: 14px; padding: 9px 12px; font-size: 13px; }
+    .bd-stepwrap--pick .bd-sec__head { margin-bottom: 12px; }
+    .bd-stepwrap--pick .bd-sec__t { font-size: 18px; }
+    .bd-stepwrap--pick .bd-choose-hint { display: none; }
     .bd-sec__head { margin-bottom: 14px; }
     .bd-choose-hint { margin-bottom: 14px; }
     .bd-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -378,20 +482,19 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
 <script>
   import {
-    WIZARD_STEPS, stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
+    TRY_AT_HOME_STEPS as STEPS, stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
     type WizardStep, type GateContext,
   } from '~/lib/booking-wizard';
   import { saveDraft, loadDraft, clearDraft, DRAFT_KEY_TRY_AT_HOME, DRAFT_KEY_PRIVATE_VIEWING, type BookingDraft, type BookingBag } from '~/lib/booking-draft';
   import { COUNTRIES, flagEmoji, findCountry } from '~/lib/countries';
   import { isMumbaiArea } from '~/lib/cities';
   import { makeCombobox, type ComboOption } from '~/lib/combobox';
-  import { parseBags } from '~/lib/cart-exit';
 
-  interface BagInfo { title: string; description: string; images: string[]; handle: string }
+  interface BagInfo { title: string; colour: string; label: string; description: string; images: string[]; handle: string }
   let BAGS: Record<string, BagInfo> = {};
   try { BAGS = JSON.parse(document.getElementById('bagData')!.textContent || '{}'); } catch { /* malformed/missing — grid still works, modal just won't */ }
 
-  let active: WizardStep = 'cover';
+  let active: WizardStep = STEPS[0];
   let selectedISO = '', selectedLabel = '', selectedSlot = '';
   const selectedBags = new Map<string, string>(); // variantId -> title
   let modalVid = '';
@@ -444,7 +547,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     if (selectedBags.has(vid)) { selectedBags.delete(vid); if (tile) tile.classList.remove('sel'); }
     else {
       if (selectedBags.size >= 6) { showMax(); return false; }
-      selectedBags.set(vid, BAGS[vid]?.title || 'Bag'); if (tile) tile.classList.add('sel');
+      selectedBags.set(vid, BAGS[vid]?.label || 'Bag'); if (tile) tile.classList.add('sel');
     }
     // The card button carries a visible label now, so its pressed state has to
     // be exposed too — the label alone reads the same either way to a screen reader.
@@ -453,21 +556,20 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
       if (addBtn) addBtn.setAttribute('aria-pressed', selectedBags.has(vid) ? 'true' : 'false');
     }
     $('bagCount').textContent = String(selectedBags.size);
+    $('barCount').textContent = String(selectedBags.size);
     return true;
   }
   document.querySelectorAll<HTMLButtonElement>('.bd-bag__add').forEach((btn) => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); toggleBag(btn.dataset.add!); });
   });
 
-  // ── Preselect from ?bag=<handle> (product-page prompt) or ?bags=a,b,c (cart "Before you go") ──
+  // ── Preselect from ?bag / ?color / ?bags: the server picked the colours and put
+  // them first in the grid (see the frontmatter); this only selects them. ──
   function preselectFromQuery() {
-    const q = new URLSearchParams(location.search);
-    for (const wantBag of parseBags(q.get('bags'), q.get('bag'))) {
-      if (selectedBags.size >= 6) break; // page limit — don't trip the "already 6" toast
-      const esc = (window.CSS && CSS.escape) ? CSS.escape(wantBag) : wantBag.replace(/["\\]/g, '\\$&');
-      const wantTile = document.querySelector<HTMLElement>(`.bd-bag[data-handle="${esc}"]`);
-      if (wantTile && !selectedBags.has(wantTile.dataset.vid!)) toggleBag(wantTile.dataset.vid!);
-    }
+    document.querySelectorAll<HTMLElement>('.bd-bag[data-preselect]').forEach((tile) => {
+      if (selectedBags.size >= 6) return; // page limit — don't trip the "already 6" toast
+      if (!selectedBags.has(tile.dataset.vid!)) toggleBag(tile.dataset.vid!);
+    });
   }
 
   // ── Quick-view modal ──
@@ -476,11 +578,12 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     const b = BAGS[vid]; if (!b) return;
     modalVid = vid;
     $('mv-title').textContent = b.title;
+    $('mv-colour').textContent = b.colour; $('mv-colour').hidden = !b.colour;
     // Shop-authored HTML from Shopify, same trust level as the PDP's set:html.
     $('mv-desc').innerHTML = b.description || 'A Mir Kash piece — crafted slowly from plant-based vegan leather.';
-    ($('mv-full') as HTMLAnchorElement).href = '/products/' + b.handle;
+    ($('mv-full') as HTMLAnchorElement).href = '/products/' + b.handle + (b.colour ? '?color=' + encodeURIComponent(b.colour) : '');
     const imgs = (b.images && b.images.length) ? b.images : [''];
-    ($('mv-img') as HTMLImageElement).src = imgs[0]; ($('mv-img') as HTMLImageElement).alt = b.title;
+    ($('mv-img') as HTMLImageElement).src = imgs[0]; ($('mv-img') as HTMLImageElement).alt = b.label;
     const tw = $('mv-thumbs'); tw.innerHTML = '';
     if (imgs.length > 1) {
       imgs.forEach((src, idx) => {
@@ -501,7 +604,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function syncModalBtn() {
     const added = selectedBags.has(modalVid);
     const btn = $('mv-add') as HTMLButtonElement;
-    btn.textContent = added ? 'Remove from selection' : 'Select this bag';
+    btn.textContent = added ? 'Remove from selection' : 'Select this piece';
     btn.style.background = added ? '#8B1A1A' : '';
   }
   function closeModal() { modal.hidden = true; document.body.style.overflow = ''; modalVid = ''; }
@@ -608,20 +711,20 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   }
 
   function render() {
-    WIZARD_STEPS.forEach((s) => {
+    STEPS.forEach((s) => {
       const el = document.querySelector(`.bw-step[data-step="${s}"]`);
       if (!el) return;
       if (s === active) el.setAttribute('data-active', ''); else el.removeAttribute('data-active');
     });
     document.querySelectorAll<HTMLElement>('.bw-progress__seg').forEach((seg) => {
       const s = seg.dataset.step as WizardStep;
-      const idx = stepIndex(s), curIdx = stepIndex(active);
+      const idx = stepIndex(s, STEPS), curIdx = stepIndex(active, STEPS);
       seg.dataset.state = idx < curIdx ? 'done' : idx === curIdx ? 'active' : 'todo';
     });
     shell.dataset.step = active;
-    backBtn.hidden = active === 'cover';
+    backBtn.hidden = active === STEPS[0];
     nextBtn.disabled = false;
-    nextBtn.textContent = active === 'details' ? 'Confirm Try at Home' : active === 'cover' ? 'Book your visit →' : 'Continue';
+    nextBtn.textContent = active === 'details' ? 'Confirm Try at Home' : 'Continue';
     if (active === 'details') updateDetailsRecap();
   }
 
@@ -649,7 +752,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
       const sbtn = Array.from(document.querySelectorAll<HTMLButtonElement>('.bd-slot')).find((b) => b.dataset.slot === draft.slot);
       if (sbtn) sbtn.click();
     }
-    draft.bags.forEach((b) => { if (b.variantId && !selectedBags.has(b.variantId)) toggleBag(b.variantId); });
+    // Only pieces still on offer: a colour that has sold out since has no card.
+    draft.bags.forEach((b) => { if (b.variantId && BAGS[b.variantId] && !selectedBags.has(b.variantId)) toggleBag(b.variantId); });
     Object.entries(draft.fields).forEach(([id, v]) => {
       if (id === 'f-country' || id === 'f-city') return;
       const el = document.getElementById(id) as HTMLInputElement | null;
@@ -676,7 +780,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
       bookingDate: selectedISO || undefined, bookingSlot: selectedSlot || undefined, bookingBagsCount: selectedBags.size,
     });
     if (leavingStep === 'details') { submit(); return; }
-    active = nextStep(active);
+    active = nextStep(active, STEPS);
     render();
     window.scrollTo(0, 0);
     saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft());
@@ -684,14 +788,13 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   }
   function goBack() {
     errEl.hidden = true;
-    active = prevStep(active);
+    active = prevStep(active, STEPS);
     render();
     window.scrollTo(0, 0);
     if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
   }
   backBtn.addEventListener('click', goBack);
   nextBtn.addEventListener('click', goNext);
-  $('bwCoverCta')?.addEventListener('click', goNext);
 
   // ── Lead capture (best-effort, matches CheckoutPage.astro's pattern) ──
   let leadTimer = 0;
@@ -807,7 +910,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   const draft = loadDraft(DRAFT_KEY_TRY_AT_HOME);
   if (draft) restoreDraft(draft);
   preselectFromQuery();
-  active = draft ? resolveInitialStep(buildCtx()) : 'cover';
+  active = draft ? resolveInitialStep(buildCtx(), STEPS) : STEPS[0];
   maybeShowSwitchBanner();
   render();
   measureTop();

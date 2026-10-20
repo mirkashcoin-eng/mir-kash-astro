@@ -11,18 +11,24 @@
 export const WIZARD_STEPS = ['cover', 'bags', 'datetime', 'details'] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
-export function stepIndex(step: WizardStep): number {
-  return WIZARD_STEPS.indexOf(step);
+// Try at Home has no separate cover: the visitor (nearly always arriving from an
+// ad, on a phone) lands straight on the pieces, with the invitation set above
+// the grid. Private Viewing keeps the full four steps.
+export const TRY_AT_HOME_STEPS: readonly WizardStep[] = ['bags', 'datetime', 'details'];
+
+// Every helper takes the flow's step list; it defaults to the four-step flow.
+export function stepIndex(step: WizardStep, steps: readonly WizardStep[] = WIZARD_STEPS): number {
+  return steps.indexOf(step);
 }
 
-export function nextStep(step: WizardStep): WizardStep {
-  const i = stepIndex(step);
-  return WIZARD_STEPS[Math.min(i + 1, WIZARD_STEPS.length - 1)];
+export function nextStep(step: WizardStep, steps: readonly WizardStep[] = WIZARD_STEPS): WizardStep {
+  const i = stepIndex(step, steps);
+  return steps[Math.min(i + 1, steps.length - 1)];
 }
 
-export function prevStep(step: WizardStep): WizardStep {
-  const i = stepIndex(step);
-  return WIZARD_STEPS[Math.max(i - 1, 0)];
+export function prevStep(step: WizardStep, steps: readonly WizardStep[] = WIZARD_STEPS): WizardStep {
+  const i = stepIndex(step, steps);
+  return steps[Math.max(i - 1, 0)];
 }
 
 export interface GateContext {
@@ -61,12 +67,12 @@ export function canAdvance(step: WizardStep, ctx: GateContext): GateResult {
 // Deliberately never resolves to `cover` even with an otherwise-empty draft — the
 // caller only invokes this when a real draft exists, and should keep cover as the
 // explicit starting point for a draft-free visit instead.
-export function resolveInitialStep(ctx: GateContext): WizardStep {
-  for (const step of WIZARD_STEPS) {
+export function resolveInitialStep(ctx: GateContext, steps: readonly WizardStep[] = WIZARD_STEPS): WizardStep {
+  for (const step of steps) {
     if (step === 'cover') continue;
     if (!canAdvance(step, ctx).ok) return step;
   }
   // Every gate passed — land on the last step, not past it (mirrors Checkout: "a
   // complete draft opens at payment, not step 1" — payment is its last step too).
-  return WIZARD_STEPS[WIZARD_STEPS.length - 1];
+  return steps[steps.length - 1];
 }
