@@ -457,8 +457,10 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     .bd-fields { gap: 8px; }
     .bd-field { grid-column: 1 / -1; gap: 0; padding: 7px 12px 0; border: 1px solid var(--rule); background: #fff; }
     .bd-field--half { grid-column: auto; }
-    .bd-fields__auto { gap: 8px; }
+    /* City gets the full row (Mira-Bhayandar), State and Country share the next. */
+    .bd-fields__auto { grid-template-columns: 1fr 1fr; gap: 8px; }
     .bd-fields__auto .bd-field { grid-column: auto; }
+    .bd-fields__auto .bd-field:first-child { grid-column: 1 / -1; }
     .bd-field:focus-within { border-color: var(--depth); }
     .bd-field > span:first-child { font-size: 9.5px; color: var(--mid); }
     .bd-field { position: relative; }
@@ -486,6 +488,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   import { COUNTRIES, flagEmoji, findCountry } from '~/lib/countries';
   import { isMumbaiArea, cityForPin } from '~/lib/cities';
   import { makeCombobox, type ComboOption } from '~/lib/combobox';
+  import { isAdVisit, freshRecord, claimStep, type FunnelRecord } from '~/lib/try-at-home-funnel';
 
   interface BagInfo { title: string; colour: string; label: string; description: string; images: string[]; handle: string }
   let BAGS: Record<string, BagInfo> = {};
@@ -696,7 +699,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function applyPin(pin: string) {
     const city = cityForPin(pin);
     if (city) {
-      if (!val('f-city') || cityAuto) { cityInput.value = city; cityAuto = true; cityConfirmed = false; }
+      // Keep a Mumbai-area city they typed themselves ("Andheri"); replace anything else.
+      if (!val('f-city') || cityAuto || !isMumbaiArea(val('f-city'))) { cityInput.value = city; cityAuto = true; cityConfirmed = false; }
       countryIso = 'IN';
       countryCombo.set(countryOpts.find((o) => o.value === 'IN') ?? null);
     } else if (cityAuto) {
@@ -802,20 +806,20 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     if (window.mkLead) window.mkLead({
       event: 'booking_step', bookingFlow: 'try_at_home', bookingStep: leavingStep,
       bookingDate: selectedISO || undefined, bookingSlot: selectedSlot || undefined, bookingBagsCount: selectedBags.size,
+      bookingBags: Array.from(selectedBags.values()),
     });
     if (leavingStep === 'details') { submit(); return; }
     active = nextStep(active, STEPS);
     render();
     window.scrollTo(0, 0);
     saveDraft(DRAFT_KEY_TRY_AT_HOME, currentDraft());
-    if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
+    countStep('th_' + active);
   }
   function goBack() {
     errEl.hidden = true;
     active = prevStep(active, STEPS);
     render();
     window.scrollTo(0, 0);
-    if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
   }
   backBtn.addEventListener('click', goBack);
   nextBtn.addEventListener('click', goNext);
@@ -825,6 +829,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function maybeFirePhoneLead() {
     const phone = val('f-phone').replace(/\D/g, '');
     if (phone.length === 10) {
+      countStep('th_phone');
       clearTimeout(leadTimer);
       leadTimer = window.setTimeout(() => {
         if (window.mkLead) window.mkLead({ event: 'phone', phone: '+91' + phone, name: val('f-name') || undefined });
@@ -833,6 +838,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   }
   const phoneEl = document.getElementById('f-phone');
   if (phoneEl) { phoneEl.addEventListener('input', maybeFirePhoneLead); phoneEl.addEventListener('blur', maybeFirePhoneLead); }
+  // A name typed after the number is added to the same saved lead.
+  document.getElementById('f-name')?.addEventListener('blur', maybeFirePhoneLead);
 
   // ── Draft autosave (debounced, mirrors CheckoutPage.astro) ──
   let saveTimer = 0;
@@ -869,7 +876,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     const city = val('f-city');
     if (window.mkLead) window.mkLead({ event: 'address', address1: addr, city: city || 'Mumbai', province: 'Maharashtra', pin, name: name || undefined });
     nextBtn.disabled = true; nextBtn.textContent = 'Booking…';
-    if (window.mkTrack) window.mkTrack('tryhome_submit');
+    countStep('th_submit');
     const bagList: BookingBag[] = []; selectedBags.forEach((title, variantId) => bagList.push({ variantId, title }));
     // Shared with the server-side Schedule event in /api/book-demo so Meta dedupes the two.
     const fbEventId = 'sch-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -879,7 +886,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     }).then((res) => res.json().then((data) => ({ ok: res.ok, data })))
       .then((r) => {
         if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
-        if (window.mkTrack) window.mkTrack('tryhome_booked');
+        countStep('th_booked');
         // Meta: the Try at Home campaign optimises for this. Fired only after the booking
         // exists, never on submit, so failed or rejected bookings don't count.
         try {
@@ -926,8 +933,21 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── Step counts for /admin ──
+  // Anonymous: each step is sent at most once per browser per day (IST), marked as
+  // Meta ad traffic when the day's visit came from an ad. See src/lib/try-at-home-funnel.ts.
+  const FUNNEL_KEY = 'mk_th';
+  const funnelDay = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  let funnel: FunnelRecord = freshRecord(null, funnelDay, isAdVisit(location.search));
+  try { funnel = freshRecord(JSON.parse(localStorage.getItem(FUNNEL_KEY) || 'null'), funnelDay, isAdVisit(location.search)); } catch { /* storage unavailable or corrupt — count from this page only */ }
+  function countStep(step: string) {
+    if (!claimStep(funnel, step)) return;
+    try { localStorage.setItem(FUNNEL_KEY, JSON.stringify(funnel)); } catch { /* storage unavailable */ }
+    if (window.mkTrack) window.mkTrack(step, funnel.ad ? { src: 'ad' } : undefined);
+  }
+
   // ── Boot ──
-  if (window.mkTrack) window.mkTrack('tryhome_start');
+  countStep('th_view');
   const draft = loadDraft(DRAFT_KEY_TRY_AT_HOME);
   if (draft) restoreDraft(draft);
   preselectFromQuery();
@@ -943,5 +963,6 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     checkCity();
     scheduleSave();
   });
-  if (window.mkTrack) window.mkTrack('tryhome_step_' + active);
+  // A resumed booking can open past the first step; that counts as reaching it.
+  if (active !== STEPS[0]) countStep('th_' + active);
 </script>

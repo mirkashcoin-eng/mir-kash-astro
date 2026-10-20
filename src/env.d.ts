@@ -17,7 +17,7 @@ declare global {
   }
   interface Window {
     // First-party analytics + lead capture (defined inline in BaseLayout).
-    mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string }) => void;
+    mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string; src?: string }) => void;
     mkSid?: string;
     // Meta Pixel (defined inline in BaseLayout); absent when blocked.
     fbq?: (...args: unknown[]) => void;
@@ -29,7 +29,7 @@ declare global {
       // Try at Home / Private Viewing wizard progress (booking_step event).
       bookingFlow?: 'try_at_home' | 'private_viewing';
       bookingStep?: 'cover' | 'datetime' | 'bags' | 'details';
-      bookingDate?: string; bookingSlot?: string; bookingBagsCount?: number;
+      bookingDate?: string; bookingSlot?: string; bookingBagsCount?: number; bookingBags?: string[];
     }) => void;
     // India storefront only: the visitor's /api/geo lookup (BaseLayout). null if it failed.
     mkGeo?: Promise<{ mumbai?: boolean; city?: string; country?: string } | null>;

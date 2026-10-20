@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getPrivateViewingBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders, type AbandonedCheckout } from '~/lib/shopify/admin';
-import { getCartExitStats, getFunnel, getProductStats, getPromptStats } from '~/lib/analytics';
-import { getPeople, personKey, type Person } from '~/lib/leads';
+import { getCartExitStats, getFunnel, getProductStats, getPromptStats, getTryAtHomeStats } from '~/lib/analytics';
+import { getPeople, personKey, type BookingProgress, type Person } from '~/lib/leads';
 import { getAffiliateSummary } from '~/lib/clicks';
 import { getSubscribers } from '~/lib/newsletter';
 import { getFunnelDaily } from '~/lib/funnel';
@@ -45,7 +45,7 @@ function daysBetween(from: string | null, to: string | null): number | null {
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit] = await Promise.all([
+  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit, tryAtHome] = await Promise.all([
     getDemoBookings(),
     getPrivateViewingBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
@@ -58,6 +58,7 @@ export const GET: APIRoute = async ({ request }) => {
     getFunnelDaily(240),     // immutable per-day funnel counts (Daily funnel grid)
     getPromptStats(30),      // booking-prompt shown / closed / went ahead
     getCartExitStats(30),    // cart "Before you go" panel: reasons and what they did next
+    getTryAtHomeStats(30),   // Try at Home page: how many reached each step
   ]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -85,6 +86,23 @@ export const GET: APIRoute = async ({ request }) => {
     const list = ordersFor.get(k) ?? [];
     list.push(o);
     ordersFor.set(k, list);
+  }
+
+  // Try at Home / Private Viewing bookings in Shopify, by phone, so a person's booking
+  // progress can say whether it ended in a booking. Newest first, so the latest wins.
+  const bookedBy = new Map<string, { flow: BookingProgress['flow']; b: (typeof demos)[number] | (typeof viewings)[number] }>();
+  for (const d of demos) { const k = personKey(d.phone); if (k && !bookedBy.has(k)) bookedBy.set(k, { flow: 'try_at_home', b: d }); }
+  for (const v of viewings) { const k = personKey(v.phone); if (k && !bookedBy.has(k)) bookedBy.set(k, { flow: 'private_viewing', b: v }); }
+  function bookingFor(p: Person): BookingProgress | null {
+    const hit = bookedBy.get(p.id);
+    if (!hit) return p.booking;
+    // A booking made before progress was recorded still shows, built from Shopify.
+    const base: BookingProgress = p.booking && p.booking.flow === hit.flow ? p.booking : {
+      flow: hit.flow, step: 'details', date: hit.b.date || null, slot: hit.b.slot || null,
+      count: null, bags: hit.b.bags ? hit.b.bags.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      at: hit.b.createdAt || null,
+    };
+    return { ...base, booked: hit.b.status };
   }
 
   const rows: PersonRow[] = (people ?? []).map((p) => {
@@ -131,6 +149,7 @@ export const GET: APIRoute = async ({ request }) => {
       cartCurrency: p.cart ? p.cartCurrency : (cart?.currency ?? p.cartCurrency),
       // Money stages outrank anything the browser told us.
       stage: o ? 'ordered' : a ? 'payment' : p.stage,
+      booking: bookingFor(p),
       abandoned: a,
       ordered: Boolean(o),
       orderTotal: Number(o?.total?.amount || 0),
@@ -140,5 +159,5 @@ export const GET: APIRoute = async ({ request }) => {
     };
   });
 
-  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt, cartExit });
+  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt, cartExit, tryAtHome });
 };

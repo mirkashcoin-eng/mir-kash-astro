@@ -69,6 +69,10 @@ export const POST: APIRoute = async ({ request }) => {
     bookingDate: str(body.bookingDate, 20),
     bookingSlot: str(body.bookingSlot, 40),
     bookingBagsCount: Number.isFinite(Number(body.bookingBagsCount)) ? Number(body.bookingBagsCount) : undefined,
+    // The pieces chosen, by name (product titles, never personal data). Clamped like the cart.
+    bookingBags: Array.isArray(body.bookingBags)
+      ? body.bookingBags.slice(0, 6).map((b: unknown) => String(b ?? '').slice(0, 100)).filter(Boolean)
+      : undefined,
   });
   return noContent();
 };

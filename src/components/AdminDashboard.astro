@@ -94,6 +94,7 @@
       </section>
       <section class="ad-view" data-view="demos" hidden>
         <h1 class="ad-display ad-h1">Try at Home bookings</h1>
+        <div id="tahFunnelBody"></div>
         <div class="ad-panel"><div class="ad-scroll" id="allDemos"></div></div>
       </section>
       <section class="ad-view" data-view="viewings" hidden>
@@ -405,6 +406,7 @@
       renderFulfilment(orders);
       renderPrompt(data.prompt);
       renderCartExit(data.cartExit);
+      renderTryAtHomeFunnel(data.tryAtHome);
       renderProducts(data.products);
       renderCountries(PEOPLE);
       renderAffiliates(data.affiliates);
@@ -451,6 +453,27 @@
     // only ever carry a phone, so "Visitor" is a genuine last resort.
     function personName(p) { return p.name || p.phone || p.email || 'Visitor'; }
     // Contact line under the title — skip whatever's already used as the title.
+    // ── Booking progress (Try at Home / Private Viewing) ─────────────────────
+    // `step` is the last step they continued from; `booked` is set when Shopify holds
+    // a booking for the same phone. Lets the team follow up knowing what was picked.
+    var BOOKING_STEP_DONE = { cover: 'Started', bags: 'Chose pieces', datetime: 'Chose a day', details: 'Pressed confirm' };
+    function bookingFlowName(b) { return b.flow === 'private_viewing' ? 'Private Viewing' : 'Try at Home'; }
+    function bookingStatus(b) {
+      if (b.booked) return 'Booked' + (b.booked !== 'requested' ? ' (' + b.booked + ')' : '');
+      return (BOOKING_STEP_DONE[b.step] || 'Started') + ', not booked';
+    }
+    function bookingDay(b) {
+      if (!b.date) return '';
+      return /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? fmtISO(b.date) : b.date;
+    }
+    function bookingPieces(b) {
+      if (b.bags && b.bags.length) return b.bags.join(', ');
+      return b.count ? b.count + (b.count === 1 ? ' piece' : ' pieces') : '';
+    }
+    function bookingLine(b) {
+      return [bookingFlowName(b) + ': ' + bookingStatus(b), [bookingDay(b), b.slot].filter(Boolean).join(', ')]
+        .filter(Boolean).join(' · ');
+    }
     function personSub(p) {
       var title = personName(p);
       return [p.phone, p.email].filter(function (v) { return v && v !== title; })
@@ -699,7 +722,8 @@
     function matchesSearch(p) {
       if (!SEARCH) return true;
       var hay = [p.name, p.phone, p.email, p.address, p.sourceLabel, p.bot,
-        (p.items || []).join(' '), (p.viewed || []).join(' '), (p.pages || []).join(' ')].join(' ').toLowerCase();
+        (p.items || []).join(' '), (p.viewed || []).join(' '), (p.pages || []).join(' '),
+        p.booking ? bookingPieces(p.booking) + ' ' + bookingLine(p.booking) : ''].join(' ').toLowerCase();
       return hay.indexOf(SEARCH) > -1;
     }
     function visiblePeople() {
@@ -758,6 +782,13 @@
             (p.lastPage ? '<div class="sub">' + esc(p.lastPage) + '</div>' : '');
         } else {
           bag = '—';
+        }
+        // A booking in progress says more than browsing: what they picked and how far they got.
+        if (p.booking) {
+          var hasBag = p.cart && p.cart.lines && p.cart.lines.length;
+          var pieces = bookingPieces(p.booking);
+          bag = (hasBag || p.items && p.items.length ? bag : esc(pieces || '—')) +
+            '<div class="sub">' + esc(bookingLine(p.booking)) + '</div>';
         }
         var val = p.ordered ? inr(String(p.orderTotal), p.cartCurrency) : (p.cartValue ? inr(String(p.cartValue), p.cartCurrency) : '—');
         var acts = [];
@@ -876,6 +907,49 @@
         share('Continued to checkout', c.cx_checkout_click, shown);
       body.innerHTML = hbars('Why people leave the cart', 'last ' + cx.days + ' days · share of everyone who saw it', why) +
         hbars('What they did next', '', next);
+    }
+
+    // ── Try at Home page: where people drop off ───────────────────────────────
+    // Each step counts a browser at most once a day, so these are daily unique
+    // visitors. Every row is a share of those who opened the page; the gap between
+    // two rows is the drop-off at that step.
+    var TAH_STEPS = [
+      ['th_view', 'Opened the page'],
+      ['th_datetime', 'Chose pieces'],
+      ['th_details', 'Chose day and time'],
+      ['th_phone', 'Entered phone'],
+      ['th_submit', 'Pressed confirm'],
+      ['th_booked', 'Booked'],
+    ];
+    function renderTryAtHomeFunnel(t) {
+      var body = $('tahFunnelBody'); if (!body) return;
+      if (!t || !t.all || !t.all.th_view) {
+        body.innerHTML = '<p class="ad-note ad-pad">No Try at Home page visits counted yet. Counting starts with the new page.</p>';
+        return;
+      }
+      function steps(c) {
+        var base = c.th_view;
+        return TAH_STEPS.map(function (s, i) {
+          var n = c[s[0]] || 0;
+          var prev = i ? (c[TAH_STEPS[i - 1][0]] || 0) : 0;
+          var lost = i && prev > n ? ' · ' + (prev - n) + ' left' : '';
+          return hbarRow(s[1], n + ' · ' + pct(n, base) + '%' + lost, pct(n, base), '');
+        }).join('');
+      }
+      var html = hbars('Try at Home page', 'last ' + t.days + ' days · unique visitors a day · "left" = stopped at the step before', steps(t.all));
+      if (t.ad && t.ad.th_view) html += hbars('From Meta ads', 'same steps, ad visitors only', steps(t.ad));
+      var days = (t.daily || []).slice(0, 14);
+      if (days.length) {
+        html += '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Day by day</span></div><div class="ad-scroll"><table class="ad-table"><thead><tr><th>Day</th>' +
+          TAH_STEPS.map(function (s) { return '<th class="r">' + esc(s[1]) + '</th>'; }).join('') +
+          '<th class="r">Booking rate</th></tr></thead><tbody>' +
+          days.map(function (d) {
+            return '<tr><td>' + esc(d.day) + '</td>' +
+              TAH_STEPS.map(function (s) { return '<td class="r">' + (d.all[s[0]] || 0) + '</td>'; }).join('') +
+              '<td class="r">' + pct(d.all.th_booked || 0, d.all.th_view) + '%</td></tr>';
+          }).join('') + '</tbody></table></div></div>';
+      }
+      body.innerHTML = html;
     }
 
     // ── Most-viewed products ──────────────────────────────────────────────────
@@ -1418,6 +1492,7 @@
             (p.source === 'legacy-checkout' ? ' · <span class="ad-tag">from earlier checkout capture</span>' : '') + '</p>' +
         '</div>' +
         (actions.length ? '<div class="ad-dactions">' + actions.join('') + '</div>' : '') +
+        bookingSection(p.booking) +
         factsHtml +
         (p.address ? '<div class="ad-dsect"><h3 class="ad-dh3">Delivery address</h3><p class="ad-daddr">' + esc(p.address) + '</p></div>' : '') +
         browsedHtml +
@@ -1429,6 +1504,18 @@
         (p.abandoned ? abandonedSection(p.abandoned) : '') +
         '<div class="ad-dsect"><h3 class="ad-dh3">Journey</h3>' +
           (loading ? '<p class="ad-note">Loading…</p>' : timeline(steps)) + '</div>';
+    }
+    function bookingSection(b) {
+      if (!b) return '';
+      var facts = [['Status', bookingStatus(b)]];
+      var pieces = bookingPieces(b);
+      if (pieces) facts.push(['Pieces', pieces]);
+      if (b.date) facts.push(['Day', bookingDay(b)]);
+      if (b.slot) facts.push(['Time', b.slot]);
+      if (b.at) facts.push(['Last step', when(b.at, true)]);
+      return '<div class="ad-dsect"><h3 class="ad-dh3">' + esc(bookingFlowName(b)) + '</h3><dl class="ad-dfacts">' +
+        facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') +
+        '</dl></div>';
     }
     // Open a person: paint what we already have, then fill in the stitched timeline.
     async function openPerson(idx) {

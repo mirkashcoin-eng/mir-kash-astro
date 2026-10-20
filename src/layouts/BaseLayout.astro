@@ -209,6 +209,7 @@ const orgJsonLd = {
           if (opts && opts.product) q += '&product=' + encodeURIComponent(opts.product);
           if (opts && opts.page) q += '&page=' + encodeURIComponent(opts.page);
           if (opts && opts.offer) q += '&offer=' + encodeURIComponent(opts.offer);
+          if (opts && opts.src) q += '&src=' + encodeURIComponent(opts.src);
           (new Image()).src = q;
         } catch (_) {}
       };

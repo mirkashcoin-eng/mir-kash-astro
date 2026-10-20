@@ -155,6 +155,61 @@ export async function getCartExitStats(days = 30): Promise<CartExitStats | null>
   }
 }
 
+// Try at Home page funnel, in the same daily doc: how many reached each step, so /admin
+// can show where people drop off. The page sends each step at most once per browser per
+// day (see BookDemo.astro), so these read as daily unique visitors, not page loads.
+// Each count also has an `_ad` twin for visitors who arrived from a Meta ad. `total` is
+// untouched so the shop funnel is unaffected.
+export const TRY_AT_HOME_EVENTS = ['th_view', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
+export type TryAtHomeEvent = (typeof TRY_AT_HOME_EVENTS)[number];
+
+export async function recordTryAtHomeEvent(name: string, fromAd: boolean): Promise<void> {
+  if (!(TRY_AT_HOME_EVENTS as readonly string[]).includes(name)) return;
+  const db = adminDb();
+  if (!db) return;
+  const inc = () => FieldValue.increment(1);
+  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
+  if (fromAd) fields[`${name}_ad`] = inc();
+  try {
+    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
+  } catch { /* best-effort analytics; never surface */ }
+}
+
+export type TryAtHomeCounts = Record<TryAtHomeEvent, number>;
+export interface TryAtHomeStats {
+  days: number;
+  all: TryAtHomeCounts;
+  ad: TryAtHomeCounts;
+  // Newest first, only days anyone reached the page.
+  daily: Array<{ day: string; all: TryAtHomeCounts }>;
+}
+
+// Summed over the last `days` daily docs, plus each day on its own. null if
+// unavailable, so /admin can degrade.
+export async function getTryAtHomeStats(days = 30): Promise<TryAtHomeStats | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
+    const zero = (): TryAtHomeCounts =>
+      Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
+    const out: TryAtHomeStats = { days, all: zero(), ad: zero(), daily: [] };
+    snap.forEach((doc) => {
+      const v = doc.data() as Record<string, number>;
+      const day = zero();
+      for (const e of TRY_AT_HOME_EVENTS) {
+        day[e] = Number(v[e] || 0);
+        out.all[e] += day[e];
+        out.ad[e] += Number(v[`${e}_ad`] || 0);
+      }
+      if (day.th_view) out.daily.push({ day: String(v.day || doc.id), all: day });
+    });
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export interface ProductStat {
   id: string;
   title: string;

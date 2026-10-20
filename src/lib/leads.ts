@@ -48,6 +48,7 @@ export interface LeadInput {
   bookingDate?: string;
   bookingSlot?: string;
   bookingBagsCount?: number;
+  bookingBags?: string[];       // the pieces chosen, by name (Try at Home)
   // Acquisition, sent on the first hit of a session only.
   referrer?: string;
   utmSource?: string;
@@ -123,6 +124,7 @@ export async function recordLead(l: LeadInput): Promise<void> {
       if (l.bookingDate) patch.bookingDate = l.bookingDate;
       if (l.bookingSlot) patch.bookingSlot = l.bookingSlot;
       if (typeof l.bookingBagsCount === 'number') patch.bookingBagsCount = l.bookingBagsCount;
+      if (l.bookingBags) patch.bookingBags = l.bookingBags;
     }
     if (l.phone) patch.phone = l.phone;
     if (l.email) patch.email = l.email;
@@ -203,6 +205,8 @@ async function mergeAnonInto(
   }
   if (v.cartAdds) carry.cartAdds = FieldValue.increment(Number(v.cartAdds) || 0);
   if (v.intent) { carry.intent = true; if (v.intentAt) carry.intentAt = v.intentAt; }
+  // Booking progress made before they typed their number (choosing pieces, a day).
+  if (v.booking) carry.booking = v.booking;
   if (Object.keys(carry).length) await db.collection('people').doc(key).set(carry, { merge: true });
   await anonRef.delete();
 }
@@ -252,6 +256,19 @@ async function linkPerson(
     patch.lastPage = l.page;
   }
   if (l.event === 'phone') patch.phoneAt = now;
+  // Where they are in a Try at Home / Private Viewing booking, so the team can follow
+  // up knowing what they picked. Replaced whole on each step: the latest step wins.
+  if (l.event === 'booking_step' && l.bookingFlow && l.bookingStep) {
+    patch.booking = {
+      flow: l.bookingFlow,
+      step: l.bookingStep,
+      date: l.bookingDate ?? null,
+      slot: l.bookingSlot ?? null,
+      count: typeof l.bookingBagsCount === 'number' ? l.bookingBagsCount : null,
+      bags: l.bookingBags ?? [],
+      at: now,
+    };
+  }
   if (l.event === 'add_to_cart') {
     patch.cartAt = now;
     patch.cartAdds = FieldValue.increment(1);
@@ -283,6 +300,20 @@ async function linkPerson(
 // ── Reading: people + journeys ───────────────────────────────────────────────
 
 export type Stage = 'visited' | 'cart' | 'phone' | 'address' | 'payment' | 'ordered';
+
+// How far someone got in a booking flow. `step` is the last step they continued from
+// (bags → chose pieces, datetime → chose a day, details → pressed confirm). /api/admin/data
+// adds `booked` when Shopify holds a booking for the same phone number.
+export interface BookingProgress {
+  flow: 'try_at_home' | 'private_viewing';
+  step: 'cover' | 'datetime' | 'bags' | 'details';
+  date: string | null;
+  slot: string | null;
+  count: number | null;
+  bags: string[];
+  at: string | null;
+  booked?: string | null;  // the Shopify booking's status: requested / confirmed / completed
+}
 
 export interface Person {
   id: string;                 // normalised phone key
@@ -318,6 +349,7 @@ export interface Person {
   lastPage: string | null;
   bot: string | null;          // crawler name; null for real visitors
   country: string | null;
+  booking: BookingProgress | null;
 }
 
 const iso = (t: unknown): string | null =>
@@ -375,6 +407,22 @@ function toPerson(d: FirebaseFirestore.QueryDocumentSnapshot): Person {
         lastPage: (v.lastPage as string) ?? null,
         bot: (v.bot as string) ?? null,
         country: (v.country as string) ?? null,
+        booking: toBooking(v.booking),
+  };
+}
+
+function toBooking(b: unknown): BookingProgress | null {
+  if (!b || typeof b !== 'object') return null;
+  const v = b as Record<string, unknown>;
+  if (v.flow !== 'try_at_home' && v.flow !== 'private_viewing') return null;
+  return {
+    flow: v.flow,
+    step: (v.step as BookingProgress['step']) || 'cover',
+    date: (v.date as string) || null,
+    slot: (v.slot as string) || null,
+    count: typeof v.count === 'number' ? v.count : null,
+    bags: Array.isArray(v.bags) ? (v.bags as string[]) : [],
+    at: iso(v.at),
   };
 }
 
