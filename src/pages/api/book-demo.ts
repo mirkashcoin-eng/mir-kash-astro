@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createDemoBooking } from '~/lib/shopify/admin';
+import { sendMetaEvent } from '~/lib/meta-capi';
+import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
 
@@ -16,10 +18,12 @@ interface Body {
   name?: string; phone?: string; email?: string;
   address?: string; area?: string; pin?: string;
   city?: string; country?: string;
+  fbEventId?: string;
 }
 
 // Public "Book a Home Demo" (Mumbai). Records the request as a tagged Shopify draft order.
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (ctx) => {
+  const { request, cookies } = ctx;
   let body: Body;
   try {
     body = await request.json();
@@ -37,6 +41,12 @@ export const POST: APIRoute = async ({ request }) => {
   const pin = (body.pin ?? '').trim();
   const city = (body.city ?? '').trim();
   const country = (body.country ?? 'IN').trim().toUpperCase();
+  // Same shape as ProductPage's newFbEventId ids; anything else is ignored, never trusted.
+  // A page cached from before the browser Schedule pixel existed sends none, so there's
+  // no browser event to dedupe against — mint a server-only id so the booking still counts.
+  const fbEventId = /^[\w-]{6,64}$/.test(body.fbEventId ?? '')
+    ? body.fbEventId!
+    : 'sch-srv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 
   const bags = Array.isArray(body.bags)
     ? body.bags.filter((b): b is { variantId: string; title: string } => Boolean(b && b.variantId)).map((b) => ({ variantId: b.variantId, title: (b.title || 'Bag').toString() }))
@@ -53,9 +63,47 @@ export const POST: APIRoute = async ({ request }) => {
   // suburb we don't list and confirmed it's in the Mumbai area.
   if (country !== 'IN') return json({ error: 'Try at Home is only available in Mumbai — please book a Private Viewing instead.' }, 400);
 
+  const fbp = cookies.get('_fbp')?.value;
+  const fbc = cookies.get('_fbc')?.value;
   const result = await createDemoBooking({
     bags, date, slot, name, email, phone: `+91${phone}`, address, area, zip: pin, city,
+    meta: { fbp, fbc, eventId: fbEventId },
   });
+
+  // Meta Conversions API — server-side mirror of the browser Schedule pixel fired by
+  // BookDemo.astro on success. Shares fbEventId with it so Meta dedupes the two. This is
+  // the event the Try at Home campaign optimises for, so it carries every match key the
+  // form collects. Only sent once the booking really exists.
+  if (result) {
+    let ip: string | undefined;
+    try { ip = ctx.clientAddress; } catch { /* unsupported on this adapter/route */ }
+    const [firstName, ...rest] = name.split(/\s+/);
+    await sendMetaEvent({
+      eventName: 'Schedule',
+      eventId: fbEventId,
+      sourceUrl: `${SITE_ORIGIN}/try-at-home`,
+      user: {
+        email,
+        phone: `91${phone}`,
+        firstName,
+        lastName: rest.join(' ') || null,
+        city: city || 'Mumbai',
+        zip: pin,
+        country: 'IN',
+        externalId: `+91${phone}`,
+        ip,
+        userAgent: request.headers.get('user-agent'),
+        fbp,
+        fbc,
+      },
+      customData: {
+        content_name: 'Try at Home',
+        content_type: 'product',
+        content_ids: bags.map((b) => b.variantId),
+        num_items: bags.length,
+      },
+    });
+  }
 
   return result
     ? json({ ok: true })

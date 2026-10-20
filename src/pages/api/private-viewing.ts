@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { createMeeting, wherebyConfigured } from '~/lib/whereby';
 import { createPrivateViewingBooking } from '~/lib/shopify/admin';
+import { sendMetaEvent } from '~/lib/meta-capi';
+import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
 
@@ -16,6 +18,8 @@ interface Body {
   date?: string; slot?: string; bags?: Bag[];
   name?: string; phone?: string; email?: string;
   city?: string; country?: string;
+  countryIso?: string;
+  fbEventId?: string;
 }
 
 // IST is a fixed UTC+5:30 offset, no DST — these are the same three windows shown
@@ -33,7 +37,8 @@ function slotEndHourIST(slot: string): number {
 // room sized to the real appointment — not just "now + a few hours" — since the
 // room's join link is only ever read later, from the admin dashboard, not shown
 // to the customer at booking time (see PrivateViewing.astro's confirm step).
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (ctx) => {
+  const { request, cookies } = ctx;
   if (!wherebyConfigured()) {
     return json({ error: 'Video appointments are not configured yet.' }, 503);
   }
@@ -85,6 +90,45 @@ export const POST: APIRoute = async ({ request }) => {
     bags, date, slot, name, email, phone, city, country,
     roomId, hostRoomUrl: meeting.hostRoomUrl,
   });
+
+  // Meta Conversions API — server-side mirror of the browser Schedule pixel fired by
+  // PrivateViewing.astro on success; shares fbEventId with it so Meta dedupes the two.
+  // Unlike Try at Home this flow is global, so it's the one booking event that also
+  // reaches Meta server-side for non-India visitors.
+  if (result) {
+    // Same shape as the client's ids; anything else is ignored, never trusted. A page
+    // cached from before the browser pixel existed sends none — mint a server-only id.
+    const fbEventId = /^[\w-]{6,64}$/.test(body.fbEventId ?? '')
+      ? body.fbEventId!
+      : 'pv-srv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    let ip: string | undefined;
+    try { ip = ctx.clientAddress; } catch { /* unsupported on this adapter/route */ }
+    const [firstName, ...rest] = name.split(/\s+/);
+    await sendMetaEvent({
+      eventName: 'Schedule',
+      eventId: fbEventId,
+      sourceUrl: `${SITE_ORIGIN}/private-viewing`,
+      user: {
+        email,
+        phone: phoneDigits,
+        firstName,
+        lastName: rest.join(' ') || null,
+        city,
+        country: (body.countryIso ?? '').trim(),
+        externalId: phone,
+        ip,
+        userAgent: request.headers.get('user-agent'),
+        fbp: cookies.get('_fbp')?.value,
+        fbc: cookies.get('_fbc')?.value,
+      },
+      customData: {
+        content_name: 'Private Viewing',
+        content_type: 'product',
+        content_ids: bags.map((b) => b.variantId),
+        num_items: bags.length,
+      },
+    });
+  }
 
   return result
     ? json({ ok: true })

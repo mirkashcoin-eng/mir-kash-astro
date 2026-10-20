@@ -6,6 +6,8 @@ import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { createCashfreeOrder } from '~/lib/cashfree';
 import { INDIA_MARKET } from '~/lib/markets';
 import { couponLimitBlock, couponBlockMessage, recordRedemption } from '~/lib/coupons';
+import { sendMetaEvent } from '~/lib/meta-capi';
+import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
 
@@ -41,6 +43,7 @@ interface Body {
   buynow?: boolean;
   waOptin?: boolean;
   paymentMethod?: 'online' | 'cod';
+  fbEventId?: string;
 }
 
 function bad(message: string, status = 400) {
@@ -62,7 +65,8 @@ function indianPhone(raw: string): string {
   return digits.length > 10 ? digits.slice(-10) : digits;
 }
 
-export const POST: APIRoute = async ({ request, cookies, url }) => {
+export const POST: APIRoute = async (ctx) => {
+  const { request, cookies, url } = ctx;
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -144,6 +148,34 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
 
   const amount = Number(draft.totalPrice.amount);
   if (!Number.isFinite(amount) || amount <= 0) return bad('Invalid order total', 502);
+
+  // Meta Conversions API — server-side mirror of the browser AddPaymentInfo pixel fired on
+  // "Place order" in CheckoutPage.astro; shares fbEventId with it so Meta dedupes the two.
+  // Sent once the draft exists, so blocked coupons and empty carts above don't count.
+  if (/^[\w-]{6,64}$/.test(body.fbEventId ?? '')) {
+    let ip: string | undefined;
+    try { ip = ctx.clientAddress; } catch { /* unsupported on this adapter/route */ }
+    await sendMetaEvent({
+      eventName: 'AddPaymentInfo',
+      eventId: body.fbEventId!,
+      sourceUrl: `${SITE_ORIGIN}/checkout`,
+      user: {
+        email, phone: `91${phone10}`, firstName, lastName, city, zip, country: 'IN',
+        externalId: phoneE164,
+        ip,
+        userAgent: request.headers.get('user-agent'),
+        fbp: cookies.get('_fbp')?.value,
+        fbc: cookies.get('_fbc')?.value,
+      },
+      customData: {
+        currency: draft.totalPrice.currencyCode,
+        value: amount,
+        content_type: 'product',
+        contents: lines.map((l) => ({ id: l.variantId, quantity: l.quantity })),
+        payment_method: isCod ? 'cod' : 'online',
+      },
+    });
+  }
 
   // The draft total should equal the total the buyer just saw. If it doesn't, the
   // coupon didn't survive into the draft (or a variant price moved mid-session).

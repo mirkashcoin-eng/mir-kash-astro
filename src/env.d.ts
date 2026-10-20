@@ -19,6 +19,8 @@ declare global {
     // First-party analytics + lead capture (defined inline in BaseLayout).
     mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string }) => void;
     mkSid?: string;
+    // Meta Pixel (defined inline in BaseLayout); absent when blocked.
+    fbq?: (...args: unknown[]) => void;
     mkLead?: (data: {
       event: 'add_to_cart' | 'phone' | 'address' | 'booking_step';
       item?: string; phone?: string; email?: string; name?: string; uid?: string;

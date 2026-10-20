@@ -747,13 +747,25 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     nextBtn.disabled = true; nextBtn.textContent = 'Booking…';
     if (window.mkTrack) window.mkTrack('tryhome_submit');
     const bagList: BookingBag[] = []; selectedBags.forEach((title, variantId) => bagList.push({ variantId, title }));
+    // Shared with the server-side Schedule event in /api/book-demo so Meta dedupes the two.
+    const fbEventId = 'sch-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     fetch('/api/book-demo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, email, address: addr, area, pin, city, country: countryIso }),
+      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, email, address: addr, area, pin, city, country: countryIso, fbEventId }),
     }).then((res) => res.json().then((data) => ({ ok: res.ok, data })))
       .then((r) => {
         if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
         if (window.mkTrack) window.mkTrack('tryhome_booked');
+        // Meta: the Try at Home campaign optimises for this. Fired only after the booking
+        // exists, never on submit, so failed or rejected bookings don't count.
+        try {
+          if (typeof window.fbq === 'function') {
+            window.fbq('track', 'Schedule', {
+              content_name: 'Try at Home', content_type: 'product',
+              content_ids: bagList.map((b) => b.variantId), num_items: bagList.length,
+            }, { eventID: fbEventId });
+          }
+        } catch (e) { console.error('fbq Schedule failed:', e); }
         clearDraft(DRAFT_KEY_TRY_AT_HOME);
         showDone();
       }).catch((err) => {

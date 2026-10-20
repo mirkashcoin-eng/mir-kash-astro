@@ -389,7 +389,9 @@ export async function completeDraftOrder(id: string, paymentPending = false): Pr
       eventName: 'Purchase',
       eventId: result.orderName,
       sourceUrl: `${SITE_ORIGIN}/checkout/return`,
-      user: { email: result.email, phone: result.phone, externalId: result.orderName },
+      // external_id is the customer's E.164 phone, same as the Schedule and AddPaymentInfo
+      // events, so Meta can tie this purchase to the same person's earlier events.
+      user: { email: result.email, phone: result.phone, externalId: result.phone },
       customData: {
         currency: result.totalPrice.currencyCode,
         value: Number(result.totalPrice.amount) || 0,
@@ -641,6 +643,12 @@ export async function createDemoBooking(args: {
   zip: string;
   /** Somewhere in the Mumbai area (Thane, Navi Mumbai, …); defaults to Mumbai. */
   city?: string;
+  /**
+   * The visitor's Meta browser ids (_fbp/_fbc cookies) and the Schedule event id, kept on
+   * the draft so the offline "visit completed" event sent from /admin days later can be
+   * matched to the same person and the same ad click (see completeDemo).
+   */
+  meta?: { fbp?: string; fbc?: string; eventId?: string };
 }): Promise<DraftOrderResult | null> {
   const city = args.city?.trim() || 'Mumbai';
   const parts = args.name.trim().split(/\s+/);
@@ -662,6 +670,9 @@ export async function createDemoBooking(args: {
       { key: 'demo_date', value: args.date },
       { key: 'demo_slot', value: args.slot },
       { key: 'demo_bags', value: bagTitles },
+      ...(args.meta?.fbp ? [{ key: 'meta_fbp', value: args.meta.fbp }] : []),
+      ...(args.meta?.fbc ? [{ key: 'meta_fbc', value: args.meta.fbc }] : []),
+      ...(args.meta?.eventId ? [{ key: 'meta_event_id', value: args.meta.eventId }] : []),
     ],
     lineItems: args.bags.map((b) => ({ variantId: b.variantId, quantity: 1 })),
     shippingAddress: {
@@ -976,8 +987,54 @@ async function patchBookingDraft(id: string, patch: Record<string, string>, addT
 export function confirmDemo(id: string, date: string, time: string): Promise<boolean> {
   return patchBookingDraft(id, { demo_status: 'confirmed', demo_confirmed_date: date, demo_confirmed_time: time }, ['demo-confirmed']);
 }
-export function completeDemo(id: string): Promise<boolean> {
-  return patchBookingDraft(id, { demo_status: 'completed' }, ['demo-completed']);
+const DEMO_FOR_META = /* GraphQL */ `
+  query DemoForMeta($id: ID!) {
+    draftOrder(id: $id) {
+      email phone tags
+      customAttributes { key value }
+      shippingAddress { firstName lastName city zip }
+    }
+  }
+`;
+
+export async function completeDemo(id: string): Promise<boolean> {
+  // Read before patching, so a second click on an already-completed visit doesn't resend.
+  const before = await runAdminQuery<{
+    draftOrder: {
+      email: string | null; phone: string | null; tags: string[];
+      customAttributes: Array<{ key: string; value: string }>;
+      shippingAddress: { firstName: string | null; lastName: string | null; city: string | null; zip: string | null } | null;
+    } | null;
+  }>(DEMO_FOR_META, { id });
+  const ok = await patchBookingDraft(id, { demo_status: 'completed' }, ['demo-completed']);
+  const d = before?.draftOrder;
+  if (!ok || !d) return ok;
+  const attr = (k: string) => d.customAttributes.find((a) => a.key === k)?.value;
+  if (attr('demo_status') === 'completed' || d.tags.includes('demo-completed')) return ok;
+
+  // Meta Conversions API — the visit happened. Offline (the founder records it later), so
+  // there's no browser event to dedupe against; the id is derived from the booking so a
+  // retry within Meta's dedup window can't double-count. Matched to the booker via the
+  // contact details + the _fbp/_fbc cookies stored on the draft at booking time.
+  await sendMetaEvent({
+    eventName: 'VisitCompleted',
+    eventId: `visit-${id.split('/').pop()}`,
+    actionSource: 'physical_store',
+    user: {
+      email: d.email,
+      phone: d.phone,
+      firstName: d.shippingAddress?.firstName,
+      lastName: d.shippingAddress?.lastName,
+      city: d.shippingAddress?.city,
+      zip: d.shippingAddress?.zip,
+      country: 'IN',
+      externalId: d.phone,
+      fbp: attr('meta_fbp'),
+      fbc: attr('meta_fbc'),
+    },
+    customData: { content_name: 'Try at Home', booking_event_id: attr('meta_event_id') },
+  });
+  return ok;
 }
 export function confirmViewing(id: string, date: string, time: string): Promise<boolean> {
   return patchBookingDraft(id, { viewing_status: 'confirmed', viewing_confirmed_date: date, viewing_confirmed_time: time }, ['viewing-confirmed']);
