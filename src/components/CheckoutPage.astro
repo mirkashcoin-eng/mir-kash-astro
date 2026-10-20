@@ -673,6 +673,20 @@ const thumbGradients = [
     if (window.mkTrack) window.mkTrack('payment_start');
     const btn = $('placeBtn') as HTMLButtonElement;
     const isCod = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'cod';
+    // Meta AddPaymentInfo — the buyer has chosen how to pay and submitted. Shares its id
+    // with the server-side event in /api/checkout/create so Meta dedupes the two.
+    const fbEventId = 'api-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    try {
+      const fbqFn = (window as any).fbq;
+      if (typeof fbqFn === 'function') {
+        const items = JSON.parse(sheet.dataset.items || '[]');
+        fbqFn('track', 'AddPaymentInfo', {
+          currency: 'INR', value: Number(sheet.dataset.total) || 0, content_type: 'product',
+          contents: items.map((i: any) => ({ id: i.item_id, quantity: i.quantity })),
+          payment_method: isCod ? 'cod' : 'online',
+        }, { eventID: fbEventId });
+      }
+    } catch (e) { console.error('fbq AddPaymentInfo failed:', e); }
     btn.disabled = true;
     $('placeTxt').textContent = isCod ? 'Placing your order…' : 'Starting secure payment…';
     const city = val('f-city'), province = val('f-state');
@@ -690,6 +704,7 @@ const thumbGradients = [
           city, province, zip: val('f-pin'), email: val('f-email'), phone: phone10(), buynow: buyNow,
           waOptin: ($('waOptin') as HTMLInputElement)?.checked ?? false,
           paymentMethod: isCod ? 'cod' : 'online',
+          fbEventId,
         }),
       });
       const data = await res.json();

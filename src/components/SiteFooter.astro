@@ -166,13 +166,18 @@ const prefix = marketConfig.urlPrefix;
         if (btn) { btn.disabled = true; btn.textContent = 'Subscribing…'; }
         var err = form.querySelector('.news-err');
         if (err) err.remove();
+        // Shared with the server-side Lead event in /api/newsletter so Meta dedupes the two.
+        var fbEventId = 'nl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
         fetch('/api/newsletter', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email }),
+          body: JSON.stringify({ email: email, fbEventId: fbEventId }),
         }).then(function (r) {
           return r.json().then(function (d) { return { ok: r.ok && d.ok, d: d }; });
         }).then(function (res) {
           if (!res.ok) throw new Error((res.d && res.d.error) || 'Could not subscribe.');
+          try {
+            if (typeof fbq === 'function') fbq('track', 'Lead', { content_name: 'Newsletter' }, { eventID: fbEventId });
+          } catch (ex) { console.error('fbq Lead failed:', ex); }
           form.innerHTML = '<p class="news-thanks">Thank you — you’re on the list.</p>';
         }).catch(function (ex) {
           if (btn) { btn.disabled = false; btn.textContent = orig; }

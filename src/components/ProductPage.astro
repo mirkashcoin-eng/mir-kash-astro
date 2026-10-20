@@ -637,6 +637,18 @@ const faq = faqFor(product, marketConfig);
   const state = { variantId: firstVariantId };
   const selected = {};
 
+  // Meta ViewContent — once per product page view, for the variant the page opened on.
+  // Feeds catalog ads and retargeting; browser-only, like PageView.
+  try {
+    if (typeof fbq === 'function') {
+      const opened = variants.find((v) => v.id === firstVariantId) || variants[0];
+      fbq('track', 'ViewContent', {
+        content_ids: [firstVariantId], content_type: 'product', content_name: productTitle,
+        value: opened ? opened.amount : undefined, currency,
+      }, { eventID: 'vc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
+    }
+  } catch (e) { console.error('fbq ViewContent failed:', e); }
+
   function esc(name) { return name.replace(/"/g, '\\"'); }
 
   // Switch the gallery to a variant's own photo when it has one.

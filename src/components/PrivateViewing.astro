@@ -807,6 +807,8 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
     try {
       const bagsPayload = [...selected.entries()].map(([variantId, title]) => ({ variantId, title }));
       const phone = (selectedCountry?.dial || '') + phoneDigits();
+      // Shared with the server-side Schedule event in /api/private-viewing so Meta dedupes the two.
+      const fbEventId = 'pv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       const res = await fetch('/api/private-viewing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -819,12 +821,24 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
           email: emailInput?.value.trim() || '',
           city: cityInput?.value.trim() || '',
           country: (placeIso && findCountry(placeIso)?.name) || '',
+          countryIso: placeIso || '',
+          fbEventId,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
 
       track('viewing_booked');
+      // Meta: fired only once the booking exists, so failed or rejected bookings don't count.
+      // content_name tells it apart from Try at Home, which is also a Schedule event.
+      try {
+        if (typeof window.fbq === 'function') {
+          window.fbq('track', 'Schedule', {
+            content_name: 'Private Viewing', content_type: 'product',
+            content_ids: bagsPayload.map((b) => b.variantId), num_items: bagsPayload.length,
+          }, { eventID: fbEventId });
+        }
+      } catch (err) { console.error('fbq Schedule failed:', err); }
       // Booked — the product-page viewing prompt never shows again.
       try { mark(localStorage, 'bookedAt', Date.now()); } catch { /* localStorage itself can throw */ }
       clearDraft(DRAFT_KEY_PRIVATE_VIEWING);

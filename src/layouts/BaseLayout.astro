@@ -156,6 +156,21 @@ const orgJsonLd = {
     src="https://www.facebook.com/tr?id=1169633797586706&ev=PageView&noscript=1"
     /></noscript>
     <!-- End Meta Pixel Code -->
+    <script is:inline>
+      // Meta Contact: any WhatsApp, email or phone link on the site, including ones built
+      // at runtime. Browser-only, since a link click never reaches our server.
+      document.addEventListener('click', function (e) {
+        try {
+          var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+          if (!a || typeof fbq !== 'function') return;
+          var h = a.getAttribute('href') || '';
+          var via = /^https?:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(h) ? 'WhatsApp'
+            : /^mailto:/i.test(h) ? 'Email'
+            : /^tel:/i.test(h) ? 'Phone' : '';
+          if (via) fbq('track', 'Contact', { content_name: via });
+        } catch (_) {}
+      }, true);
+    </script>
 
     <!-- Microsoft Clarity -->
     <script is:inline type="text/javascript">
