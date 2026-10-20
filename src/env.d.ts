@@ -17,7 +17,7 @@ declare global {
   }
   interface Window {
     // First-party analytics + lead capture (defined inline in BaseLayout).
-    mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string; src?: string }) => void;
+    mkTrack?: (event: string, opts?: { product?: string; page?: string; offer?: string; src?: string; ab?: string }) => void;
     mkSid?: string;
     // Meta Pixel (defined inline in BaseLayout); absent when blocked.
     fbq?: (...args: unknown[]) => void;

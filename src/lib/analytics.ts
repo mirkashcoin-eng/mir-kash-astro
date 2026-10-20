@@ -163,13 +163,15 @@ export async function getCartExitStats(days = 30): Promise<CartExitStats | null>
 export const TRY_AT_HOME_EVENTS = ['th_view', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
 export type TryAtHomeEvent = (typeof TRY_AT_HOME_EVENTS)[number];
 
-export async function recordTryAtHomeEvent(name: string, fromAd: boolean): Promise<void> {
+export async function recordTryAtHomeEvent(name: string, fromAd: boolean, ab = ''): Promise<void> {
   if (!(TRY_AT_HOME_EVENTS as readonly string[]).includes(name)) return;
   const db = adminDb();
   if (!db) return;
   const inc = () => FieldValue.increment(1);
   const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
   if (fromAd) fields[`${name}_ad`] = inc();
+  // Phone banner test: a per-version twin, e.g. th_view_abB.
+  if (ab === 'A' || ab === 'B') fields[`${name}_ab${ab}`] = inc();
   try {
     await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
   } catch { /* best-effort analytics; never surface */ }
@@ -204,6 +206,38 @@ export async function getTryAtHomeStats(days = 30): Promise<TryAtHomeStats | nul
       }
       if (day.th_view) out.daily.push({ day: String(v.day || doc.id), all: day });
     });
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+// Phone banner test totals per version since it started (the first day either version
+// was counted), from the `_abA` / `_abB` twins above. Reads up to `days` daily docs.
+export interface BannerTestCounts { A: TryAtHomeCounts; B: TryAtHomeCounts; firstDay: string | null; days: number }
+
+export async function getBannerTestCounts(days = 120): Promise<BannerTestCounts | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
+    const zero = (): TryAtHomeCounts =>
+      Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
+    const out: BannerTestCounts = { A: zero(), B: zero(), firstDay: null, days: 0 };
+    snap.forEach((doc) => {
+      const v = doc.data() as Record<string, number>;
+      if (!v.th_view_abA && !v.th_view_abB) return;
+      for (const e of TRY_AT_HOME_EVENTS) {
+        out.A[e] += Number(v[`${e}_abA`] || 0);
+        out.B[e] += Number(v[`${e}_abB`] || 0);
+      }
+      const day = String(v.day || doc.id);
+      if (!out.firstDay || day < out.firstDay) out.firstDay = day;
+    });
+    if (out.firstDay) {
+      const today = dayKey();
+      out.days = Math.round((Date.parse(today) - Date.parse(out.firstDay)) / 864e5) + 1;
+    }
     return out;
   } catch {
     return null;

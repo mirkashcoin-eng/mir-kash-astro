@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getPrivateViewingBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders, type AbandonedCheckout } from '~/lib/shopify/admin';
-import { getCartExitStats, getFunnel, getProductStats, getPromptStats, getTryAtHomeStats } from '~/lib/analytics';
+import { getBannerTestCounts, getCartExitStats, getFunnel, getProductStats, getPromptStats, getTryAtHomeStats } from '~/lib/analytics';
+import { verdict, MIN_DAYS, MIN_PER_ARM } from '~/lib/ab-test';
 import { getPeople, personKey, type BookingProgress, type Person } from '~/lib/leads';
 import { getAffiliateSummary } from '~/lib/clicks';
 import { getSubscribers } from '~/lib/newsletter';
@@ -45,7 +46,7 @@ function daysBetween(from: string | null, to: string | null): number | null {
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit, tryAtHome] = await Promise.all([
+  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit, tryAtHome, bannerCounts] = await Promise.all([
     getDemoBookings(),
     getPrivateViewingBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
@@ -59,6 +60,7 @@ export const GET: APIRoute = async ({ request }) => {
     getPromptStats(30),      // booking-prompt shown / closed / went ahead
     getCartExitStats(30),    // cart "Before you go" panel: reasons and what they did next
     getTryAtHomeStats(30),   // Try at Home page: how many reached each step
+    getBannerTestCounts(),   // phone banner A/B test, per version since it started
   ]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -159,5 +161,20 @@ export const GET: APIRoute = async ({ request }) => {
     };
   });
 
-  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt, cartExit, tryAtHome });
+  // Phone banner test: per-version counts plus the verdict (src/lib/ab-test.ts).
+  // "Chose pieces" = reached the day-and-time step.
+  const bannerTest = bannerCounts && bannerCounts.firstDay
+    ? {
+        ...bannerCounts,
+        minPerArm: MIN_PER_ARM,
+        minDays: MIN_DAYS,
+        verdict: verdict(
+          { visitors: bannerCounts.A.th_view, choseP: bannerCounts.A.th_datetime, booked: bannerCounts.A.th_booked },
+          { visitors: bannerCounts.B.th_view, choseP: bannerCounts.B.th_datetime, booked: bannerCounts.B.th_booked },
+          bannerCounts.days,
+        ),
+      }
+    : null;
+
+  return json({ demos, viewings, abandoned, orders, funnel, people: rows, products, affiliates, subscribers, funnelDaily, prompt, cartExit, tryAtHome, bannerTest });
 };

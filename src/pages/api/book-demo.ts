@@ -19,6 +19,7 @@ interface Body {
   address?: string; area?: string; pin?: string;
   city?: string; country?: string;
   fbEventId?: string;
+  abVariant?: string;
 }
 
 // Public "Book a Home Demo" (Mumbai). Records the request as a tagged Shopify draft order.
@@ -48,6 +49,9 @@ export const POST: APIRoute = async (ctx) => {
     ? body.fbEventId!
     : 'sch-srv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 
+  // Phone banner test version (src/lib/ab-test.ts); only 'A' or 'B' is kept.
+  const abVariant = body.abVariant === 'A' || body.abVariant === 'B' ? body.abVariant : undefined;
+
   const bags = Array.isArray(body.bags)
     ? body.bags.filter((b): b is { variantId: string; title: string } => Boolean(b && b.variantId)).map((b) => ({ variantId: b.variantId, title: (b.title || 'Bag').toString() }))
     : [];
@@ -71,6 +75,7 @@ export const POST: APIRoute = async (ctx) => {
   const result = await createDemoBooking({
     bags, date, slot, name, email: email || undefined, phone: `+91${phone}`, address, area, zip: pin, city,
     meta: { fbp, fbc, eventId: fbEventId },
+    abVariant,
   });
 
   // Meta Conversions API — server-side mirror of the browser Schedule pixel fired by
@@ -104,6 +109,7 @@ export const POST: APIRoute = async (ctx) => {
         content_type: 'product',
         content_ids: bags.map((b) => b.variantId),
         num_items: bags.length,
+        ...(abVariant ? { ab_variant: abVariant } : {}),
       },
     });
   }

@@ -21,9 +21,10 @@ async function handle(request: Request, url: URL, bot: string): Promise<Response
     // Cart "Before you go" panel. Same crawler exclusion as the booking prompt.
     if (!bot) await recordCartExitEvent(e.slice(0, 40), (url.searchParams.get('offer') || '').slice(0, 12));
   } else if (e.startsWith('th_')) {
-    // Try at Home page steps. Same crawler exclusion; `src=ad` marks a Meta ad visitor.
-    if (!bot) await recordTryAtHomeEvent(e.slice(0, 40), url.searchParams.get('src') === 'ad');
-  } else if (e)await recordEvent(e.slice(0, 40), product || undefined);
+    // Try at Home page steps. Same crawler exclusion; `src=ad` marks a Meta ad visitor and
+    // `ab` the phone banner test version (src/lib/ab-test.ts).
+    if (!bot) await recordTryAtHomeEvent(e.slice(0, 40), url.searchParams.get('src') === 'ad', url.searchParams.get('ab') || '');
+  } else if (e) await recordEvent(e.slice(0, 40), product || undefined);
   return noContent();
 }
 

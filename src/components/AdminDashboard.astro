@@ -94,6 +94,7 @@
       </section>
       <section class="ad-view" data-view="demos" hidden>
         <h1 class="ad-display ad-h1">Try at Home bookings</h1>
+        <div id="bannerTestBody"></div>
         <div id="tahFunnelBody"></div>
         <div class="ad-panel"><div class="ad-scroll" id="allDemos"></div></div>
       </section>
@@ -407,6 +408,7 @@
       renderPrompt(data.prompt);
       renderCartExit(data.cartExit);
       renderTryAtHomeFunnel(data.tryAtHome);
+      renderBannerTest(data.bannerTest);
       renderProducts(data.products);
       renderCountries(PEOPLE);
       renderAffiliates(data.affiliates);
@@ -950,6 +952,34 @@
           }).join('') + '</tbody></table></div></div>';
       }
       body.innerHTML = html;
+    }
+
+    // ── Phone banner A/B test (src/lib/ab-test.ts) ────────────────────────────
+    // A = banner, B = no banner, phone visitors only. The verdict is worked out on the
+    // server; this lays out the counts behind it.
+    function renderBannerTest(t) {
+      var body = $('bannerTestBody'); if (!body) return;
+      if (!t) {
+        body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Phone banner test</span></div>' +
+          '<p class="ad-note ad-pad">Running from the next deploy. Results appear here once phone visitors arrive.</p></div>';
+        return;
+      }
+      function rate(n, d) { return d ? (Math.round((n / d) * 1000) / 10) + '%' : '—'; }
+      function row(label, c) {
+        return '<tr><td class="nm">' + esc(label) + '</td><td class="r">' + c.th_view + '</td>' +
+          '<td class="r">' + c.th_datetime + ' · ' + rate(c.th_datetime, c.th_view) + '</td>' +
+          '<td class="r">' + c.th_phone + ' · ' + rate(c.th_phone, c.th_view) + '</td>' +
+          '<td class="r">' + c.th_booked + ' · ' + rate(c.th_booked, c.th_view) + '</td></tr>';
+      }
+      var v = t.verdict;
+      var cls = v.call === 'B' || v.call === 'A' ? ' ad-abv--win' : v.call === 'stop_B' ? ' ad-abv--stop' : '';
+      body.innerHTML = '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Phone banner test</span>' +
+        '<span class="ad-chart-sub">since ' + esc(t.firstDay) + ' · day ' + t.days + ' · phone visitors only</span></div>' +
+        '<p class="ad-abv' + cls + '">' + esc(v.text) + '</p>' +
+        '<div class="ad-scroll"><table class="ad-table"><thead><tr><th>Version</th><th class="r">Visitors</th><th class="r">Chose pieces</th><th class="r">Entered phone</th><th class="r">Booked</th></tr></thead><tbody>' +
+        row('A · banner', t.A) + row('B · no banner', t.B) + '</tbody></table></div>' +
+        '<p class="ad-note ad-pad">Judged on "chose pieces". A result is called after ' + t.minPerArm + ' visitors in each version and ' + t.minDays +
+        ' days, unless B is clearly losing bookings sooner. z = ' + v.pieces.z.toFixed(2) + ' (pieces), ' + v.bookings.z.toFixed(2) + ' (bookings); beyond ±1.96 is a real difference.</p></div>';
     }
 
     // ── Most-viewed products ──────────────────────────────────────────────────
@@ -1979,6 +2009,9 @@
   .ad-grid { stroke: #ece5d8; stroke-width: 1; }
   .ad-glabel, .ad-xlabel { fill: var(--faint); font-size: 11px; font-family: 'Brooklyn', sans-serif; }
   .ad-hbars { display: flex; flex-direction: column; gap: 13px; }
+  .ad-abv { margin: 0; padding: 14px 20px; font-size: 14px; color: var(--depth); background: var(--cream); border-bottom: 1px solid var(--rule); }
+  .ad-abv--win { font-weight: 500; }
+  .ad-abv--stop { color: var(--cherry); font-weight: 500; }
   .ad-hbar { display: grid; grid-template-columns: minmax(90px, 150px) 1fr auto; align-items: center; gap: 14px; }
   .ad-hbar__name { font-size: 13px; color: var(--depth); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ad-hbar__track { height: 10px; background: var(--cream); border-radius: 999px; overflow: hidden; }

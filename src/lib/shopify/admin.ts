@@ -650,6 +650,8 @@ export async function createDemoBooking(args: {
    * matched to the same person and the same ad click (see completeDemo).
    */
   meta?: { fbp?: string; fbc?: string; eventId?: string };
+  /** Phone banner test version the visitor saw (src/lib/ab-test.ts), when counted. */
+  abVariant?: 'A' | 'B';
 }): Promise<DraftOrderResult | null> {
   const city = args.city?.trim() || 'Mumbai';
   const parts = args.name.trim().split(/\s+/);
@@ -675,6 +677,7 @@ export async function createDemoBooking(args: {
       ...(args.meta?.fbp ? [{ key: 'meta_fbp', value: args.meta.fbp }] : []),
       ...(args.meta?.fbc ? [{ key: 'meta_fbc', value: args.meta.fbc }] : []),
       ...(args.meta?.eventId ? [{ key: 'meta_event_id', value: args.meta.eventId }] : []),
+      ...(args.abVariant ? [{ key: 'ab_variant', value: args.abVariant }] : []),
     ],
     lineItems: args.bags.map((b) => ({ variantId: b.variantId, quantity: 1 })),
     shippingAddress: {

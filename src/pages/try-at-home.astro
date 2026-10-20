@@ -1,13 +1,29 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import BookDemo from '~/components/BookDemo.astro';
+import { AB_COOKIE, AB_MAX_AGE, assignVariant } from '~/lib/ab-test';
 
 export const prerender = false;
+
+// Phone banner test (src/lib/ab-test.ts). Assigned here, on the server, so the version
+// is in the HTML before it paints. ?ab=A or ?ab=B shows a version for checking only.
+const ab = assignVariant({
+  cookie: Astro.cookies.get(AB_COOKIE)?.value,
+  force: Astro.url.searchParams.get('ab'),
+  bot: Boolean(Astro.locals.botName),
+  rand: Math.random(),
+});
+if (ab.setCookie) {
+  Astro.cookies.set(AB_COOKIE, ab.variant, { path: '/', maxAge: AB_MAX_AGE, sameSite: 'lax', httpOnly: true, secure: import.meta.env.PROD });
+}
+// The page now differs per visitor, so it must never be served from a shared cache.
+// Set before the layout renders, which leaves an existing Cache-Control alone.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
 ---
 <BaseLayout
   title="Try at Home — Mir Kash"
   path="/try-at-home"
   description="A private appointment at home in Mumbai, Thane and Navi Mumbai. Up to six pieces of your choosing, complimentary and without obligation."
 >
-  <BookDemo />
+  <BookDemo abVariant={ab.variant} abCounted={ab.counted} />
 </BaseLayout>

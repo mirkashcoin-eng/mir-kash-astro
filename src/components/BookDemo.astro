@@ -8,6 +8,13 @@ import { flagEmoji } from '~/lib/countries';
 import { parseBags } from '~/lib/cart-exit';
 import '~/styles/booking-wizard.css';
 
+// Phone banner test version, assigned in src/pages/try-at-home.astro (see src/lib/ab-test.ts).
+// B leaves the banner off on phones. `abCounted` is false for bots and ?ab= checks.
+const { abVariant = 'A', abCounted = false } = Astro.props as { abVariant?: 'A' | 'B'; abCounted?: boolean };
+const noPhoneBanner = abVariant === 'B';
+// A 1×1 transparent GIF: in B, phones pick this source instead of downloading the photo.
+const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 const products = await getAllProducts('india', 'IN', 48);
 
 // One card per colour, split the same way as Shop All (ShopAll.astro): only the
@@ -108,7 +115,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 ---
 <SiteHeader />
 
-<main class="bd">
+<main class="bd" data-ab={abVariant} data-ab-counted={abCounted ? '' : undefined}>
   <div class="bw-shell" id="bwShell">
     <div class="bw-progress">
       <span class="bw-progress__seg" data-step="bags"></span>
@@ -122,8 +129,14 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
         <header class="bd-intro">
           <!-- Crops of public/DSC03100.avif: a 6:5 band on phones (eyes to bag), 4:5 beside the words on wider screens. -->
           <picture class="bd-intro__media">
-            <source media="(max-width: 620px)" type="image/avif" sizes="100vw" srcset="/try-at-home-banner-phone-780.avif 780w, /try-at-home-banner-phone-1170.avif 1170w" />
-            <source media="(max-width: 620px)" type="image/webp" sizes="100vw" srcset="/try-at-home-banner-phone-780.webp 780w, /try-at-home-banner-phone-1170.webp 1170w" />
+            {noPhoneBanner ? (
+              <source media="(max-width: 620px)" srcset={BLANK_GIF} />
+            ) : (
+              <>
+                <source media="(max-width: 620px)" type="image/avif" sizes="100vw" srcset="/try-at-home-banner-phone-780.avif 780w, /try-at-home-banner-phone-1170.avif 1170w" />
+                <source media="(max-width: 620px)" type="image/webp" sizes="100vw" srcset="/try-at-home-banner-phone-780.webp 780w, /try-at-home-banner-phone-1170.webp 1170w" />
+              </>
+            )}
             <source type="image/avif" sizes="380px" srcset="/try-at-home-banner-desk-600.avif 600w, /try-at-home-banner-desk-900.avif 900w" />
             <source type="image/webp" sizes="380px" srcset="/try-at-home-banner-desk-600.webp 600w, /try-at-home-banner-desk-900.webp 900w" />
             <img src="/try-at-home-banner-desk-900.webp" alt="A Mir Kash mini bag, held by its twisted handle" width="900" height="1125" loading="eager" fetchpriority="high" decoding="async" />
@@ -430,6 +443,9 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     /* Full-bleed band under the progress lines; the words follow beneath it. */
     .bd-intro { display: block; margin-bottom: 16px; }
     .bd-intro__media { aspect-ratio: 6 / 5; margin: 10px -20px 16px; }
+    /* Banner test, version B: no photograph on phones, so the pieces start higher. */
+    .bd[data-ab="B"] .bd-intro__media { display: none; }
+    .bd[data-ab="B"] .bd-stepwrap--pick { padding-top: 16px; }
     .bd-intro__eyebrow { font-size: 10px; letter-spacing: .16em; margin-bottom: 8px; }
     .bd-intro__h { font-size: 24px; }
     .bd-intro__sub { font-size: 14px; line-height: 1.5; margin-top: 6px; }
@@ -882,7 +898,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     const fbEventId = 'sch-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     fetch('/api/book-demo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, address: addr, area, pin, city, country: countryIso, fbEventId }),
+      body: JSON.stringify({ date: selectedLabel, slot: selectedSlot, bags: bagList, name, phone, address: addr, area, pin, city, country: countryIso, fbEventId, abVariant: abTag || undefined }),
     }).then((res) => res.json().then((data) => ({ ok: res.ok, data })))
       .then((r) => {
         if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
@@ -894,6 +910,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
             window.fbq('track', 'Schedule', {
               content_name: 'Try at Home', content_type: 'product',
               content_ids: bagList.map((b) => b.variantId), num_items: bagList.length,
+              ...(abTag ? { ab_variant: abTag } : {}),
             }, { eventID: fbEventId });
           }
         } catch (e) { console.error('fbq Schedule failed:', e); }
@@ -933,6 +950,14 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── Phone banner test ──
+  // The version (A banner / B none) is set on <main> by the server. Only phone-width
+  // visitors who count towards the test carry it: desktop looks the same in both.
+  const bdMain = document.querySelector<HTMLElement>('main.bd');
+  const abTag = bdMain && bdMain.hasAttribute('data-ab-counted') && window.matchMedia('(max-width: 620px)').matches
+    ? (bdMain.dataset.ab === 'B' ? 'B' : 'A')
+    : '';
+
   // ── Step counts for /admin ──
   // Anonymous: each step is sent at most once per browser per day (IST), marked as
   // Meta ad traffic when the day's visit came from an ad. See src/lib/try-at-home-funnel.ts.
@@ -943,7 +968,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function countStep(step: string) {
     if (!claimStep(funnel, step)) return;
     try { localStorage.setItem(FUNNEL_KEY, JSON.stringify(funnel)); } catch { /* storage unavailable */ }
-    if (window.mkTrack) window.mkTrack(step, funnel.ad ? { src: 'ad' } : undefined);
+    if (window.mkTrack) window.mkTrack(step, { src: funnel.ad ? 'ad' : undefined, ab: abTag || undefined });
   }
 
   // ── Boot ──

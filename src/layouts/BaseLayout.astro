@@ -210,6 +210,7 @@ const orgJsonLd = {
           if (opts && opts.page) q += '&page=' + encodeURIComponent(opts.page);
           if (opts && opts.offer) q += '&offer=' + encodeURIComponent(opts.offer);
           if (opts && opts.src) q += '&src=' + encodeURIComponent(opts.src);
+          if (opts && opts.ab) q += '&ab=' + encodeURIComponent(opts.ab);
           (new Image()).src = q;
         } catch (_) {}
       };
