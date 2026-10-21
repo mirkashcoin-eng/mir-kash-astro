@@ -3,6 +3,7 @@
 // definition shown on hover is the API's own text.
 import type { Cell, CohortRow, Column, FunnelStep, Metric, PeopleQuery, Series, Table } from './types';
 import { delta, esc, fmtDay, fmtValue, num } from './format';
+import { TERMS } from './terms';
 
 /** Hash link into the People view, filtered. Router in main.ts parses it. */
 export function peopleHref(q?: PeopleQuery): string {
@@ -18,11 +19,13 @@ export function peopleHref(q?: PeopleQuery): string {
 
 export function info(def: string): string {
   if (!def) return '';
-  return '<button type="button" class="ad-i" data-def="' + esc(def) + '" aria-label="What this means: ' + esc(def) + '">i</button>';
+  return '<button type="button" class="ad-i" data-def="' + esc(def) + '" aria-label="What this means: ' + esc(def) + '">?</button>';
 }
+/** "?" for a heading or filter name, from the glossary in terms.ts; '' when there is no entry. */
+export function term(name: string): string { return info(TERMS[name] || ''); }
 
 export function panel(title: string, sub: string, body: string, opts: { id?: string; flush?: boolean; cls?: string; tools?: string } = {}): string {
-  return '<section class="ad-panel ' + (opts.cls || '') + '"' + (opts.id ? ' id="' + opts.id + '"' : '') + '><div class="ad-panel__h"><h3 class="ad-panel__t">' + esc(title) + '</h3>' +
+  return '<section class="ad-panel ' + (opts.cls || '') + '"' + (opts.id ? ' id="' + opts.id + '"' : '') + '><div class="ad-panel__h"><h3 class="ad-panel__t">' + esc(title) + '</h3>' + term(title) +
     (opts.tools || '') + (sub ? '<span class="ad-chart-sub">' + sub + '</span>' : '') + '</div><div class="' + (opts.flush ? 'ad-panel__flush' : 'ad-panel__body') + '">' + body + '</div></section>';
 }
 

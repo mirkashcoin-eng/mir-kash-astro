@@ -95,7 +95,7 @@ export function renderOverview(el: HTMLElement, q: Query, opts: { all: boolean }
     const ch = a.ok ? channelsPanel(a.data, q) : panel('Which channels bring buyers', '', '<p class="ad-note ad-pad">' + esc(a.error) + '</p>');
     return kpis +
       '<div class="ad-two">' + trendPanel(seriesOf(o), uid, o.trend.some((p) => p.legacy)) +
-      panel('Where people stop', 'Share of the step before', funnelBars(o.funnel, 'Funnel from visit to order', DRILL)) + '</div>' +
+      panel('Where people drop off', 'Share of the step before', funnelBars(o.funnel, 'Funnel from visit to order', DRILL)) + '</div>' +
       ch + notes(o.notes);
   }, ({ o }) => wireTrend(el, uid, seriesOf(o)));
 }
@@ -132,7 +132,7 @@ export function renderProducts(el: HTMLElement, q: Query) {
       .filter((r) => (r.cells.soldOutViews?.value ?? 0) > 0)
       .sort((a, b) => (b.cells.soldOutViews.value ?? 0) - (a.cells.soldOutViews.value ?? 0))
       .map((r) => ({ label: r.label, right: num(r.cells.soldOutViews.value) + ' sold-out views', value: r.cells.soldOutViews.value ?? 0 }));
-    return panel('How each bag is doing', 'Sorted by views', apiTable(p.table, { compare: q.compare, firstHeader: 'Bag', bar: 'views' }), { flush: true }) +
+    return panel('Bags: attention to orders', 'Sorted by views', apiTable(p.table, { compare: q.compare, firstHeader: 'Bag', bar: 'views' }), { flush: true }) +
       panel('Wanted but sold out', '', sold.length ? hbars(sold, 'Sold-out views by bag') : '<p class="ad-note">No views of sold-out colours in this range.</p>') +
       notes(p.notes);
   });

@@ -4,7 +4,7 @@
 import type { InboxItem, InboxKind } from './types';
 import * as data from './data';
 import { outcomeLabel } from './mapping';
-import { panel } from './charts';
+import { panel, term } from './charts';
 import { esc } from './format';
 import { mount } from './views';
 
@@ -56,7 +56,7 @@ export function renderInbox(el: HTMLElement, onOpenPerson: (id: string) => void,
   return mount(el, data.getInbox(), (d) => {
     if (!d.total) return panel('Nothing needs you right now', '', '<p class="ad-note">Hot leads, failed payments, bookings to confirm and sold-out demand will show up here.</p>');
     return '<div class="ad-inbox">' + d.groups.map((g) =>
-      '<section class="ad-panel ad-panel--flush" data-group="' + g.key + '"><div class="ad-panel__h"><h3 class="ad-panel__t">' + esc(g.title) + '</h3><span class="ad-chip" data-gcount>' + g.items.length + '</span></div>' +
+      '<section class="ad-panel ad-panel--flush" data-group="' + g.key + '"><div class="ad-panel__h"><h3 class="ad-panel__t">' + esc(g.title) + '</h3>' + term(g.title) + '<span class="ad-chip" data-gcount>' + g.items.length + '</span></div>' +
       g.items.map((it, i) => inboxRow(it, i >= INBOX_TOP)).join('') +
       (g.items.length > INBOX_TOP ? '<div class="ad-irow ad-irow--more"><button type="button" class="ad-btn ad-btn--ghost" data-showall aria-expanded="false">Show all ' + g.items.length + '</button></div>' : '') +
       '</section>').join('') + '</div>';
