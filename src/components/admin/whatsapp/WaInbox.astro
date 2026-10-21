@@ -1,0 +1,99 @@
+---
+// /admin/whatsapp: WhatsApp Web's layout in the Mir Kash admin look. A list of
+// conversations on the left, the open chat on the right; one pane at a time on a phone.
+// Same Google sign-in as /admin. All behaviour lives in ./wa.ts; nothing polls.
+import '../admin.css';
+import './wa.css';
+
+const refreshIcon = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+---
+<main class="ad wa">
+  <!-- Sign-in gate (same as /admin) -->
+  <section class="ad-gate" id="waGate" hidden>
+    <div class="ad-gate__card">
+      <p class="ad-eyebrow">Founders only</p>
+      <h1 class="ad-display ad-gate__h">WhatsApp</h1>
+      <p class="ad-gate__p">Every message sent to customers, their replies, and a place to answer them.</p>
+      <button class="ad-google" id="waGoogle" type="button">
+        <span class="ad-google__g" aria-hidden="true">G</span> Sign in with Google
+      </button>
+      <p class="ad-signin-status" id="waSigninStatus" role="status"></p>
+    </div>
+  </section>
+
+  <!-- Signed in, but not an admin -->
+  <section class="ad-gate" id="waDenied" hidden>
+    <div class="ad-gate__card">
+      <p class="ad-eyebrow">Founders only</p>
+      <h1 class="ad-display ad-gate__h">This account doesn't have access</h1>
+      <p class="ad-gate__p" id="waDeniedWho"></p>
+      <button class="ad-google" id="waSignOut" type="button">Sign out</button>
+    </div>
+  </section>
+
+  <!-- Inbox -->
+  <div class="wa-app" id="waApp" hidden>
+    <aside class="wa-list" aria-label="Conversations">
+      <header class="wa-lhead">
+        <div class="wa-lhead__row">
+          <h1 class="ad-display wa-title">WhatsApp</h1>
+          <span class="wa-lhead__ctl">
+            <button class="wa-icon" id="waListRefresh" type="button" aria-label="Refresh conversations" title="Refresh" set:html={refreshIcon}></button>
+            <a class="wa-adminlink" href="/admin">Admin</a>
+          </span>
+        </div>
+        <p class="wa-sample" id="waSample" hidden>Sample data for design review. These aren’t real customers.</p>
+        <div class="wa-tools" id="waTools">
+          <label class="ad-sr" for="waSearch">Search conversations</label>
+          <input class="ad-input wa-search" id="waSearch" type="search" placeholder="Search name, number or message" autocomplete="off" enterkeyhint="search" />
+          <div class="wa-filters" role="group" aria-label="Show">
+            <button type="button" class="ad-chipbtn on" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="ad-chipbtn" data-filter="replied" aria-pressed="false">Replied</button>
+            <button type="button" class="ad-chipbtn" data-filter="unread" aria-pressed="false">Unread</button>
+          </div>
+        </div>
+      </header>
+      <div class="wa-ptr" id="waPtr" aria-hidden="true"></div>
+      <div class="wa-rows" id="waRows" aria-live="polite" aria-busy="false"></div>
+    </aside>
+
+    <section class="wa-chat" aria-label="Conversation">
+      <div class="wa-empty" id="waEmpty">
+        <p class="ad-display wa-empty__h">Choose a conversation</p>
+        <p class="ad-mut">Messages to and from customers appear here.</p>
+      </div>
+
+      <div class="wa-conv" id="waConv" hidden>
+        <header class="wa-chead">
+          <button class="wa-icon wa-backbtn" id="waBack" type="button" aria-label="Back to conversations">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span id="waAvatar"></span>
+          <div class="wa-chead__who">
+            <h2 class="wa-chead__name" id="waName"></h2>
+            <p class="wa-chead__sub" id="waPhone"></p>
+          </div>
+          <a class="ad-btn ad-btn--ghost wa-people" id="waPeople" href="/admin#people" hidden>Open in People</a>
+          <button class="wa-icon" id="waConvRefresh" type="button" aria-label="Refresh conversation" title="Refresh" set:html={refreshIcon}></button>
+        </header>
+
+        <div class="wa-msgs" id="waMsgs" role="log" aria-live="polite"></div>
+
+        <footer class="wa-composer">
+          <p class="wa-closed" id="waClosed" hidden></p>
+          <form class="wa-compose" id="waForm">
+            <label class="ad-sr" for="waText">Message</label>
+            <textarea class="wa-text" id="waText" rows="1" placeholder="Type a message" disabled></textarea>
+            <button class="wa-send" id="waSend" type="submit" aria-label="Send" disabled>
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z" fill="currentColor"/></svg>
+            </button>
+          </form>
+        </footer>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  import './wa';
+</script>
