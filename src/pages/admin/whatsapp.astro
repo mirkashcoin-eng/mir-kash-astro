@@ -1,0 +1,15 @@
+---
+// WhatsApp inbox for the founders. Same sign-in and headers as /admin.
+// BaseLayout already sets theme-color and has no head slot, so the
+// apple-mobile-web-app-capable / viewport-fit=cover metas are left out.
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import WaInbox from '~/components/admin/whatsapp/WaInbox.astro';
+
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+// Never index this route — stronger than robots.txt (applies even to a direct link).
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+---
+<BaseLayout title="WhatsApp · Mir Kash Admin" path="/admin/whatsapp">
+  <WaInbox />
+</BaseLayout>
