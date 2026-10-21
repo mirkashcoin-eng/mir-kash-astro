@@ -95,6 +95,9 @@ function route() {
   window.scrollTo(0, 0);
   if (def.group === 'ops' || view === 'people' || view === 'daily') ops.markSeen(view);
   paint(view);
+  // #people?id=… (e.g. "Open in People" from /admin/whatsapp) opens that person's drawer.
+  const pid = view === 'people' ? new URLSearchParams(search).get('id') : null;
+  if (pid) openPerson(pid);
 }
 
 function paint(view: string) {
