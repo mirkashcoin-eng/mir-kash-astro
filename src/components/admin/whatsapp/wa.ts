@@ -1,6 +1,6 @@
 // Client for /admin/whatsapp: sign-in gate, conversation list, chat, composer and media.
 // Data loads when the page opens, when a conversation is opened, after a send and on
-// Refresh (button or pull-down; reloads the list and the open chat). Nothing polls, and there's no focus/visibility refetch
+// Refresh (the one button above the list, or pull-down; reloads the list and the open chat). Nothing polls, and there's no focus/visibility refetch
 // or realtime (see admin-no-polling). Response shapes: src/lib/whatsapp-types.ts.
 //
 // ?demo=1 on the dev server skips sign-in and serves fixtures.ts through the same
@@ -208,7 +208,6 @@ function rowHtml(t: WaThread): string {
       '<span class="wa-row__top"><span class="wa-row__name">' + esc(t.name || fmtPhone(t.phone)) + '</span>' +
       '<span class="wa-row__time">' + esc(listTime(t.last_at)) + '</span></span>' +
       '<span class="wa-row__bot"><span class="wa-row__pre">' + (t.last_direction === 'out' ? '<span class="wa-you">You: </span>' : '') + esc(oneLine(t.last_preview)) + '</span>' +
-      (t.window_open ? '<span class="wa-dot" title="Can reply"><span class="ad-sr">Can reply</span></span>' : '') +
       (t.unread ? '<span class="wa-badge"><span class="ad-sr">Unread: </span>' + t.unread + '</span>' : '') +
       '</span>' +
     '</span></button>';
@@ -663,7 +662,6 @@ function bind() {
     if (b.scrollHeight - b.scrollTop - b.clientHeight < 200) void loadMore();
   }, { passive: true });
   $('waListRefresh').addEventListener('click', () => { void refreshAll(); });
-  $('waConvRefresh').addEventListener('click', () => { void refreshAll(); });
 
   document.querySelectorAll<HTMLElement>('[data-filter]').forEach((b) => b.addEventListener('click', () => {
     S.filter = b.getAttribute('data-filter') as WaFilter;

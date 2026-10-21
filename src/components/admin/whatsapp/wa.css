@@ -52,7 +52,6 @@
 .wa-row.is-unread .wa-row__pre { color: var(--ink); }
 .wa-row.is-unread .wa-row__time { color: var(--accent); font-weight: 600; }
 .wa-you { color: var(--mut); }
-.wa-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
 .wa-badge { flex: none; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: #fff; font-family: var(--data); font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 
 .wa-av { flex: none; width: 44px; height: 44px; border-radius: 50%; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; letter-spacing: .02em; }
