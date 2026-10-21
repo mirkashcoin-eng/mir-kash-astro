@@ -67,6 +67,11 @@ interface ImportMetaEnv {
   readonly WHATSAPP_TOKEN: string;           // Meta permanent System-User token (secret)
   readonly WHATSAPP_PHONE_NUMBER_ID: string; // = 1285100258018493
   readonly WHATSAPP_WABA_ID: string;         // optional; = 1608333530921964
+  readonly WHATSAPP_VERIFY_TOKEN: string;    // webhook GET handshake; any random string
+  readonly WHATSAPP_APP_SECRET: string;      // Meta app secret; verifies webhook POSTs (secret)
+  // WhatsApp inbox (/admin/whatsapp) — the WhatsApp service's own Supabase project.
+  readonly WA_SUPABASE_URL: string;          // = https://<project>.supabase.co
+  readonly WA_SUPABASE_SERVICE_KEY: string;  // legacy service_role key; server-only (secret)
   readonly CRON_SECRET: string;              // protects the cron endpoints
   // Meta Conversions API — server-side mirror of the browser Pixel (secret).
   readonly META_CAPI_TOKEN: string;
