@@ -168,3 +168,46 @@ from webhook_events where status = 'error' order by received_at desc;
   grant all privileges on table store_config, template_map, webhook_events, messages_out to service_role;
   notify pgrst, 'reload schema';
   ```
+
+---
+
+## Inbox (Phase 1.2) — replies and receipts for `/admin/whatsapp`
+The website now has a WhatsApp inbox at `/admin/whatsapp`: one conversation per customer, every message sent
+(by this service, by the website, or as a reply from the inbox), customer replies, and ✓/✓✓/blue ticks. All of it
+lives **here in Supabase**; the website reads and writes it over the Data API with the `service_role` key.
+
+**What `0003_inbox.sql` adds** (add-only, safe to run twice — `shopify-webhook` and `wa-retry` keep working unchanged):
+- `messages_out` gets `phone_number_id`, `source` (`order` | `site` | `inbox`, default `order`), `kind`
+  (`template` | `text`, default `template`), `body` and `sent_by`, plus indexes on `(to_phone, created_at desc)` and
+  `meta_message_id` (deliberately **not** unique, so this service's own insert can never fail on it).
+- `messages_in` — customer messages (text, photos, voice notes, buttons…), unique on the wamid because Meta retries.
+- `message_status` — delivery receipts per wamid (`sent_at`, `delivered_at`, `read_at`, `failed_at`, `failed_reason`).
+  A separate table, so a receipt that arrives before its `messages_out` row is never lost.
+- `wa_contacts` — the customer's WhatsApp profile name and the founders' shared "last read" marker.
+- `upsert_wa_statuses(rows jsonb)` — merges a batch of receipts; each timestamp is set once and never moved.
+- Views `wa_messages` (sent ∪ received, receipts joined) and `wa_threads` (one row per phone, for the list).
+- Same access model as 0001: RLS on, no policies, granted to `service_role` only.
+
+**Run it:** Dashboard → **SQL Editor** → paste the contents of `supabase/migrations/0003_inbox.sql` → **Run**
+(or `supabase db push`). It ends with `notify pgrst, 'reload schema'`, so the new tables show up in the Data API
+straight away. Quick check:
+```sql
+select count(*) from wa_threads;   -- one row per phone already in messages_out
+```
+
+**Website env vars (Vercel → Settings → Environment Variables, server-only — never `PUBLIC_`):**
+```
+WA_SUPABASE_URL=https://btupzwyyqdkzfoygfwcz.supabase.co
+WA_SUPABASE_SERVICE_KEY=<the legacy service_role key>   # Project Settings → API Keys (legacy keys)
+```
+Without them the inbox shows "not set up yet" and the website quietly skips logging — nothing breaks.
+
+**Who writes what:**
+- The **Meta webhook on the website** (`/api/webhooks/whatsapp`, signed with `WHATSAPP_APP_SECRET`) now stores
+  inbound replies in `messages_in`, profile names in `wa_contacts`, and delivered/read/failed receipts in
+  `message_status` — including receipts for the messages this service sends. This service doesn't receive Meta
+  webhooks itself.
+- The website's own sends (cart reminder, checkout confirmation) are logged to `messages_out` with `source = 'site'`,
+  and inbox replies with `source = 'inbox'`, `kind = 'text'` and `sent_by` = the founder's email.
+- For receipts and replies to reach the webhook, the sending number must be in the **same Meta app** whose webhook
+  points at the website, with the **messages** field subscribed.
