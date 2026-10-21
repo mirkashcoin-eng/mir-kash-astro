@@ -231,16 +231,22 @@ async function media(url: URL): Promise<Response> {
   if (!meta?.ok) return gone();
   let info: { url?: unknown; mime_type?: unknown };
   try { info = await meta.json(); } catch { return gone(); }
-  if (typeof info.url !== 'string' || !/^https:\/\//i.test(info.url)) return gone();
+  // The token only ever goes to Meta's own media hosts (lookaside.fbsbx.com etc.).
+  let host = '';
+  try { host = typeof info.url === 'string' ? new URL(info.url).hostname : ''; } catch { /* bad url */ }
+  if (typeof info.url !== 'string' || !/^https:\/\//i.test(info.url)
+    || !/(^|\.)(fbsbx\.com|facebook\.com|fbcdn\.net|whatsapp\.net)$/i.test(host)) return gone();
 
   const file = await fetch10s(info.url, { headers: auth });
   if (!file?.ok || !file.body) return gone();
 
-  const mime = typeof info.mime_type === 'string' && /^[\w.+-]+\/[\w.+-]+/.test(info.mime_type)
-    ? info.mime_type.split(';')[0].trim()
-    : 'application/octet-stream';
+  // Only images, audio and video are shown inline; anything else is a download.
+  const raw = typeof info.mime_type === 'string' ? info.mime_type.split(';')[0].trim().toLowerCase() : '';
+  const inline = /^(image\/(jpeg|png|webp|gif)|audio\/[\w.+-]+|video\/[\w.+-]+)$/.test(raw);
+  const mime = inline ? raw : 'application/octet-stream';
   const headers: Record<string, string> = {
     'Content-Type': mime,
+    ...(inline ? {} : { 'Content-Disposition': 'attachment' }),
     'Cache-Control': 'private, max-age=3600',
     'X-Robots-Tag': 'noindex, nofollow',
     // A customer's document is never run as a page on our origin.
