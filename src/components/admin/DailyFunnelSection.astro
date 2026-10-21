@@ -1,0 +1,15 @@
+---
+// Daily funnel view mount. Painted by the client modules (views.ts / people.ts / ops.ts); no data here.
+---
+<section class="ad-view" data-section="daily" hidden aria-labelledby="viewTitle">
+  <div class="ad-daterow">
+    <span class="ad-customrange">
+      <button class="ad-btn ad-btn--ghost" id="monthPrev" type="button" aria-label="Previous month">‹</button>
+      <label class="ad-sr" for="monthPick">Month</label>
+      <input class="ad-input" id="monthPick" type="month" />
+      <button class="ad-btn ad-btn--ghost" id="monthNext" type="button" aria-label="Next month">›</button>
+    </span>
+    <button class="ad-btn ad-btn--ghost" id="monthCsv" type="button">Download CSV</button>
+  </div>
+  <div id="dailyBody"></div>
+</section>
