@@ -531,8 +531,21 @@ const storyWord = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`;
     // Both search boxes (the mobile Folders-screen one and the desktop
     // toolbar one) drive the same query — typing in either updates both, so
     // resizing mid-search never leaves the hidden one out of sync.
+    // Event log: what people look for, and how many stories matched (0 = a gap).
+    // Sent once typing pauses, so a query is one event, not one per keystroke.
+    var qTimer = 0, qSent = '';
+    function logSearch() {
+      try {
+        if (currentQuery.length < 2 || currentQuery === qSent || !window.mkEvent) return;
+        qSent = currentQuery;
+        var n = 0;
+        groups.forEach(function (g) { g.querySelectorAll('.nt-row').forEach(function (r) { if (rowMatches(r)) n++; }); });
+        window.mkEvent('search', { props: { q: currentQuery.slice(0, 80), results: n, where: 'journal' } });
+      } catch (_) {}
+    }
     searchInputs.forEach(function (input) {
       input.addEventListener('input', function () {
+        clearTimeout(qTimer); qTimer = setTimeout(logSearch, 1200);
         currentQuery = input.value.trim().toLowerCase();
         searchInputs.forEach(function (other) { if (other !== input) other.value = input.value; });
         if (currentQuery) {

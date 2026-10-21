@@ -129,6 +129,28 @@ const summaryItems = items.map((i) => ({
 
   <SiteFooter />
 
+  <script
+    is:inline
+    define:vars={{ payStatus: displayStatus, payMethod: isCod ? 'cod' : 'online', payRef: displayOrder || orderId || codDraft || '', payOrder: displayOrder || '', payValue: amount, payCurrency: currency }}
+  >
+    // Event log (window.mkEvent, BaseLayout): how the payment ended. Once per order —
+    // a refresh or the back button must not count it again. 'pending' isn't an
+    // outcome yet (it confirms later, via webhook), so it sends nothing.
+    try {
+      var key = 'mk_ev_pay_' + payRef;
+      var done = false;
+      try { done = !!payRef && sessionStorage.getItem(key) === '1'; } catch (_) {}
+      if (!done && window.mkEvent && (payStatus === 'paid' || payStatus === 'failed' || payStatus === 'error')) {
+        try { if (payRef) sessionStorage.setItem(key, '1'); } catch (_) {}
+        if (payStatus === 'paid') {
+          window.mkEvent('payment_success', { value: payValue > 0 ? payValue : undefined, currency: payCurrency, props: { method: payMethod, order: payOrder || undefined } });
+        } else {
+          window.mkEvent('payment_failed', { currency: payCurrency, props: { reason: payStatus, method: payMethod } });
+        }
+      }
+    } catch (_) {}
+  </script>
+
   {displayStatus === 'paid' && displayOrder && (
     <script
       is:inline

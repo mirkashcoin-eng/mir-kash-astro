@@ -21,6 +21,19 @@ function safePath(raw: string | null): string {
   return raw;
 }
 
+// Credit the visit (not just the order) to the affiliate in analytics. The click-id
+// cookie above only reaches checkout; the browser tracker (BaseLayout) and GA4 both
+// read UTM tags from the landing URL, and a new utm_source also starts a new visit,
+// so the creator gets the session even if this browser was here minutes ago.
+// A link that already carries its own UTM tags keeps them untouched.
+function withAffiliateUtm(path: string, slug: string): string {
+  const u = new URL(path, 'https://x.invalid');
+  if (u.searchParams.has('utm_source')) return path;
+  u.searchParams.set('utm_source', slug);
+  u.searchParams.set('utm_medium', 'affiliate');
+  return u.pathname + u.search + u.hash;
+}
+
 export const GET: APIRoute = async ({ params, url, cookies, locals }) => {
   const slug = (params.affiliate || '').toLowerCase();
   const to = safePath(url.searchParams.get('to'));
@@ -37,7 +50,8 @@ export const GET: APIRoute = async ({ params, url, cookies, locals }) => {
   // Creator links are shared as bare paths (/products/x), so a US visitor still needs
   // the /en-us prefix added here.
   const market = locals.marketConfig;
-  const destination = market && !market.isDefault ? getAlternateUrl(to, market) : to;
+  let destination = market && !market.isDefault ? getAlternateUrl(to, market) : to;
+  if (SLUG_RE.test(slug)) destination = withAffiliateUtm(destination, slug);
 
   return new Response(null, {
     status: 302,
