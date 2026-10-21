@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getOrdersByEmail, requestReturn } from '~/lib/shopify/admin';
+import { recordReturnRequest } from '~/lib/warehouse/orders';
 
 export const prerender = false;
 
@@ -46,6 +47,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const ok = await requestReturn(target.id, reason);
+  // Analytics copy (Neon `returns`). Best-effort: it logs and never throws.
+  if (ok) await recordReturnRequest(target, reason);
   return ok
     ? json({ ok: true, order: target.name })
     : json({ error: 'Something went wrong on our end. Please email returns@mirkash.com.' }, 502);
