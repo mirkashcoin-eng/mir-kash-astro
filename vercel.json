@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/sync-shopify",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-people",
+      "schedule": "*/10 * * * *"
     }
   ],
   "rewrites": [
