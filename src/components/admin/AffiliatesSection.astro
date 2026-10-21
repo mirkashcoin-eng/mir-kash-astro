@@ -1,0 +1,20 @@
+---
+// Affiliates view mount. Painted by the client modules (views.ts / people.ts / ops.ts); no data here.
+---
+<section class="ad-view" data-section="affiliates" hidden aria-labelledby="viewTitle">
+  <div class="ad-panel ad-affnew">
+    <div class="ad-panel__h"><h3 class="ad-panel__t">New link</h3></div>
+    <form class="ad-affform" id="affForm">
+      <label class="ad-flabel">Link name
+        <span class="ad-affslug">
+          <input class="ad-input" id="affSlug" type="text" placeholder="priya" autocomplete="off" />
+          <button class="ad-affgen ad-btn ad-btn--ghost" id="affGen" type="button" title="Use a random code instead">Random</button>
+        </span>
+      </label>
+      <label class="ad-flabel">Creator (optional)<input class="ad-input" id="affLabel" type="text" placeholder="Priya Sharma" autocomplete="off" /></label>
+      <button class="ad-btn" id="affCreate" type="submit">Create link</button>
+    </form>
+    <p class="ad-actmsg" id="affMsg" role="status"></p>
+  </div>
+  <div id="affBody"></div>
+</section>

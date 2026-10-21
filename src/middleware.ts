@@ -24,6 +24,9 @@ const NAMED_BOTS: Array<[RegExp, string]> = [
   [/Applebot/i, 'Applebot'],
   [/facebookexternalhit|meta-externalagent/i, 'Facebook'],
   [/Bytespider/i, 'Bytespider'],
+  // Scripted browsers (test runners, screenshot tools, page-speed audits) run page
+  // scripts like a person would, but aren't visitors.
+  [/HeadlessChrome|Chrome-Lighthouse|PhantomJS|Puppeteer|Playwright|Selenium/i, 'Headless browser'],
 ];
 
 // The crawler's name, or '' for an ordinary visitor.

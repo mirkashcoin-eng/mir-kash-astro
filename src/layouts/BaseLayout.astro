@@ -199,6 +199,133 @@ const orgJsonLd = {
       window.__MARKET__ = market;
     </script>
 
+    <!-- Event log tracker → /api/collect → Neon `events`. One raw row per action;
+         every /admin number is computed from these. Contract: src/lib/events.ts.
+         window.mkEvent(name, { product, value, currency, props }) records an action;
+         window.mkIdentify({ phone, email, name, address1, city, province, pin }) links
+         this browser to a person. Runs alongside mkTrack/mkLead (Firestore) until cutover. -->
+    <script is:inline>
+      (function () {
+        var W = window;
+        var IDLE = 30 * 60e3;        // a visit ends after 30 min without activity
+        var ACTIVE = 30e3;           // engaged = tab visible + input in the last 30 s
+        function uuid() {
+          try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (_) {}
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+          });
+        }
+        function get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+        function put(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+
+        // Visitor = this browser, for ~ever. Without storage it lives for this page only.
+        var vid = get('mk_vid');
+        if (!vid) { vid = uuid(); put('mk_vid', vid); }
+
+        // Session = one visit. A new one starts after 30 idle minutes, or when the
+        // visitor arrives from a different campaign/ad (same rule GA uses).
+        var qs; try { qs = new URLSearchParams(location.search); } catch (_) { qs = { get: function () { return null; } }; }
+        var p = function (k) { return qs.get(k) || ''; };
+        var ck = [p('utm_source'), p('utm_campaign'), p('utm_content'), p('gclid'), p('fbclid')].join('|');
+        var sess = null; try { sess = JSON.parse(get('mk_sess') || 'null'); } catch (_) {}
+        var now = Date.now();
+        if (!sess || !sess.id || now - (sess.last || 0) > IDLE || (ck !== '||||' && ck !== sess.ck)) {
+          var ref = document.referrer && document.referrer.indexOf(location.host) === -1 ? document.referrer : '';
+          sess = { id: uuid(), ck: ck, ack: false, info: {
+            landing: location.pathname, referrer: ref || null,
+            utm_source: p('utm_source') || null, utm_medium: p('utm_medium') || null,
+            utm_campaign: p('utm_campaign') || null, utm_content: p('utm_content') || null,
+            utm_term: p('utm_term') || null, gclid: p('gclid') || null, fbclid: p('fbclid') || null,
+            affiliate: get('mk_aff') || null,
+            screen: (screen && screen.width ? screen.width + 'x' + screen.height : null),
+            market: W.__MARKET__ || null,
+          } };
+        }
+        function touch() { sess.last = Date.now(); put('mk_sess', JSON.stringify(sess)); }
+        touch();
+
+        var pv = uuid();             // this page load
+        var queue = [], ident = null, timer = 0;
+
+        // Events that couldn't be sent last time (offline, closed mid-request). Safe
+        // to resend: the server ignores an event_id it already has.
+        var retry = []; try { retry = JSON.parse(get('mk_q') || '[]'); } catch (_) {}
+        put('mk_q', '[]');
+
+        function post(body, onFail) {
+          var json = JSON.stringify(body);
+          try {
+            fetch('/api/collect', { method: 'POST', keepalive: json.length < 60000, headers: { 'Content-Type': 'application/json' }, body: json })
+              .then(function (r) { if (r.ok && body.session) { sess.ack = true; touch(); } })
+              .catch(onFail);
+          } catch (_) { onFail(); }
+        }
+        function flush() {
+          clearTimeout(timer); timer = 0;
+          if (!queue.length && !ident) return;
+          var batch = queue.splice(0, 25);
+          var body = { v: vid, s: sess.id, events: batch };
+          if (!sess.ack) body.session = sess.info;   // until the server has confirmed it
+          if (ident) { body.identify = ident; ident = null; }
+          post(body, function () {
+            // Keep a bounded backlog for the next page load.
+            var q = []; try { q = JSON.parse(get('mk_q') || '[]'); } catch (_) {}
+            put('mk_q', JSON.stringify(q.concat(batch).slice(-100)));
+          });
+          if (queue.length) flush();
+        }
+        function later() { if (!timer) timer = setTimeout(flush, 2000); }
+
+        W.mkEvent = function (name, d) {
+          try {
+            d = d || {};
+            queue.push({ id: uuid(), name: name, ts: Date.now(), page: location.pathname, pv: pv,
+              product: d.product || undefined, value: typeof d.value === 'number' ? d.value : undefined,
+              currency: d.currency || undefined, props: d.props || undefined });
+            touch();
+            if (queue.length >= 10) flush(); else later();
+          } catch (_) {}
+        };
+        W.mkIdentify = function (f) {
+          try { ident = Object.assign(ident || {}, f || {}); later(); } catch (_) {}
+        };
+        W.mkFlush = flush;
+
+        if (retry.length) { queue = retry.slice(-100); }
+        W.mkEvent('page_view');
+
+        // ── Engaged time + scroll depth for this page view ───────────────────
+        var engaged = 0, lastTick = Date.now(), lastInput = Date.now(), maxScroll = 0, sentMs = -1;
+        function tick() {
+          var t = Date.now();
+          if (document.visibilityState === 'visible' && t - lastInput < ACTIVE) engaged += Math.min(t - lastTick, ACTIVE);
+          lastTick = t;
+        }
+        function scrolled() {
+          var h = document.documentElement.scrollHeight - innerHeight;
+          var pct = h > 0 ? Math.round(Math.min(1, scrollY / h) * 100) : 100;
+          if (pct > maxScroll) maxScroll = pct;
+        }
+        function input() { tick(); lastInput = Date.now(); }
+        ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (e) { addEventListener(e, input, { passive: true }); });
+        var mm = 0; addEventListener('mousemove', function () { var t = Date.now(); if (t - mm > 1000) { mm = t; input(); } }, { passive: true });
+        addEventListener('scroll', function () { input(); scrolled(); }, { passive: true });
+        // One row per report; SQL takes MAX(ms) per page_view_id, so repeats are harmless.
+        function report() {
+          tick(); scrolled();
+          if (engaged === sentMs) return;
+          sentMs = engaged;
+          W.mkEvent('page_engaged', { props: { ms: engaged, scroll: maxScroll } });
+          flush();
+        }
+        setInterval(function () { tick(); if (engaged - Math.max(sentMs, 0) >= 60e3) report(); }, 5000);
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'hidden') report(); else { lastTick = Date.now(); lastInput = Date.now(); }
+        });
+        addEventListener('pagehide', report);
+      })();
+    </script>
+
     <!-- First-party funnel (anonymous counts) + per-session lead capture. No cookies. -->
     <script is:inline define:vars={{ mkMarket: market, mkBot, mkRef, mkCountry }}>
       // Anonymous funnel beacon — GET image (POST text/plain is blocked by Astro CSRF).
@@ -212,6 +339,15 @@ const orgJsonLd = {
           if (opts && opts.src) q += '&src=' + encodeURIComponent(opts.src);
           if (opts && opts.ab) q += '&ab=' + encodeURIComponent(opts.ab);
           (new Image()).src = q;
+        } catch (_) {}
+        // Mirror to the event log. product_view / add_to_cart / related clicks come
+        // from mkLead (it carries the cart), so they're skipped here to avoid doubles.
+        try {
+          if (window.mkEvent && e !== 'visit' && e !== 'product_view' && e !== 'add_to_cart' && e !== 'related_product_click') {
+            var props = {};
+            if (opts) ['page', 'offer', 'src', 'ab', 'product'].forEach(function (k) { if (opts[k]) props[k] = opts[k]; });
+            window.mkEvent(e, { props: props });
+          }
         } catch (_) {}
       };
       // Trim a Shopify cart payload to what /admin needs: what's in the bag + its value.
@@ -245,6 +381,28 @@ const orgJsonLd = {
             body: JSON.stringify(Object.assign({ sessionId: window.mkSid, market: mkMarket }, data)),
           });
         } catch (_) {}
+        // Mirror to the event log: identity goes to mkIdentify (people table), the
+        // action to mkEvent with only non-personal fields as props.
+        try {
+          if (!window.mkEvent || !data || data.event === 'visit' || data.event === 'page_view') return;
+          var who = {};
+          ['phone', 'email', 'name', 'address1', 'city', 'province', 'pin'].forEach(function (k) { if (data[k]) who[k] = data[k]; });
+          if (Object.keys(who).length) window.mkIdentify(who);
+          var props = {}, PII = /^(phone|email|name|address1|city|province|pin|cart|event|sessionId|market)$/;
+          for (var k in data) {
+            var v = data[k];
+            if (!PII.test(k) && v != null && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) props[k] = v;
+          }
+          if (data.item) props.title = data.item;
+          delete props.item;
+          var ev = { props: props };
+          var m = location.pathname.match(/\/products\/([^/?#]+)/);
+          if (data.event === 'product_view' && m) ev.product = m[1];
+          if (data.event === 'add_to_cart' && data.cart) {
+            props.cart_total = data.cart.total; props.cart_qty = data.cart.quantity; ev.currency = data.cart.currency;
+          }
+          window.mkEvent(data.event, ev);
+        } catch (_) {}
       };
       // Once per tab-session: bump the anonymous funnel, and open this visitor's row
       // in /admin so people who browse without ever leaving a number are still visible.
@@ -275,6 +433,145 @@ const orgJsonLd = {
         // build a path. Product pages send their own event from ProductPage.astro.
         if (window.mkLead) window.mkLead({ event: 'page_view', page: location.pathname });
       } catch (_) { window.mkTrack('visit'); }
+    </script>
+
+    <!-- Background signals for the event log: contact taps, Core Web Vitals and script
+         errors. Nothing here changes what the visitor sees. -->
+    <script is:inline>
+      (function () {
+        function ev(name, d) { try { if (window.mkEvent) window.mkEvent(name, d); } catch (_) {} }
+
+        // mkLead without its event-log mirror, for pages that send a richer mkEvent
+        // (handle, value) for the same action themselves — so it isn't counted twice.
+        window.mkLeadOnly = function (data) {
+          var keep = window.mkEvent;
+          try { window.mkEvent = null; if (window.mkLead) window.mkLead(data); } catch (_) {}
+          window.mkEvent = keep;
+        };
+
+        // ── Contact taps: WhatsApp, email or phone links (same test as Meta Contact) ──
+        document.addEventListener('click', function (e) {
+          try {
+            var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+            if (!a) return;
+            var h = a.getAttribute('href') || '';
+            var ch = /^https?:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(h) ? 'whatsapp'
+              : /^mailto:/i.test(h) ? 'email'
+              : /^tel:/i.test(h) ? 'phone' : '';
+            if (ch) ev('contact_click', { props: { channel: ch } });
+          } catch (_) {}
+        }, true);
+
+        // ── Script errors: window errors + unhandled promise rejections, max 3/page ──
+        var errs = 0;
+        function scrub(s) {
+          // Error text can echo what was typed; keep emails and phone-like numbers out.
+          return String(s || '').replace(/[^\s@]+@[^\s@]+/g, '[email]').replace(/\+?\d[\d\s-]{6,}\d/g, '[num]').slice(0, 200);
+        }
+        function srcPath(u) {
+          try {
+            if (!u) return '';
+            var x = new URL(u, location.href);
+            return (x.host === location.host ? '' : x.host) + x.pathname;
+          } catch (_) { return ''; }
+        }
+        function jsError(kind, msg, src, line) {
+          if (errs >= 3 || !msg) return;
+          errs++;
+          var p = { kind: kind, message: scrub(msg), source: srcPath(src).slice(0, 200) };
+          if (line) p.line = line;
+          ev('js_error', { props: p });
+        }
+        addEventListener('error', function (e) {
+          try {
+            // Cross-origin scripts report only "Script error." with no detail; it can't be acted on.
+            if (!e || (e.message === 'Script error.' && !e.filename)) return;
+            jsError('error', e.message, e.filename, e.lineno);
+          } catch (_) {}
+        });
+        addEventListener('unhandledrejection', function (e) {
+          try {
+            var r = e && e.reason;
+            jsError('rejection', r && r.message ? r.message : String(r), '', 0);
+          } catch (_) {}
+        });
+
+        // ── Core Web Vitals: LCP, CLS, INP — measured with PerformanceObserver, sent
+        //    once per page view when it's hidden. Ratings use Google's thresholds. ──
+        if (!('PerformanceObserver' in window)) return;
+        var types = PerformanceObserver.supportedEntryTypes || [];
+        function has(t) { return types.indexOf(t) !== -1; }
+        function observe(type, cb, opts) {
+          try {
+            var po = new PerformanceObserver(function (l) { try { l.getEntries().forEach(cb); } catch (_) {} });
+            var o = { type: type, buffered: true };
+            for (var k in opts || {}) o[k] = opts[k];
+            po.observe(o);
+            return po;
+          } catch (_) { return null; }
+        }
+        // A page opened in a background tab has no meaningful LCP.
+        var firstHidden = document.visibilityState === 'hidden' ? 0 : Infinity;
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'hidden' && firstHidden === Infinity) firstHidden = performance.now();
+        }, true);
+
+        // LCP: the last candidate before the first input (later ones don't count).
+        var lcp = -1, lcpDone = false;
+        if (has('largest-contentful-paint')) {
+          observe('largest-contentful-paint', function (en) {
+            if (!lcpDone && en.startTime < firstHidden) lcp = en.startTime;
+          });
+          ['keydown', 'pointerdown'].forEach(function (t) {
+            addEventListener(t, function () { lcpDone = true; }, { once: true, capture: true });
+          });
+        }
+
+        // CLS: largest session window (shifts < 1 s apart, window ≤ 5 s), ignoring
+        // shifts right after user input.
+        var cls = has('layout-shift') ? 0 : -1, winVal = 0, winFirst = 0, winLast = 0;
+        if (cls === 0) {
+          observe('layout-shift', function (en) {
+            if (en.hadRecentInput) return;
+            if (winVal && en.startTime - winLast < 1000 && en.startTime - winFirst < 5000) { winVal += en.value; winLast = en.startTime; }
+            else { winVal = en.value; winFirst = winLast = en.startTime; }
+            if (winVal > cls) cls = winVal;
+          });
+        }
+
+        // INP: worst interaction latency (≈ the 98th percentile once there are 50+).
+        var inter = {}, interCount = 0;
+        function noteInteraction(en) {
+          if (!en.interactionId) return;
+          if (!(en.interactionId in inter)) interCount++;
+          if (!inter[en.interactionId] || en.duration > inter[en.interactionId]) inter[en.interactionId] = en.duration;
+        }
+        if (has('event')) observe('event', noteInteraction, { durationThreshold: 40 });
+        if (has('first-input')) observe('first-input', noteInteraction);
+        function inp() {
+          var d = [];
+          for (var k in inter) d.push(inter[k]);
+          if (!d.length) return -1;
+          d.sort(function (a, b) { return b - a; });
+          return d[Math.min(d.length - 1, Math.floor(interCount / 50))];
+        }
+
+        function rate(v, good, poor) { return v <= good ? 'good' : v <= poor ? 'needs-improvement' : 'poor'; }
+        var sent = false;
+        function send() {
+          try {
+            if (sent) return;
+            sent = true;
+            if (lcp >= 0) ev('web_vital', { value: Math.round(lcp), props: { metric: 'LCP', rating: rate(lcp, 2500, 4000) } });
+            if (cls >= 0) ev('web_vital', { value: Math.round(cls * 1000) / 1000, props: { metric: 'CLS', rating: rate(cls, 0.1, 0.25) } });
+            var i = inp();
+            if (i >= 0) ev('web_vital', { value: Math.round(i), props: { metric: 'INP', rating: rate(i, 200, 500) } });
+            if (window.mkFlush) window.mkFlush();
+          } catch (_) {}
+        }
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') send(); });
+        addEventListener('pagehide', send);
+      })();
     </script>
   </head>
   <body data-market={market}>

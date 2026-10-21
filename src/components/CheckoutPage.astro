@@ -74,7 +74,7 @@ const thumbGradients = [
                 <div class="sum-meta">{line.variantTitle}</div>
               )}
               {line.material && <div class="sum-material"><LeafIcon size={10} /> {line.material}</div>}
-              <button class="sum-remove" type="button" data-remove={line.id}>Remove</button>
+              <button class="sum-remove" type="button" data-remove={line.id} data-handle={line.handle} data-price={line.price} data-qty={line.quantity}>Remove</button>
             </div>
             <div class="sum-price">{inr(line.lineTotal)}</div>
           </div>
@@ -299,6 +299,17 @@ const thumbGradients = [
 
   if (window.mkTrack) window.mkTrack('checkout_start');
 
+  // Event log (window.mkEvent, BaseLayout) — background only, and never allowed to
+  // break checkout. checkout_start / payment_start already arrive via mkTrack.
+  type Ev = { product?: string; value?: number; currency?: string; props?: Record<string, string | number | boolean | undefined> };
+  function ev(name: string, d?: Ev) { try { (window as any).mkEvent?.(name, d); } catch {} }
+  let failSent = false;
+  function paymentFailed(reason: string) {
+    if (failSent) return;
+    failSent = true;
+    ev('payment_failed', { currency: 'INR', props: { reason } });
+  }
+
   function fillCities(state: string) {
     const dl = document.getElementById('coCities'); if (!dl) return;
     dl.innerHTML = citiesFor(state).map((c) => `<option value="${c}"></option>`).join('');
@@ -474,6 +485,11 @@ const thumbGradients = [
     try {
       const res = await fetch('/api/cart/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineId: btn.dataset.remove, store: 'india', buynow: buyNow }) });
       if (!res.ok) throw new Error();
+      try {
+        const qty = Number(btn.dataset.qty) || 1, price = Number(btn.dataset.price) || 0;
+        ev('remove_from_cart', { product: btn.dataset.handle, value: price * qty || undefined, currency: 'INR', props: { qty, where: 'checkout', buynow: buyNow } });
+        (window as any).mkFlush?.();
+      } catch {}
       window.location.reload();
     } catch { btn.disabled = false; btn.textContent = 'Remove'; alert('Could not remove that item.'); }
   });
@@ -494,6 +510,11 @@ const thumbGradients = [
         body: JSON.stringify({ code, buynow: buyNow }),
       });
       const data = await res.json();
+      // A coupon tried (not removed), and whether the store accepted it.
+      if (!removing && (data.ok === false || res.ok)) {
+        ev('coupon_apply', { value: data.ok === false ? undefined : data.discount, currency: 'INR',
+          props: { code: code.toUpperCase().slice(0, 40), valid: data.ok !== false && !!data.code, where: 'checkout' } });
+      }
       if (data.ok === false) { showErr('coupon', data.error || 'Invalid code.'); btn.disabled = false; btn.textContent = 'Apply'; return; }
       if (!res.ok) throw new Error();
       // Update totals. The applied/Remove state keys off the CODE, the row's
@@ -571,6 +592,7 @@ const thumbGradients = [
   }
 
   document.querySelectorAll('.pay-opt').forEach((o) => o.addEventListener('click', () => {
+    if (!o.classList.contains('sel')) ev('payment_method', { props: { method: (o as HTMLElement).dataset.pay || '' } });
     document.querySelectorAll('.pay-opt').forEach((x) => x.classList.remove('sel'));
     o.classList.add('sel');
     scheduleSave(); // a div click fires neither 'input' nor 'change'
@@ -641,6 +663,7 @@ const thumbGradients = [
         return;
       }
       // Cancelled or expired: safe to let them choose another method.
+      paymentFailed(String(state || 'cancelled'));
       clearPending();
       btn.disabled = false;
       syncPayUi();
@@ -659,6 +682,7 @@ const thumbGradients = [
   // Arriving from the return page after cancelling at the gateway. Say so, then strip
   // the param so a refresh doesn't repeat a message about a payment already dealt with.
   if (new URLSearchParams(location.search).get('cancelled') === '1') {
+    paymentFailed('cancelled');
     clearPending();
     ($('placeBtn') as HTMLButtonElement).disabled = false;
     showErr('payment', 'Payment cancelled — choose another method and try again.');
@@ -673,6 +697,9 @@ const thumbGradients = [
     if (window.mkTrack) window.mkTrack('payment_start');
     const btn = $('placeBtn') as HTMLButtonElement;
     const isCod = (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay === 'cod';
+    // The method actually submitted (UPI is preselected, so many buyers never click one).
+    ev('payment_method', { value: Number(sheet.dataset.total) || undefined, currency: 'INR',
+      props: { method: (document.querySelector('.pay-opt.sel') as HTMLElement)?.dataset.pay || '', submit: true } });
     // Meta AddPaymentInfo — the buyer has chosen how to pay and submitted. Shares its id
     // with the server-side event in /api/checkout/create so Meta dedupes the two.
     const fbEventId = 'api-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -737,6 +764,8 @@ const thumbGradients = [
       if (result?.error) throw new Error(result.error.message || 'Payment could not be started');
     } catch (err) {
       console.error(err);
+      // Never reached the gateway (or the COD order didn't go through).
+      ev('payment_failed', { currency: 'INR', props: { reason: isCod ? 'cod_error' : 'start_error' } });
       showErr('payment', isCod ? 'We couldn’t place your order. Please try again.' : 'Payment could not be started. Please try again.');
       btn.disabled = false;
       syncPayUi();

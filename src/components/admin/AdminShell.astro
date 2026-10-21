@@ -1,0 +1,106 @@
+---
+// Frame for the dashboard: sign-in gate, left nav (Act / Understand / Operations),
+// header with date range, compare, tracking-health pill, and the shared detail drawer.
+// Sections are passed in through the default slot.
+import './admin.css';
+---
+<main class="ad">
+  <!-- Sign-in gate -->
+  <section class="ad-gate" id="gate" hidden>
+    <div class="ad-gate__card">
+      <p class="ad-eyebrow">Founders only</p>
+      <h1 class="ad-display ad-gate__h">Mir Kash</h1>
+      <p class="ad-gate__p">What needs you today, how the shop is doing, and every order and booking, all in one place.</p>
+      <button class="ad-google" id="googleBtn" type="button">
+        <span class="ad-google__g" aria-hidden="true">G</span> Sign in with Google
+      </button>
+      <p class="ad-signin-status" id="signinStatus" role="status"></p>
+    </div>
+  </section>
+
+  <!-- Console -->
+  <div class="ad-shell" id="shell" hidden>
+    <header class="ad-topbar">
+      <span class="ad-brand">Mir Kash <small>Admin</small></span>
+      <button class="ad-btn ad-btn--ghost ad-menu" id="navToggle" type="button" aria-expanded="false" aria-controls="adNav">Menu</button>
+    </header>
+
+    <nav class="ad-nav" id="adNav" aria-label="Dashboard sections">
+      <div class="ad-nav__logo"><div class="ad-brand">Mir Kash</div><div class="ad-nav__sub">Admin</div></div>
+      <div class="ad-nav__scroll">
+        <h2 class="ad-nav__grp">Act</h2>
+        <a class="ad-nav__item" data-nav="today" href="#today">Today</a>
+        <h2 class="ad-nav__grp">Understand</h2>
+        <a class="ad-nav__item" data-nav="overview" href="#overview">Overview</a>
+        <a class="ad-nav__item" data-nav="acquisition" href="#acquisition">Acquisition</a>
+        <a class="ad-nav__item" data-nav="products" href="#products">Products</a>
+        <a class="ad-nav__item" data-nav="checkout" href="#checkout">Checkout</a>
+        <a class="ad-nav__item" data-nav="audience" href="#audience">Audience</a>
+        <a class="ad-nav__item" data-nav="retention" href="#retention">Retention</a>
+        <a class="ad-nav__item" data-nav="people" href="#people">People <span class="ad-nav__n" id="nPeople"></span></a>
+        <a class="ad-nav__item" data-nav="daily" href="#daily">Daily funnel</a>
+        <h2 class="ad-nav__grp">Operations</h2>
+        <a class="ad-nav__item" data-nav="orders" href="#orders">Orders &amp; revenue <span class="ad-nav__n" id="nOrders"></span></a>
+        <a class="ad-nav__item" data-nav="fulfilment" href="#fulfilment">Fulfilment &amp; payments <span class="ad-nav__n" id="nFulfil"></span></a>
+        <a class="ad-nav__item" data-nav="demos" href="#demos">Try at Home <span class="ad-nav__n" id="nDemos"></span></a>
+        <a class="ad-nav__item" data-nav="viewings" href="#viewings">Private Viewing <span class="ad-nav__n" id="nViewings"></span></a>
+        <a class="ad-nav__item" href="/admin/whatsapp">WhatsApp</a>
+        <a class="ad-nav__item" data-nav="affiliates" href="#affiliates">Affiliates <span class="ad-nav__n" id="nAff"></span></a>
+        <a class="ad-nav__item" data-nav="newsletter" href="#newsletter">Newsletter <span class="ad-nav__n" id="nNews"></span></a>
+        <a class="ad-nav__item ad-nav__item--founders" data-nav="team" href="#team">Team access</a>
+      </div>
+      <div class="ad-nav__foot">
+        <label class="ad-nav__toggle"><input type="checkbox" id="showHidden" /> Show test records</label>
+        <span class="ad-nav__upd" id="updated"></span>
+        <button class="ad-nav__out" id="lockBtn" type="button">Lock dashboard</button>
+      </div>
+    </nav>
+
+    <div class="ad-main">
+      <header class="ad-head">
+        <div>
+          <div class="ad-titlerow"><h1 class="ad-display ad-h1" id="viewTitle">Today</h1><span id="viewHelp"></span></div>
+          <p class="ad-mut ad-head__sub" id="viewSub"></p>
+        </div>
+        <div class="ad-head__ctl">
+          <span class="ad-sync" id="syncPill" role="status" hidden></span>
+          <div class="ad-health-wrap" id="healthWrap">
+            <button class="ad-health ad-health--unknown" id="healthBtn" type="button" aria-expanded="false" aria-controls="healthPanel"><span aria-hidden="true">○</span> Checking tracking…</button>
+            <div class="ad-health-panel" id="healthPanel" hidden></div>
+          </div>
+          <div class="ad-range" id="rangeControls">
+            <div class="ad-seg" role="group" aria-label="Date range">
+              <button type="button" class="ad-seg__b" data-preset="today" aria-pressed="false">Today</button>
+              <button type="button" class="ad-seg__b" data-preset="7d" aria-pressed="false">7 days</button>
+              <button type="button" class="ad-seg__b on" data-preset="30d" aria-pressed="true">30 days</button>
+              <button type="button" class="ad-seg__b" data-preset="custom" aria-pressed="false">Custom</button>
+            </div>
+            <span class="ad-customrange" id="customRange" hidden>
+              <label class="ad-sr" for="dateFrom">From date</label><input class="ad-input ad-input--date" id="dateFrom" type="date" />
+              <span class="ad-mut">to</span>
+              <label class="ad-sr" for="dateTo">To date</label><input class="ad-input ad-input--date" id="dateTo" type="date" />
+            </span>
+            <label class="ad-check"><input type="checkbox" id="compare" checked /> Compare to previous</label>
+            <span class="ad-mut ad-small" id="rangeText"></span>
+          </div>
+        </div>
+      </header>
+      <p class="ad-demo" id="demoBanner" hidden>Sample data for design review. The numbers in Today and Understand are made up. Orders, fulfilment and the other operations views show real records.</p>
+      <slot />
+    </div>
+  </div>
+
+  <!-- Detail drawer: a person's journey, or a booking -->
+  <div class="ad-drawer" id="drawer" hidden>
+    <div class="ad-drawer__scrim" id="drawerScrim"></div>
+    <aside class="ad-drawer__panel" role="dialog" aria-modal="true" aria-label="Detail">
+      <button class="ad-drawer__close" id="drawerClose" type="button" aria-label="Close">&times;</button>
+      <div id="drawerBody"></div>
+    </aside>
+  </div>
+  <div class="ad-tip" id="tip" role="tooltip" hidden></div>
+</main>
+
+<script>
+  import './main';
+</script>

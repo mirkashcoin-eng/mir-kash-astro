@@ -1,0 +1,20 @@
+---
+// Team access view mount. Painted by the client modules (views.ts / people.ts / ops.ts); no data here.
+---
+<section class="ad-view" data-section="team" hidden aria-labelledby="viewTitle">
+  <div class="ad-panel ad-affnew">
+    <div class="ad-panel__h"><h3 class="ad-panel__t">Grant access</h3></div>
+    <form class="ad-affform" id="teamForm">
+      <label class="ad-flabel">Email<input class="ad-input" id="teamEmail" type="email" placeholder="someone@example.com" autocomplete="off" /></label>
+      <label class="ad-flabel">Access
+        <select class="ad-input" id="teamRole">
+          <option value="affiliate">Affiliate links only</option>
+          <option value="full">Full</option>
+        </select>
+      </label>
+      <button class="ad-btn" id="teamCreate" type="submit">Grant access</button>
+    </form>
+    <p class="ad-actmsg" id="teamMsg" role="status"></p>
+  </div>
+  <div id="teamBody"></div>
+</section>

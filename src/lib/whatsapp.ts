@@ -1,7 +1,12 @@
-// WhatsApp sending via the Meta Cloud API. Pre-approved templates only (business-
-// initiated messages require them). Isolated + best-effort: never throws, so a
-// messaging failure can never affect an order or a cron's other work.
+// WhatsApp sending via the Meta Cloud API. Business-initiated messages are pre-approved
+// templates (sendTemplate); free text (sendText) is only for a founder's reply from the
+// inbox at /admin/whatsapp, inside the customer's 24h window. Every template send is also
+// logged to the WhatsApp Supabase store (messages_out, source='site') so the inbox shows
+// it. Isolated + best-effort: never throws, so a messaging failure can never affect an
+// order or a cron's other work.
 import { adminDb } from './firebaseAdmin';
+import { insertOut, waStoreConfigured } from './whatsapp-store';
+import type { WaOutRow } from './whatsapp-types';
 
 function env(k: string): string {
   if (typeof process !== 'undefined' && process.env && process.env[k]) return process.env[k] as string;
@@ -24,7 +29,8 @@ export function waNumber(phone: string | null | undefined): string {
 }
 
 // Send a pre-approved template. Returns true on success; logs and returns false on
-// any failure. Never throws.
+// any failure. Never throws. Every attempt that reached Meta is also logged to
+// messages_out (best-effort) so it shows in the inbox.
 export async function sendTemplate(
   toPhone: string,
   template: string,
@@ -34,6 +40,7 @@ export async function sendTemplate(
   if (!whatsappConfigured()) return false;
   const to = waNumber(toPhone);
   if (to.length < 11) return false; // no usable number
+  const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
   const body = {
     messaging_product: 'whatsapp',
     to,
@@ -46,26 +53,105 @@ export async function sendTemplate(
         : {}),
     },
   };
+  const r = await postMessage(phoneNumberId, body);
+  if (r.networkError) console.error('[whatsapp] send error', r.networkError);
+  else if (!r.ok) console.error('[whatsapp] send failed', r.status, JSON.stringify(r.json ?? null).slice(0, 500));
+  await logOut({
+    to_phone: to,
+    template_name: template,
+    meta_message_id: messageIdOf(r.json),
+    status: r.ok ? 'sent' : 'failed',
+    request: body,
+    response: r.networkError ? { error: String(r.networkError) } : r.json,
+    phone_number_id: phoneNumberId,
+    source: 'site',
+    kind: 'template',
+    body: null,
+    sent_by: null,
+  });
+  return r.ok;
+}
+
+// Free-text message (a founder's reply from /admin/whatsapp). Meta only delivers free
+// text inside the 24h customer-service window — the caller checks that first. Sends
+// from `phoneNumberId` (the number the customer wrote to), else WHATSAPP_PHONE_NUMBER_ID.
+// Doesn't log to the store: the admin API does that, with sent_by. Never throws.
+export async function sendText(
+  toPhone: string,
+  text: string,
+  phoneNumberId?: string | null,
+): Promise<{ ok: boolean; messageId: string | null; phoneNumberId: string | null; request: unknown; response: unknown; error: string | null }> {
+  const from = phoneNumberId || env('WHATSAPP_PHONE_NUMBER_ID') || null;
+  const fail = (error: string, request: unknown = null, response: unknown = null) =>
+    ({ ok: false, messageId: null, phoneNumberId: from, request, response, error });
+  if (!env('WHATSAPP_TOKEN') || !from) return fail('WhatsApp is not set up');
+  const to = waNumber(toPhone);
+  if (to.length < 11) return fail('No valid WhatsApp number');
+  const msg = String(text ?? '').trim();
+  if (!msg) return fail('Message is empty');
+  if (msg.length > 4096) return fail('Message is too long (WhatsApp allows 4096 characters)');
+  const body = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'text',
+    text: { body: msg, preview_url: true },
+  };
+  const r = await postMessage(from, body);
+  if (r.networkError) {
+    const timedOut = (r.networkError as { name?: string }).name === 'AbortError';
+    return fail(timedOut
+      ? "WhatsApp didn't answer in time. Refresh to check it wasn't sent before trying again."
+      : 'Could not reach WhatsApp. Try again.', body, { error: String(r.networkError) });
+  }
+  if (!r.ok) return fail(metaError(r.json, r.status), body, r.json);
+  return { ok: true, messageId: messageIdOf(r.json), phoneNumberId: from, request: body, response: r.json, error: null };
+}
+
+// POST a message body to Meta with a 10s cap, reading Meta's JSON reply whether the
+// call succeeded or not. Never throws: a network error / timeout comes back as networkError.
+async function postMessage(phoneNumberId: string, body: unknown): Promise<{
+  ok: boolean; status: number; json: unknown; networkError: unknown;
+}> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10000); // never stall a checkout on WhatsApp
   try {
-    const res = await fetch(`${GRAPH}/${env('WHATSAPP_PHONE_NUMBER_ID')}/messages`, {
+    const res = await fetch(`${GRAPH}/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${env('WHATSAPP_TOKEN')}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
-    if (!res.ok) {
-      console.error('[whatsapp] send failed', res.status, (await res.text().catch(() => '')).slice(0, 500));
-      return false;
-    }
-    return true;
+    const json = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, json, networkError: null };
   } catch (e) {
-    console.error('[whatsapp] send error', e);
-    return false;
+    return { ok: false, status: 0, json: null, networkError: e ?? new Error('fetch failed') };
   } finally {
     clearTimeout(t);
   }
+}
+
+// The wamid from Meta's send reply, if any.
+function messageIdOf(json: unknown): string | null {
+  const id = (json as { messages?: Array<{ id?: unknown }> } | null)?.messages?.[0]?.id;
+  return typeof id === 'string' && id ? id : null;
+}
+
+// Meta's error reply → one plain-English line for the inbox composer.
+function metaError(json: unknown, status: number): string {
+  const err = (json as { error?: { code?: number; message?: string; error_data?: { details?: string } } } | null)?.error;
+  if (err?.code === 131047) {
+    return 'More than 24 hours since they last wrote. WhatsApp only allows an approved template now.';
+  }
+  return err?.error_data?.details || err?.message || `WhatsApp rejected the message (HTTP ${status})`;
+}
+
+// Best-effort messages_out log. The store never throws, but guard anyway: a logging
+// problem must never turn a send into a failure.
+async function logOut(row: WaOutRow): Promise<void> {
+  try {
+    if (waStoreConfigured()) await insertOut(row);
+  } catch { /* best-effort */ }
 }
 
 // Fire the "order confirmed" WhatsApp for a just-completed order, immediately at

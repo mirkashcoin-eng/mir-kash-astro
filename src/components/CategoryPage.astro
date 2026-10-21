@@ -51,6 +51,7 @@ function view(p: Product) {
     name: p.title.toUpperCase(),
     price: formatMoney(p.priceRange.minVariantPrice, marketConfig.locale),
     variantId: p.variants?.edges?.[0]?.node.id ?? '',
+    amount: Number(p.variants?.edges?.[0]?.node.price?.amount ?? p.priceRange.minVariantPrice.amount) || 0,
     badge: p.tags.includes('best-seller')
       ? 'Best Seller'
       : p.tags.includes('new')
@@ -207,7 +208,7 @@ const jsonLd = [
   <script type="application/ld+json" set:html={JSON.stringify(block)} />
 ))}
 
-<script define:vars={{ marketPrefix: prefix, store: market, countryCode: country, MORE_PRODUCTS: moreProducts }}>
+<script define:vars={{ marketPrefix: prefix, store: market, countryCode: country, MORE_PRODUCTS: moreProducts, currency: marketConfig.currency, catSlug: cat.slug, PRICE_BY_HANDLE: Object.fromEntries([...cards, ...moreProducts].map((p) => [p.handle, p.amount])) }}>
   // Favorites (heart) — persisted in localStorage by product handle. Same key
   // and markup as the live Shop All grid, so a saved bag stays saved across
   // both, and both the server-rendered top grid and the JS-built bottom one
@@ -264,7 +265,12 @@ const jsonLd = [
         if (!res.ok) throw new Error('add failed');
         const cart = await res.json();
         if (window.mkTrack) window.mkTrack('add_to_cart', { product: el.dataset.name });
-        if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: el.dataset.name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+        // mkLeadOnly: the event-log copy goes below, keyed by handle with the line value.
+        if (window.mkLeadOnly) window.mkLeadOnly({ event: 'add_to_cart', item: el.dataset.name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+        try {
+          if (window.mkEvent) window.mkEvent('add_to_cart', { product: handle, value: PRICE_BY_HANDLE[handle] || undefined, currency,
+            props: { title: el.dataset.name, where: 'category', category: catSlug, cart_total: cart.total, cart_qty: cart.totalQuantity } });
+        } catch (_) {}
         document.querySelectorAll('.hdr-bag__count, .bag-count').forEach((n) => { n.textContent = String(cart.totalQuantity ?? 0); });
         el.classList.add('is-added');
         el.textContent = 'Added ✓';
