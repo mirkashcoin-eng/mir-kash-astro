@@ -1,4 +1,4 @@
-import type { Metric, Unit } from './types';
+import type { Unit } from './types';
 
 export const esc = (s: unknown): string =>
   String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
@@ -26,44 +26,64 @@ export function inrShort(n: number | null | undefined): string {
 }
 function trim(v: number): string { return (Math.round(v * 10) / 10).toString(); }
 
-export function fmtValue(v: number | null, unit: Unit): string {
+/**
+ * Format a number in the metrics API's units (src/lib/metrics/types.ts):
+ * rate = fraction 0–1, pct = 0–100, ms = milliseconds, ratio = a multiple, inr = rupees.
+ * `short` uses ₹21.4L style money (KPI cards); tables use full rupees.
+ */
+export function fmtValue(v: number | null | undefined, unit: Unit, short = true): string {
   if (v == null || !isFinite(v)) return '—';
   switch (unit) {
-    case 'pct': return trim(v) + '%';
-    case 'inr': return inrShort(v);
-    case 'minutes': return v < 1 ? Math.round(v * 60) + ' sec' : trim(v) + ' min';
-    case 'seconds': return v >= 90 ? trim(v / 60) + ' min' : Math.round(v) + ' sec';
-    case 'days': return v < 1 ? 'Same day' : trim(v) + (Math.round(v) === 1 ? ' day' : ' days');
+    case 'rate': return pctText(v * 100);
+    case 'pct': return pctText(v);
+    case 'inr': return short ? inrShort(v) : inr(v);
+    case 'ms': return msText(v);
+    case 'days': return v < 1 ? 'Same day' : trim(v) + (Math.round(v * 10) / 10 === 1 ? ' day' : ' days');
     case 'ratio': return trim(v) + '×';
-    default: return num(v);
+    default: return Number.isInteger(v) || Math.abs(v) >= 100 ? num(v) : trim(v);
   }
 }
+function pctText(p: number): string {
+  const a = Math.abs(p);
+  return (a > 0 && a < 1 ? (Math.round(p * 10) / 10).toString() : a < 10 ? trim(p) : Math.round(p).toString()) + '%';
+}
+export function msText(ms: number): string {
+  const s = ms / 1000;
+  if (s < 60) return Math.round(s) + ' sec';
+  const m = s / 60;
+  if (m < 60) return (m < 10 ? trim(m) : Math.round(m).toString()) + ' min';
+  return trim(m / 60) + ' h';
+}
+
+// Numbers where a fall is the good direction.
+const LOWER_IS_BETTER = new Set([
+  'otpFailureRate', 'paymentFailureRate', 'rejectRate', 'botShare', 'daysWithoutPageViews',
+  'medianDaysToFirstOrder', 'medianSessionsToFirstOrder', 'costPerSale',
+]);
 
 export interface Delta { text: string; cls: 'up' | 'dn' | 'flat'; arrow: string; label: string; }
-/** Change vs previous period. Rates compare in points, everything else in %. */
-export function delta(m: Pick<Metric, 'value' | 'prev' | 'unit' | 'lowerIsBetter'>): Delta | null {
+/** Change vs the previous period. Rates compare in percentage points, everything else in %. */
+export function delta(m: { key?: string; value: number | null; prev: number | null; unit: Unit; lowerIsBetter?: boolean }): Delta | null {
   if (m.value == null || m.prev == null || !isFinite(m.prev)) return null;
+  const flat: Delta = { text: 'no change', cls: 'flat', arrow: '–', label: 'No change' };
   let diff: number, text: string;
-  if (m.unit === 'pct') {
-    diff = m.value - m.prev;
+  if (m.unit === 'rate' || m.unit === 'pct') {
+    const k = m.unit === 'rate' ? 100 : 1;
+    diff = (m.value - m.prev) * k;
     const d = Math.round(Math.abs(diff) * 10) / 10;
+    if (d === 0) return flat;
     text = d + ' pts';
-    if (d === 0) return { text: 'no change', cls: 'flat', arrow: '–', label: 'No change' };
   } else {
-    if (m.prev === 0) return m.value === 0 ? { text: 'no change', cls: 'flat', arrow: '–', label: 'No change' } : null;
+    if (m.prev === 0) return m.value === 0 ? flat : null;
     diff = m.value - m.prev;
     const d = Math.round(Math.abs(diff / m.prev) * 100);
+    if (d === 0) return flat;
     text = d + '%';
-    if (d === 0) return { text: 'no change', cls: 'flat', arrow: '–', label: 'No change' };
   }
   const increased = diff > 0;
-  const good = m.lowerIsBetter ? !increased : increased;
-  return {
-    text,
-    cls: good ? 'up' : 'dn',
-    arrow: increased ? '▲' : '▼',
-    label: (increased ? 'Up ' : 'Down ') + text + (good ? ' (better)' : ' (worse)'),
-  };
+  const lower = m.lowerIsBetter ?? (m.key ? LOWER_IS_BETTER.has(m.key) : false);
+  const good = lower ? !increased : increased;
+  return { text, cls: good ? 'up' : 'dn', arrow: increased ? '▲' : '▼', label: (increased ? 'Up ' : 'Down ') + text + (good ? ' (better)' : ' (worse)') };
 }
 
 export const pct = (n: number, d: number): number => (d ? Math.round((n / d) * 100) : 0);

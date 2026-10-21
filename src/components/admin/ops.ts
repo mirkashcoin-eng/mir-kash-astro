@@ -235,183 +235,8 @@ export function initOps() {
       return [p.phone, p.email].filter(function (v) { return v && v !== title; })
         .map(esc).join(' · ') || '';
     }
-    // ── Daily funnel grid ─────────────────────────────────────────────────────
-    // One column per day of a month, one row per funnel step. A person counts on
-    // the day they FIRST reached a step, so each row is "how many new people got
-    // this far that day" and nobody is double-counted. The funnel rows are served
-    // from the immutable funnel_daily aggregates (written server-side as each
-    // person crosses each step), so a past column never changes once the day ends —
-    // unlike the old client-side count from the capped People list.
-    var MONTH = '';       // 'YYYY-MM'; set on first render
-    var SHOW_BOTS = false; // crawlers are recorded but excluded from counts by default
-    // The IST calendar day (YYYY-MM-DD) an instant falls on. Firestore stores UTC,
-    // but the store's day is Mumbai's, so bucketing must match the People filters.
-    function istDay(ts) {
-      if (!ts) return '';
-      var t = new Date(ts).getTime();
-      if (!isFinite(t) || !t) return '';
-      return new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    }
-    function currentIstMonth() { return istDay(Date.now()).slice(0, 7); }
-    function daysInMonth(m) {
-      var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
-      return new Date(y, mo, 0).getDate(); // day 0 of next month = last day of this one
-    }
-    // The funnel rows, in order. p1/p2/p3 are cumulative milestones — the day a
-    // person reached their 1st / 2nd / 3rd distinct product view — so the column
-    // totals form a real funnel (everyone in p2 is also in p1).
-    var DAILY_ROWS = [
-      { key: 'visitors', label: 'Unique visitors' },
-      { key: 'p1',       label: 'Viewed a product' },
-      { key: 'p2',       label: 'Viewed a 2nd product' },
-      { key: 'p3',       label: 'Viewed a 3rd+ product' },
-      { key: 'cart',     label: 'Added to cart' },
-      { key: 'phone',    label: 'Added phone number' },
-      { key: 'address',  label: 'Added address' },
-    ];
-    // Bot / test visitors for `month`, from the immutable aggregates.
-    function funnelMonthTotal(step, month, prefix) {
-      var n = 0;
-      for (var day in FUNNEL_DAILY) {
-        if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
-        n += Number(FUNNEL_DAILY[day][(prefix || '') + step] || 0);
-      }
-      return n;
-    }
-    // Builds { rowKey: { 'YYYY-MM-DD': n } } for the given month. The funnel rows
-    // come from funnel_daily — immutable per-day counts written when each person
-    // first reaches a step — so a column never changes once the day has passed.
-    // Checkout + Ordered come from Shopify, which is authoritative for both.
-    function dailyCounts(month) {
-      var grid = {};
-      DAILY_ROWS.forEach(function (r) { grid[r.key] = {}; });
-      grid.checkout = {}; grid.ordered = {};
-      var bump = function (key, day) {
-        if (!day || day.slice(0, 7) !== month) return;
-        grid[key][day] = (grid[key][day] || 0) + 1;
-      };
-      if (haveFunnelAggregates()) {
-        for (var day in FUNNEL_DAILY) {
-          if (!FUNNEL_DAILY.hasOwnProperty(day) || day.slice(0, 7) !== month) continue;
-          var d = FUNNEL_DAILY[day];
-          DAILY_ROWS.forEach(function (r) {
-            var v = Number(d[r.key] || 0);
-            if (SHOW_BOTS) v += Number(d['bot_' + r.key] || 0);
-            if (SHOW_HIDDEN) v += Number(d['hidden_' + r.key] || 0);
-            if (v) grid[r.key][day] = v;
-          });
-        }
-      } else {
-        // Pre-backfill fallback: compute the funnel rows from the People list, the
-        // same cumulative-milestone way the backfill and the live path do.
-        PEOPLE.forEach(function (p) {
-          if (!countedPerson(p)) return;
-          var first = istDay(p.firstSeen);
-          var lastView = istDay(p.viewedAt) || first;
-          var nv = (p.viewed || []).length;
-          bump('visitors', first);
-          if (nv >= 1) bump('p1', first);
-          if (nv >= 2) bump('p2', lastView);
-          if (nv >= 3) bump('p3', lastView);
-          bump('cart', istDay(p.cartAt));
-          bump('phone', istDay(p.phoneAt));
-          bump('address', istDay(p.addressAt));
-        });
-      }
-      visibleAbandoned().forEach(function (a) { bump('checkout', istDay(a.createdAt)); });
-      visibleOrders().forEach(function (o) {
-        if (o.cancelled) return;
-        bump('checkout', istDay(o.createdAt)); // an order necessarily attempted checkout
-        bump('ordered', istDay(o.createdAt));
-      });
-      return grid;
-    }
-    function renderDaily() {
-      var body = $('dailyBody'); if (!body) return;
-      if (!MONTH) MONTH = currentIstMonth();
-      var pick = $('monthPick'); if (pick && pick.value !== MONTH) pick.value = MONTH;
-      var n = daysInMonth(MONTH);
-      var grid = dailyCounts(MONTH);
-      var rows = DAILY_ROWS.concat([
-        { key: 'checkout', label: 'Attempted checkout' },
-        { key: 'ordered', label: 'Ordered' },
-      ]);
-      var head = '<tr><th class="ad-daily__lab">Step</th>';
-      for (var d = 1; d <= n; d++) head += '<th class="r">' + d + '</th>';
-      head += '<th class="r ad-daily__tot">Total</th></tr>';
-      var bodyHtml = rows.map(function (r) {
-        var cells = '', total = 0;
-        for (var i = 1; i <= n; i++) {
-          var key = MONTH + '-' + (i < 10 ? '0' + i : i);
-          var v = grid[r.key][key] || 0;
-          total += v;
-          cells += '<td class="r' + (v ? '' : ' ad-daily__z') + '">' + (v || '·') + '</td>';
-        }
-        return '<tr><td class="ad-daily__lab">' + esc(r.label) + '</td>' + cells +
-          '<td class="r ad-daily__tot">' + total + '</td></tr>';
-      }).join('');
-      // Crawler activity for this month. The headline is the immutable aggregate;
-      // the per-name breakdown is from the (recent) People list, so older months
-      // may show fewer names than the total.
-      var bots = {};
-      PEOPLE.forEach(function (p) {
-        if (!p.bot) return;
-        if (istDay(p.firstSeen).slice(0, 7) !== MONTH) return;
-        bots[p.bot] = (bots[p.bot] || 0) + 1;
-      });
-      var botNames = Object.keys(bots).sort(function (a, b) { return bots[b] - bots[a]; });
-      var botMonth = haveFunnelAggregates()
-        ? funnelMonthTotal('visitors', MONTH, 'bot_')
-        : botNames.reduce(function (s, n) { return s + bots[n]; }, 0);
-      var botHtml = (botMonth || botNames.length)
-        ? '<div class="ad-panel"><div class="ad-panel__h"><span class="ad-panel__t">Crawlers</span>' +
-          '<label class="ad-bottoggle"><input type="checkbox" id="showBots"' + (SHOW_BOTS ? ' checked' : '') +
-          ' /> Count them in the grid above</label></div>' +
-          '<div class="ad-pad"><p class="ad-note">' + botMonth + ' crawler ' +
-          (botMonth === 1 ? 'visit' : 'visits') + ' this month' +
-          (botNames.length ? ' · ' + botNames.map(function (n) { return esc(n) + ' ' + bots[n]; }).join(' · ') : '') +
-          '</p></div></div>'
-        : '';
-      body.innerHTML = '<div class="ad-panel"><div class="ad-scroll">' +
-        '<table class="ad-table ad-daily"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table>' +
-        '</div></div>' + botHtml +
-        '<p class="ad-oppnote">Counted on the day each person first reached that step, in IST' +
-        (SHOW_BOTS ? '' : ', excluding crawlers') +
-        (SHOW_HIDDEN ? ', including test records' : '') + '. ' +
-        'Product-view rows only cover visits since view tracking went live; checkout and orders come from Shopify.' +
-        (haveFunnelAggregates() ? '' : ' Showing an estimate from recent visitors — run the funnel backfill to lock in accurate history.') + '</p>';
-    }
-    function dailyCsv() {
-      var n = daysInMonth(MONTH), grid = dailyCounts(MONTH);
-      var rows = DAILY_ROWS.concat([
-        { key: 'checkout', label: 'Attempted checkout' },
-        { key: 'ordered', label: 'Ordered' },
-      ]);
-      var head = ['Step'];
-      for (var d = 1; d <= n; d++) head.push(String(d));
-      var lines = [head.join(',')];
-      rows.forEach(function (r) {
-        var line = ['"' + r.label + '"'];
-        for (var i = 1; i <= n; i++) {
-          var key = MONTH + '-' + (i < 10 ? '0' + i : i);
-          line.push(String(grid[r.key][key] || 0));
-        }
-        lines.push(line.join(','));
-      });
-      var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'mir-kash-funnel-' + MONTH + '.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-    // Step the month picker by ±1, staying on a valid YYYY-MM.
-    function shiftMonth(delta) {
-      var y = Number(MONTH.slice(0, 4)), m = Number(MONTH.slice(5, 7)) + delta;
-      var d = new Date(y, m - 1, 1);
-      MONTH = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-      renderDaily();
-    }
+    // The Daily funnel grid moved to daily.ts (GET /api/admin/metrics/funnelDaily).
+    var SHOW_BOTS = false;
     // ── Affiliates ────────────────────────────────────────────────────────────
     var SITE = 'https://www.mirkash.com';
     function affLink(slug) { return SITE + '/go/' + slug; }
@@ -743,7 +568,6 @@ export function initOps() {
       renderTryAtHomeFunnel(data.tryAtHome);
       renderBannerTest(data.bannerTest);
       renderAffiliates(data.affiliates);
-      renderDaily();
       renderBadges(); // after renderFulfilment, which computes the pending count
       stampUpdated();
       if (!FIRST_PAINT_DONE) { FIRST_PAINT_DONE = true; }
@@ -759,19 +583,7 @@ export function initOps() {
       var el = $('updated'); if (!el) return;
       try { el.textContent = 'Loaded ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
     }
-    // Daily funnel: month stepper, direct picker, and CSV export.
-    $('monthPrev').addEventListener('click', function () { shiftMonth(-1); });
-    $('monthNext').addEventListener('click', function () { shiftMonth(1); });
-    $('monthPick').addEventListener('change', function (e) {
-      if (e.target.value) { MONTH = e.target.value; renderDaily(); }
-    });
-    $('monthCsv').addEventListener('click', dailyCsv);
     $('newsCsv').addEventListener('click', newsletterCsv);
-    // Delegated: the toggle is re-created on every grid render. Both toggles change
-    // what's counted everywhere, so re-render the whole dashboard from the last payload.
-    $('dailyBody').addEventListener('change', function (e) {
-      if (e.target && e.target.id === 'showBots') { SHOW_BOTS = e.target.checked; rerender(); }
-    });
     // Affiliates: create a link, and click any link to copy it.
     function affMsg(t, bad) {
       var el = $('affMsg'); if (!el) return;
@@ -1136,5 +948,5 @@ export function initOps() {
     $('drawerScrim').addEventListener('click', closeDrawer);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('drawer').hidden) closeDrawer(); });
 
-    return { openDrawerHtml: function (h) { $('drawerBody').innerHTML = h; $('drawerBody').scrollTop = 0; openDrawerShell(); }, drawerOpen: function () { return !$('drawer').hidden; }, setDrawerHtml: function (h) { $('drawerBody').innerHTML = h; }, renderOps: renderOps, renderAffiliateOnly: renderAffiliateOnly, loadTeam: loadTeam, renderDaily: renderDaily, rerender: rerender, setShowHidden: function (v) { SHOW_HIDDEN = v; }, setShowBots: function (v) { SHOW_BOTS = v; }, badges: renderBadges, markSeen: markSeen, getPeople: function () { return PEOPLE; } };
+    return { openDrawerHtml: function (h) { $('drawerBody').innerHTML = h; $('drawerBody').scrollTop = 0; openDrawerShell(); }, drawerOpen: function () { return !$('drawer').hidden; }, setDrawerHtml: function (h) { $('drawerBody').innerHTML = h; }, renderOps: renderOps, renderAffiliateOnly: renderAffiliateOnly, loadTeam: loadTeam, rerender: rerender, setShowHidden: function (v) { SHOW_HIDDEN = v; }, badges: renderBadges, markSeen: markSeen, getPeople: function () { return PEOPLE; } };
 }

@@ -6,6 +6,8 @@ import * as data from './data';
 import type { Query } from './data';
 import { initOps } from './ops';
 import * as views from './views';
+import { renderInbox } from './inbox';
+import { bindDaily, renderDaily } from './daily';
 import { peopleState, personDrawer, renderPeople, setPeopleQueryFromHash, wireDrawer } from './people';
 import { addDays, esc, fmtDay, fmtLongDay, istToday } from './format';
 import { istWhen } from './mapping';
@@ -94,7 +96,7 @@ function route() {
 }
 
 function paint(view: string) {
-  if (!VIEWS[view].range) { if (view === 'daily') ops.renderDaily(); return; }
+  if (!VIEWS[view].range) { if (view === 'daily') renderDaily(query()); return; }
   const key = qKey() + (view === 'people' ? '|' + JSON.stringify(peopleState.pq) : '');
   if (rendered[view] === key) return;
   rendered[view] = key;
@@ -103,7 +105,7 @@ function paint(view: string) {
   if (view === 'today') {
     $('todayKpiTitle').textContent = 'The shop, ' + rangeLabel();
     $('inboxCount').textContent = '';
-    views.renderInbox(el('inboxBody'), openPerson, (n) => {
+    renderInbox(el('inboxBody'), openPerson, (n) => {
       $('inboxCount').textContent = n ? n + (n === 1 ? ' thing' : ' things') + ' · each one tap' : '';
     });
     views.renderOverview(el('todayOverview'), q, { all: false });
@@ -168,7 +170,7 @@ function setPreset(p: typeof state.preset) {
 let HEALTH_KEY = '';
 async function loadHealth() {
   if (!VIEWS[state.view].range) return;
-  const key = state.to + '|' + state.test;
+  const key = state.from + '|' + state.to + '|' + state.test;
   if (key === HEALTH_KEY) return;
   HEALTH_KEY = key;
   const h = await data.getHealth(query());
@@ -178,12 +180,14 @@ function paintHealth(h: TrackingHealth) {
   const btn = $('healthBtn');
   btn.className = 'ad-health ad-health--' + h.status;
   btn.innerHTML = '<span aria-hidden="true">' + (h.status === 'healthy' ? '●' : h.status === 'unknown' ? '○' : '▲') + '</span> ' + esc(h.label);
-  $('healthPanel').innerHTML = h.checks.length
-    ? '<ul class="ad-checks">' + h.checks.map((c) => '<li><strong>' + (c.ok ? 'OK' : 'Check') + ': ' + esc(c.label) + '</strong><span class="ad-mut">' + esc(c.detail) + '</span></li>').join('') + '</ul>'
-    : '<p class="ad-note">No health checks reported yet.</p>';
+  $('healthPanel').innerHTML = (h.checks.length
+    ? '<ul class="ad-checks">' + h.checks.map((c) => '<li><strong>' + (c.ok ? 'OK' : 'Check') + ': ' + esc(c.label) + ' · ' + esc(c.detail) + '</strong>' +
+        (c.definition ? '<span class="ad-mut ad-small">' + esc(c.definition) + '</span>' : '') + '</li>').join('') + '</ul>'
+    : '') + h.notes.map((n) => '<p class="ad-note">' + esc(n) + '</p>').join('') + '<p class="ad-note">For ' + esc(rangeLabel()) + '.</p>';
 }
 
 function bindControls() {
+  bindDaily(query);
   document.querySelectorAll<HTMLElement>('[data-preset]').forEach((b) => b.addEventListener('click', () => setPreset(b.getAttribute('data-preset') as typeof state.preset)));
   const onCustom = () => {
     const f = ($('dateFrom') as HTMLInputElement).value, t = ($('dateTo') as HTMLInputElement).value;

@@ -1,180 +1,235 @@
 // SAMPLE DATA for design review. Only used behind the ?demo=1 flag, and the UI labels
 // it "Sample data". None of these numbers describe the real shop.
+//
+// Built in the metrics API's own shapes (src/lib/metrics/types.ts) with the API's own
+// definitions (DEFS), so demo mode exercises exactly the code real mode runs.
+import { DEFS, type DefKey } from '~/lib/metrics/definitions';
 import type {
-  AcquisitionData, AudienceData, CheckoutData, Metric, OverviewData,
-  PeopleQuery, ProductsData, RetentionData, Series, TrackingHealth,
+  AcquisitionResponse, AudienceResponse, Cell, CheckoutResponse, Column, FunnelDailyResponse, FunnelDayRow,
+  FunnelStep, Metric, OverviewResponse, PeopleQuery, ProductsResponse, RetentionResponse, SectionMeta, Table,
+  TrackingHealthResponse, ValueKey,
 } from './types';
-import { addDays } from './format';
+import type { AcqOpts } from './data';
+import { addDays, daysBetween } from './format';
 
-const M = (
-  key: string, label: string, unit: Metric['unit'], value: number, prev: number | null, definition: string,
-  extra: Partial<Metric> = {},
-): Metric => ({ key, label, unit, value, prev, definition, smallSample: false, ...extra });
-
-function series(label: string, unit: Series['unit'], from: string, to: string, base: number, amp: number, seed: number): Series {
-  const days: string[] = [];
-  for (let d = from; d <= to; d = addDays(d, 1)) days.push(d);
-  const n = days.length;
-  const f = (i: number, s: number) =>
-    Math.max(0, base * (0.7 + 0.5 * (i / Math.max(n - 1, 1))) + amp * Math.sin((i + s) * 0.9) + amp * 0.5 * Math.cos((i + s) * 2.3));
+const meta = <S extends SectionMeta['section']>(section: S, from: string, to: string, notes: string[] = []) => {
+  const days = daysBetween(from, to) + 1;
+  const prevTo = addDays(from, -1);
   return {
-    label, unit,
-    points: days.map((day, i) => ({ day, value: Math.round(f(i, seed)), prev: Math.round(f(i, seed + 3) * 0.88) })),
+    section, period: { from, to, days }, previous: { from: addDays(prevTo, -(days - 1)), to: prevTo, days },
+    filters: { includeBots: false, includeTest: false }, generatedAt: new Date().toISOString(),
+    notes: ['Sample data for design review.', ...notes],
   };
-}
+};
+const count = (value: number, prev: number): Cell => ({ value, prev, smallSample: false });
+const rate = (n: number, d: number, pn: number, pd: number): Cell =>
+  ({ value: d ? n / d : null, num: n, den: d, prev: pd ? pn / pd : null, prevNum: pn, prevDen: pd, smallSample: d < 30 });
+const median = (value: number, n: number, prev: number): Cell => ({ value, n, prev, smallSample: n < 30 });
+const metric = (key: string, def: DefKey, c: Cell): Metric => ({ key, label: DEFS[def].label, unit: DEFS[def].unit, definition: DEFS[def].definition, ...c });
+const column = (key: string, def: DefKey): Column => ({ key, label: DEFS[def].label, unit: DEFS[def].unit, definition: DEFS[def].definition });
+const step = (key: string, def: DefKey, v: number, p: number, before?: [number, number]): FunnelStep =>
+  ({ ...metric(key, def, count(v, p)), fromPrevious: before ? rate(v, before[0], p, before[1]) : null });
+const scale = (from: string, to: string) => Math.max(0.05, (daysBetween(from, to) + 1) / 30);
+const r = (v: number, k: number) => Math.round(v * k);
 
-export function demoOverview(from: string, to: string): OverviewData {
-  const people = (q: Partial<PeopleQuery>): PeopleQuery => q;
+export function demoOverview(from: string, to: string): OverviewResponse {
+  const k = scale(from, to);
+  const V = r(12840, k), pV = r(11464, k);
+  const days: OverviewResponse['trend'] = [];
+  const n = daysBetween(from, to) + 1;
+  for (let i = 0; i < n; i++) {
+    const day = addDays(from, i);
+    const wave = 0.75 + 0.5 * (i / Math.max(n - 1, 1)) + 0.18 * Math.sin(i * 0.9);
+    days.push({ day, legacy: i < 3 && n > 20, visitors: i < 3 && n > 20 ? null : Math.round(420 * wave), sessions: i < 3 && n > 20 ? null : Math.round(560 * wave), orders: Math.max(0, Math.round(5.4 * wave + Math.cos(i * 2.1))), revenueInr: Math.round(71000 * wave + 15000 * Math.cos(i * 1.7)) });
+  }
   return {
-    metrics: [
-      M('visitors', 'Visitors', 'count', 12840, 11464, 'People seen at least once in the range, excluding crawlers and test numbers.', { drill: people({ stage: 'all' }) }),
-      M('returning', 'Returning', 'pct', 31, 28, 'Share of visitors who had visited before the start of the range.', { num: 3980, den: 12840, drill: people({ stage: 'returning' }) }),
-      M('cartRate', 'Added to cart', 'pct', 6.4, 6.9, 'Share of visitors who put at least one bag in the cart.', { num: 822, den: 12840, drill: people({ stage: 'cart' }) }),
-      M('orders', 'Orders', 'count', 164, 150, 'Paid or confirmed Shopify orders placed in the range, excluding cancelled and test orders.', { note: '1.3% of visitors. Goal 1.5%', goal: 1.5, drill: people({ stage: 'ordered' }) }),
-      M('revenue', 'Revenue', 'inr', 2140000, 1877000, 'Sum of order totals in the range, excluding cancelled orders.', { note: 'Median order ₹11,900.' }),
-    ],
-    trend: [
-      series('Revenue', 'inr', from, to, 62000, 14000, 1),
-      series('Orders', 'count', from, to, 5, 2, 2),
-      series('Visitors', 'count', from, to, 400, 90, 3),
-    ],
-    funnel: {
-      steps: [
-        { key: 'visited', label: 'Visited', count: 12840, ofPrev: null },
-        { key: 'viewed', label: 'Viewed a bag', count: 8120, ofPrev: 63 },
-        { key: 'cart', label: 'Added to cart', count: 822, ofPrev: 10, drill: { stage: 'cart' } },
-        { key: 'phone', label: 'Gave phone', count: 410, ofPrev: 50, drill: { stage: 'phone' } },
-        { key: 'payment', label: 'Reached payment', count: 231, ofPrev: 56, drill: { stage: 'payment' } },
-        { key: 'ordered', label: 'Ordered', count: 164, ofPrev: 71, drill: { stage: 'ordered' } },
-      ],
-      leak: 'Biggest leak: cart → phone. Fewer than half leave a number.',
+    ...meta('overview', from, to),
+    section: 'overview',
+    kpis: {
+      visitors: metric('visitors', 'visitors', count(V, pV)),
+      newVisitors: metric('newVisitors', 'newVisitors', count(r(8860, k), r(8240, k))),
+      returningVisitors: metric('returningVisitors', 'returningVisitors', count(r(3980, k), r(3224, k))),
+      sessions: metric('sessions', 'sessions', count(r(17120, k), r(15010, k))),
+      engagedSessionRate: metric('engagedSessionRate', 'engagedSessionRate', rate(r(9930, k), r(17120, k), r(8406, k), r(15010, k))),
+      medianEngagedPerSession: metric('medianEngagedPerSession', 'medianEngagedPerSession', median(94000, r(15200, k), 88000)),
+      orders: metric('orders', 'orders', count(r(164, k), r(150, k))),
+      revenue: metric('revenue', 'revenue', count(r(2140000, k), r(1877000, k))),
+      medianOrderValue: metric('medianOrderValue', 'medianOrderValue', median(11900, r(164, k), 11400)),
+      conversionRate: metric('conversionRate', 'conversionRate', rate(r(164, k), V, r(150, k), pV)),
     },
-    channels: demoChannels(),
+    funnel: [
+      step('visitors', 'visitors', V, pV),
+      step('viewedProduct', 'viewedProduct', r(8120, k), r(7300, k), [V, pV]),
+      step('addedToCart', 'addedToCart', r(822, k), r(790, k), [r(8120, k), r(7300, k)]),
+      step('startedCheckout', 'startedCheckout', r(392, k), r(360, k), [r(822, k), r(790, k)]),
+      step('startedPayment', 'startedPayment', r(231, k), r(214, k), [r(392, k), r(360, k)]),
+      step('ordered', 'ordered', r(164, k), r(150, k), [r(231, k), r(214, k)]),
+    ],
+    trend: days,
   };
 }
 
-function demoChannels(): AcquisitionData['channels'] {
-  return [
-    { source: 'Instagram · paid', visitors: 4210, orders: 61, revenue: 790000, costPerSale: 620 },
-    { source: 'Google · search', visitors: 3050, orders: 47, revenue: 580000, costPerSale: 410 },
-    { source: 'Direct', visitors: 2380, orders: 33, revenue: 410000, costPerSale: null },
-    { source: 'Affiliate · priya', visitors: 610, orders: 14, revenue: 190000, costPerSale: null, costNote: '₹300 commission' },
-    { source: 'Instagram · organic', visitors: 1430, orders: 9, revenue: 170000, costPerSale: null },
+function tbl<K>(columns: Column[], rows: { key: K; label: string; cells: Record<string, Cell> }[]): Table<K> { return { columns, rows }; }
+
+export function demoAcquisition(from: string, to: string, a: AcqOpts): AcquisitionResponse {
+  const k = scale(from, to);
+  const spendCols = a.by === 'campaign' || a.by === 'content';
+  const columns = [
+    column('sessions', 'sessions'), column('visitors', 'visitors'), column('leads', 'leads'), column('leadRate', 'leadRate'),
+    column('orders', a.model === 'first' ? 'attributedOrdersFirst' : 'attributedOrdersLast'), column('revenue', 'attributedRevenue'),
+    column('conversionRate', 'channelConversion'),
+    ...(spendCols ? [column('spend', 'spend'), column('costPerSale', 'costPerSale'), column('roas', 'roas')] : []),
   ];
+  const base: [Record<string, string>, string, number, number, number, number, number | null][] = a.by === 'campaign' || a.by === 'content'
+    ? [[{ source: 'instagram', campaign: 'reel-1' }, 'instagram / reel-1', 2900, 31, 402000, 140, 19200], [{ source: 'instagram', campaign: 'wedding-edit' }, 'instagram / wedding-edit', 2750, 30, 388000, 120, 18700], [{ source: 'google', campaign: 'brand-search' }, 'google / brand-search', 2300, 33, 410000, 160, 13500], [{ source: '(unattributed)' }, '(unattributed)', 0, 9, 98000, 0, null]]
+    : [[{ source: 'instagram' }, 'instagram', 5400, 61, 790000, 260, null], [{ source: 'google' }, 'google', 4100, 47, 580000, 190, null], [{ source: 'direct' }, 'direct', 3150, 33, 410000, 120, null], [{ source: 'affiliate' }, 'affiliate', 820, 14, 190000, 40, null], [{ source: '(unattributed)' }, '(unattributed)', 0, 9, 170000, 0, null]];
+  const rows = base.map(([key, label, sess, orders, rev, leads, spend]) => {
+    const visitors = Math.round(sess * 0.76 * k), s = Math.round(sess * k), o = Math.round(orders * k), l = Math.round(leads * k);
+    const cells: Record<string, Cell> = {
+      sessions: count(s, Math.round(s * 0.9)), visitors: count(visitors, Math.round(visitors * 0.92)), leads: count(l, Math.round(l * 0.85)),
+      leadRate: rate(l, visitors, Math.round(l * 0.85), Math.round(visitors * 0.92)), orders: count(o, Math.round(o * 0.9)),
+      revenue: count(Math.round(rev * k), Math.round(rev * k * 0.88)), conversionRate: rate(o, s, Math.round(o * 0.9), Math.round(s * 0.9)),
+    };
+    if (spendCols) {
+      const sp = spend == null ? null : Math.round(spend * k);
+      cells.spend = { value: sp, prev: sp == null ? null : Math.round(sp * 1.1), smallSample: false };
+      cells.costPerSale = { value: sp != null && o ? sp / o : null, prev: null, smallSample: false };
+      cells.roas = { value: sp ? (rev * k) / sp : null, prev: null, smallSample: false };
+    }
+    return { key, label, cells };
+  });
+  return { ...meta('acquisition', from, to), section: 'acquisition', by: a.by, model: a.model, spendAvailable: spendCols, table: tbl(columns, rows) };
 }
 
-export function demoAcquisition(): AcquisitionData {
+export function demoProducts(from: string, to: string): ProductsResponse {
+  const k = scale(from, to);
+  const columns = [column('views', 'productViews'), column('viewers', 'productViewers'), column('medianEngagedMs', 'productEngaged'),
+    column('medianGalleryDepth', 'galleryDepth'), column('medianScroll', 'scrollDepth'), column('addToCartRate', 'addToCartRate'),
+    column('orders', 'productOrders'), column('units', 'units'), column('revenue', 'productRevenue'), column('soldOutViews', 'soldOutViews')];
+  const p: [string, string, number, number, number, number, number, number][] = [
+    ['tote-rust', 'Tote · Rust', 2120, 1450, 74000, 160, 38, 212], ['tote-ink', 'Tote · Ink', 1980, 1380, 68000, 171, 44, 0],
+    ['satchel-ink', 'Satchel · Ink', 960, 700, 52000, 33, 6, 96], ['clutch-sand', 'Clutch · Sand', 870, 640, 49000, 71, 21, 0],
+    ['crossbody-cocoa', 'Crossbody · Cocoa', 640, 480, 83000, 20, 3, 0], ['mini-pouch', 'Mini pouch', 40, 22, 30000, 3, 1, 0],
+  ];
   return {
-    channels: demoChannels(),
-    campaigns: [
-      { campaign: 'reel-1', source: 'Instagram · paid', visitors: 2100, carts: 160, orders: 31, revenue: 402000, spend: 19200, roas: 20.9 },
-      { campaign: 'wedding-edit', source: 'Instagram · paid', visitors: 2110, carts: 141, orders: 30, revenue: 388000, spend: 18700, roas: 20.7 },
-      { campaign: 'brand-search', source: 'Google · search', visitors: 1800, carts: 150, orders: 33, revenue: 410000, spend: 13500, roas: 30.4 },
-      { campaign: 'generic-bags', source: 'Google · search', visitors: 1250, carts: 70, orders: 14, revenue: 170000, spend: 5900, roas: 28.8 },
-    ],
-    landingPages: [
-      { page: '/', visitors: 5200, orders: 58 },
-      { page: '/products/tote', visitors: 2900, orders: 49 },
-      { page: '/shop', visitors: 2100, orders: 31 },
-      { page: '/try-at-home', visitors: 900, orders: 12 },
-    ],
+    ...meta('products', from, to), section: 'products',
+    table: tbl(columns, p.map(([h, t, v, vw, ms, carts, orders, so]) => {
+      const views = r(v, k), viewers = r(vw, k), c = r(carts, k), o = r(orders, k);
+      return { key: { value: h }, label: t, cells: {
+        views: count(views, r(views, 0.9)), viewers: count(viewers, r(viewers, 0.9)), medianEngagedMs: median(ms, viewers, ms * 0.95),
+        medianGalleryDepth: median(4, viewers, 4), medianScroll: median(62, viewers, 58), addToCartRate: rate(c, viewers, r(c, 0.9), r(viewers, 0.9)),
+        orders: count(o, r(o, 0.9)), units: count(o, r(o, 0.9)), revenue: count(o * 11900, r(o * 11900, 0.9)), soldOutViews: count(r(so, k), r(so, k * 0.7)),
+      } };
+    })),
   };
 }
 
-export function demoProducts(): ProductsData {
+export function demoCheckout(from: string, to: string): CheckoutResponse {
+  const k = scale(from, to);
+  const S: [string, DefKey, number][] = [['add_to_cart', 'ckCart', 822], ['checkout_start', 'ckStart', 392], ['otp_sent', 'ckOtpSent', 360], ['otp_verified', 'ckOtpVerified', 330], ['phone', 'ckPhone', 330], ['address', 'ckAddress', 290], ['payment_method', 'ckMethod', 270], ['payment_start', 'ckPayment', 260], ['payment_success', 'ckPaid', 168], ['order', 'ckOrdered', 164]];
+  const steps = S.map(([key, def, v], i) => step(key, def, r(v, k), r(v * 0.93, k), i ? [r(S[i - 1][2], k), r(S[i - 1][2] * 0.93, k)] : undefined));
+  const brk = (rows: [string, number, number][]): Table<ValueKey> => {
+    const tot = rows.reduce((s, x) => s + x[1], 0);
+    return tbl([column('events', 'events'), column('people', 'people'), column('share', 'share')], rows.map(([key, e, p]) => ({ key: { value: key }, label: key, cells: { events: count(r(e, k), r(e * 1.2, k)), people: count(r(p, k), r(p * 1.2, k)), share: rate(r(e, k), r(tot, k), r(e * 1.2, k), r(tot * 1.2, k)) } })));
+  };
   return {
-    rows: [
-      { title: 'Tote · Rust', views: 2120, viewers: 1450, carts: 160, orders: 38, medianViewSeconds: 74, soldOut: true, longLooks: 41 },
-      { title: 'Tote · Ink', views: 1980, viewers: 1380, carts: 171, orders: 44, medianViewSeconds: 68 },
-      { title: 'Satchel · Ink', views: 960, viewers: 700, carts: 33, orders: 6, medianViewSeconds: 52, soldOut: true, longLooks: 12 },
-      { title: 'Clutch · Sand', views: 870, viewers: 640, carts: 71, orders: 21, medianViewSeconds: 49 },
-      { title: 'Crossbody · Cocoa', views: 640, viewers: 480, carts: 20, orders: 3, medianViewSeconds: 83 },
-    ],
-    soldOutDemand: [
-      { title: 'Tote · Rust', views: 212, longLooks: 41 },
-      { title: 'Satchel · Ink', views: 96, longLooks: 12 },
-    ],
-    zeroResultSearches: [{ term: 'laptop sleeve', count: 18 }, { term: 'backpack', count: 11 }, { term: 'belt', count: 7 }],
+    ...meta('checkout', from, to, ['Steps count different people. Not every step is sent by every checkout yet; a step at 0 may simply not be tracked.']),
+    section: 'checkout', steps,
+    kpis: { otpFailureRate: metric('otpFailureRate', 'otpFailureRate', rate(r(24, k), r(360, k), r(30, k), r(335, k))), paymentFailureRate: metric('paymentFailureRate', 'paymentFailureRate', rate(r(29, k), r(260, k), r(34, k), r(242, k))) },
+    otpFailures: brk([['expired', 15, 14], ['wrong_code', 11, 10]]),
+    paymentFailures: brk([['UPI declined', 14, 12], ['Card failed', 9, 8], ['Cancelled by user', 6, 6]]),
+    paymentMethods: brk([['upi', 160, 150], ['card', 80, 72], ['cod', 30, 30]]),
+    coupons: tbl([column('tries', 'couponTries'), column('valid', 'couponValid'), column('invalid', 'couponInvalid')], [{ key: { value: 'WELCOME10' }, label: 'WELCOME10', cells: { tries: count(r(44, k), r(40, k)), valid: count(r(40, k), r(36, k)), invalid: count(r(4, k), r(4, k)) } }]),
   };
 }
 
-export function demoCheckout(): CheckoutData {
-  return {
-    metrics: [
-      M('checkoutStart', 'Reached checkout', 'count', 392, 360, 'People who opened checkout in the range.'),
-      M('phoneRate', 'Gave phone', 'pct', 50, 47, 'Share of people with a cart who entered a phone number.', { num: 410, den: 822, drill: { stage: 'phone' } }),
-      M('paymentFail', 'Payment failures', 'pct', 11, 14, 'Share of payment attempts that failed.', { num: 29, den: 260, lowerIsBetter: true, drill: { stage: 'payment' } }),
-      M('checkoutConv', 'Checkout to order', 'pct', 71, 66, 'Share of people who reached payment and then ordered.', { num: 164, den: 231, drill: { stage: 'ordered' } }),
-    ],
-    funnel: demoOverview('2026-09-22', '2026-10-21').funnel,
-    failures: [{ reason: 'UPI declined', count: 14 }, { reason: 'Card failed', count: 9 }, { reason: 'OTP not entered', count: 6 }],
-    paymentMix: [{ label: 'UPI', count: 98 }, { label: 'Card', count: 52 }, { label: 'Cash on delivery', count: 14 }],
+export function demoAudience(from: string, to: string): AudienceResponse {
+  const k = scale(from, to);
+  const own = (rows: [string, number, number][]): Table<ValueKey> => {
+    const tot = rows.reduce((s, x) => s + x[1], 0);
+    return tbl([column('visitors', 'audienceVisitors'), column('share', 'audienceShare'), column('sessions', 'sessions'), column('medianEngagedMs', 'medianEngagedPerSession'), column('buyers', 'audienceBuyers'), column('conversionRate', 'audienceConversion')],
+      rows.map(([v, n, b]) => ({ key: { value: v }, label: v, cells: { visitors: count(r(n, k), r(n * 0.9, k)), share: rate(r(n, k), r(tot, k), r(n * 0.9, k), r(tot * 0.9, k)), sessions: count(r(n * 1.3, k), r(n * 1.2, k)), medianEngagedMs: median(90000, r(n, k), 85000), buyers: count(r(b, k), r(b * 0.9, k)), conversionRate: rate(r(b, k), r(n, k), r(b * 0.9, k), r(n * 0.9, k)) } })));
   };
-}
-
-export function demoAudience(): AudienceData {
-  return {
-    newReturning: { new: { visitors: 8860, orders: 98 }, returning: { visitors: 3980, orders: 66 } },
-    device: [
-      { label: 'Mobile', visitors: 9500, orders: 86 },
-      { label: 'Desktop', visitors: 2820, orders: 68 },
-      { label: 'Tablet', visitors: 520, orders: 10 },
-    ],
-    cities: [
-      { city: 'Mumbai', visitors: 2910, orders: 61 },
-      { city: 'Delhi', visitors: 1980, orders: 32 },
-      { city: 'Bengaluru', visitors: 1640, orders: 24 },
-      { city: 'Pune', visitors: 890, orders: 13 },
-      { city: 'Hyderabad', visitors: 720, orders: 9 },
-    ],
-    browsers: [
-      { label: 'iPhone Safari', share: 41 }, { label: 'Android Chrome', share: 33 },
-      { label: 'Desktop Chrome', share: 16 }, { label: 'Other', share: 10 },
-    ],
-    gift: M('gift', 'Likely gift orders', 'pct', 22, null, 'Orders shipped to a different name or city than the buyer. Worked out from the order; customers are never asked.', { num: 36, den: 164 }),
-    ga: {
-      available: true,
-      age: [
-        { label: '18–24', share: 9 }, { label: '25–34', share: 38 }, { label: '35–44', share: 29 },
-        { label: '45–54', share: 16 }, { label: '55+', share: 8 },
-      ],
-      gender: [{ label: 'Women', share: 71 }, { label: 'Men', share: 27 }, { label: 'Unknown', share: 2 }],
-      interests: ['Fashion & accessories', 'Weddings', 'Luxury shopping', 'Travel', 'Home décor', 'Sustainable living'],
-    },
-  };
-}
-
-export function demoRetention(): RetentionData {
-  const rows: { cohort: string; size: number; weeks: (number | null)[] }[] = [];
-  const sizes = [1180, 1240, 1105, 1320, 1290, 1410, 1360, 1520];
-  const starts = ['24 Aug', '31 Aug', '7 Sep', '14 Sep', '21 Sep', '28 Sep', '5 Oct', '12 Oct'];
-  sizes.forEach((size, i) => {
-    const elapsed = sizes.length - i;
-    const weeks: (number | null)[] = [];
-    for (let w = 0; w < 8; w++) weeks.push(w >= elapsed ? null : w === 0 ? 100 : Math.max(2, Math.round(26 / (w + 0.6) + (i % 3))));
-    rows.push({ cohort: 'Week of ' + starts[i], size, weeks });
+  const ga = (rows: [string, number][] | null) => ({
+    available: !!rows, note: rows ? null : 'Not enough data — Google hides groups too small to keep people anonymous.',
+    table: tbl([column('users', 'gaUsers'), column('share', 'gaShare'), column('sessions', 'gaSessions'), column('conversions', 'gaConversions')],
+      (rows || []).map(([v, n]) => ({ key: { value: v }, label: v, cells: { users: count(r(n, k), r(n * 0.9, k)), share: rate(n, 1000, n * 0.9, 900), sessions: count(r(n * 1.4, k), r(n * 1.3, k)), conversions: count(r(n / 30, k), r(n / 32, k)) } }))),
   });
   return {
-    metrics: [
-      M('repeatRate', 'Repeat buyers', 'pct', 14, 12, 'Share of buyers with a second order.', { num: 23, den: 164 }),
-      M('daysToBuy', 'Median days to first order', 'days', 6, 7, 'Median days from first visit to first order.', { lowerIsBetter: true }),
-      M('visitsToBuy', 'Median visits to first order', 'count', 2, 2, 'Median number of visits before the first order.'),
-    ],
-    cohorts: rows,
+    ...meta('audience', from, to), section: 'audience',
+    own: {
+      device: own([['mobile', 9500, 86], ['desktop', 2820, 68], ['tablet', 520, 10]]),
+      os: own([['iOS', 5800, 70], ['Android', 3700, 26], ['macOS', 1700, 48], ['Windows', 1120, 20]]),
+      browser: own([['Safari', 5900, 72], ['Chrome', 5600, 80], ['Instagram in-app', 900, 6], ['Other', 440, 6]]),
+      city: own([['Mumbai', 2910, 61], ['Delhi', 1980, 32], ['Bengaluru', 1640, 24], ['Pune', 890, 13], ['Hyderabad', 720, 9]]),
+      country: own([['IN', 11800, 152], ['AE', 420, 6], ['US', 310, 4], ['GB', 190, 2]]),
+    },
+    ga: { age: ga([['18-24', 90], ['25-34', 380], ['35-44', 290], ['45-54', 160], ['55+', 80]]), gender: ga([['female', 710], ['male', 270]]), interest: ga(null) },
   };
 }
 
-export function demoHealth(): TrackingHealth {
+export function demoRetention(from: string, to: string): RetentionResponse {
+  const cohorts: RetentionResponse['cohorts'] = [];
+  const n = Math.min(8, Math.max(1, Math.round((daysBetween(from, to) + 1) / 7)));
+  for (let i = 0; i < n; i++) {
+    const size = 1100 + i * 60;
+    const elapsed = n - i;
+    const weeks = [];
+    for (let w = 0; w <= Math.min(12, elapsed - 1); w++) {
+      const act = w === 0 ? size : Math.round(size * (0.26 / (w + 0.6)));
+      const buy = Math.round(size * (w === 0 ? 0.008 : 0.004 / w));
+      weeks.push({ weeksSince: w, active: rate(act, size, 0, 0), buyers: rate(buy, size, 0, 0) });
+      weeks[weeks.length - 1].active.prev = null; weeks[weeks.length - 1].buyers.prev = null;
+    }
+    cohorts.push({ cohortWeek: addDays(from, i * 7), size, weeks });
+  }
   return {
-    status: 'healthy',
-    label: 'Tracking healthy · orders match Shopify',
-    checks: [
-      { label: 'Orders match Shopify', ok: true, detail: '164 of 164 orders in the last 30 days.' },
-      { label: 'Events arriving', ok: true, detail: 'Last event 2 minutes ago.' },
-      { label: 'Google Analytics gap', ok: true, detail: 'Sessions within the expected range.' },
-    ],
+    ...meta('retention', from, to), section: 'retention',
+    kpis: {
+      returningVisitorShare: metric('returningVisitorShare', 'returningVisitorShare', rate(3980, 12840, 3224, 11464)),
+      repeatPurchaseRate: metric('repeatPurchaseRate', 'repeatPurchaseRate', rate(23, 164, 18, 150)),
+      medianDaysToFirstOrder: metric('medianDaysToFirstOrder', 'medianDaysToFirstOrder', median(6, 141, 7)),
+      medianSessionsToFirstOrder: metric('medianSessionsToFirstOrder', 'medianSessionsToFirstOrder', median(2, 141, 2)),
+    },
+    cohorts,
   };
 }
+
+export function demoFunnelDaily(from: string, to: string): FunnelDailyResponse {
+  const COLS: [keyof FunnelDayRow, DefKey][] = [['visitors', 'fdVisitors'], ['newVisitors', 'fdNewVisitors'], ['returningVisitors', 'fdReturning'], ['sessions', 'fdSessions'], ['p1', 'fdP1'], ['p2', 'fdP2'], ['p3', 'fdP3'], ['cart', 'fdCart'], ['checkoutStart', 'fdCheckout'], ['phone', 'fdPhone'], ['address', 'fdAddress'], ['paymentStart', 'fdPayment'], ['orders', 'fdOrders'], ['revenueInr', 'fdRevenue']];
+  const rows: FunnelDayRow[] = [];
+  const n = daysBetween(from, to) + 1;
+  for (let i = n - 1; i >= 0; i--) {
+    const day = addDays(from, i), legacy = i < 5;
+    const w = 0.8 + 0.3 * Math.sin(i);
+    const v = Math.round(420 * w);
+    rows.push({ day, legacy, visitors: legacy ? null : v, newVisitors: Math.round(v * 0.7), returningVisitors: legacy ? null : Math.round(v * 0.3), sessions: Math.round(v * 1.3), p1: Math.round(v * 0.5), p2: Math.round(v * 0.22), p3: Math.round(v * 0.1), cart: Math.round(v * 0.065), checkoutStart: legacy ? null : Math.round(v * 0.03), phone: Math.round(v * 0.032), address: Math.round(v * 0.025), paymentStart: legacy ? null : Math.round(v * 0.018), orders: Math.round(v * 0.013), revenueInr: Math.round(v * 0.013) * 11900 });
+  }
+  const ADD = new Set(['sessions', 'p1', 'p2', 'p3', 'cart', 'checkoutStart', 'phone', 'address', 'paymentStart', 'orders', 'revenueInr']);
+  const tot = (key: keyof FunnelDayRow) => rows.reduce((s, x) => s + (typeof x[key] === 'number' ? (x[key] as number) : 0), 0);
+  return {
+    ...meta('funnelDaily', from, to, ['Milestone columns count each person once, on the day they first reached that step, so they add up across days.', 'Days before the event log come from the old Firestore counters (legacy) and lack some columns.']),
+    section: 'funnelDaily', columns: COLS.map(([key, d]) => column(key, d)), rows,
+    totals: COLS.filter(([key]) => ADD.has(key)).map(([key, d]) => metric(key, d, count(tot(key), Math.round(tot(key) * 0.9)))),
+  };
+}
+
+export function demoTrackingHealth(from: string, to: string): TrackingHealthResponse {
+  const n = daysBetween(from, to) + 1;
+  const days = Array.from({ length: n }, (_, i) => ({ day: addDays(to, -i), events: 5200, botEvents: 400, pageViews: 1900, rejects: 3, orders: 5 }));
+  const e = 5200 * n;
+  return {
+    ...meta('trackingHealth', from, to, ['Orders per day should match Shopify exactly; a gap means a webhook was missed.']), section: 'trackingHealth',
+    kpis: {
+      events: metric('events', 'healthEvents', count(e, e * 0.95)),
+      rejectRate: metric('rejectRate', 'healthRejectRate', rate(3 * n, e + 3 * n, 4 * n, e + 4 * n)),
+      botShare: metric('botShare', 'healthBotShare', rate(400 * n, e, 380 * n, e * 0.95)),
+      daysWithoutPageViews: metric('daysWithoutPageViews', 'healthNoPageViews', count(0, 0)),
+    },
+    days, rejectReasons: { columns: [column('n', 'healthRejects')], rows: [] }, eventNames: { columns: [column('n', 'healthEvents')], rows: [] },
+  };
+}
+
 
 // The People + inbox fixtures are in the API's own raw shapes (people.ts, inbox.ts), so
 // demo mode runs the same mapping code as real mode.

@@ -7,13 +7,15 @@
 //  - Once per dashboard open (after sign-in), POST /api/admin/refresh pulls new Shopify
 //    orders/bookings and rebuilds the People copy. Today/Understand/People fetches wait
 //    for it, but never for more than REFRESH_WAIT_MS, and a failure never blocks them.
-//  - ?demo=1 serves clearly-labelled sample fixtures (fixtures.ts) instead of the API.
+//  - ?demo=1 serves clearly-labelled sample fixtures (fixtures.ts) in the API's own shapes.
 //  - Operations views keep using the existing /api/admin/data feed.
 import { getIdToken } from '~/lib/firebaseClient';
 import type {
-  AcquisitionData, AudienceData, CheckoutData, InboxData, InboxKind, Metric, OverviewData, PeopleList,
-  PeopleQuery, PersonDetail, ProductsData, RefreshState, Result, RetentionData, TrackingHealth,
+  AcquisitionBy, AcquisitionResponse, AttributionModel, AudienceResponse, CheckoutResponse, FunnelDailyResponse,
+  InboxData, InboxKind, OverviewResponse, PeopleList, PeopleQuery, PersonDetail, ProductsResponse, RefreshState,
+  Result, RetentionResponse, TrackingHealth, TrackingHealthResponse,
 } from './types';
+import { fmtValue } from './format';
 import * as fx from './fixtures';
 import { DEFAULT_OUTCOMES, mapInbox, mapPeopleList, mapPersonDetail } from './mapping';
 
@@ -114,97 +116,57 @@ function cached<T>(key: string, load: () => Promise<Result<T>>): Promise<Result<
   CACHE.set(key, p);
   return p;
 }
-const qs = (q: Query) =>
-  'from=' + q.from + '&to=' + q.to + '&includeBots=' + (q.bots ? 1 : 0) + '&includeTest=' + (q.test ? 1 : 0);
 const ok = <T>(data: T): Promise<Result<T>> => Promise.resolve({ ok: true, data });
 
-// ── Metric normalisation (real mode) ─────────────────────────────────────────
-// Server shape per metric: { value, num?, den?, prev, definition, smallSample }.
-interface Spec { key: string; label: string; unit: Metric['unit']; drill?: PeopleQuery; lowerIsBetter?: boolean; note?: (raw: any) => string | undefined; }
-function pick(raw: any, specs: Spec[], compare: boolean): Metric[] {
-  const bag = (raw && (raw.metrics || raw)) || {};
-  const out: Metric[] = [];
-  for (const s of specs) {
-    const m = bag[s.key];
-    if (!m || typeof m !== 'object') continue;
-    const den = m.den == null ? undefined : Number(m.den);
-    out.push({
-      key: s.key, label: s.label, unit: s.unit, drill: s.drill, lowerIsBetter: s.lowerIsBetter,
-      value: m.value == null ? null : Number(m.value),
-      num: m.num == null ? undefined : Number(m.num), den,
-      prev: compare && m.prev != null ? Number(m.prev) : null,
-      definition: String(m.definition || ''),
-      smallSample: !!m.smallSample || (den != null && den < 30),
-      note: s.note ? s.note(m) : undefined,
-    });
-  }
-  return out;
+// ── Metrics: GET /api/admin/metrics/{section} ────────────────────────────────
+// Responses are used as-is (src/lib/metrics/types.ts); the UI never relabels or
+// redefines a number. Params: from/to (IST, inclusive), bots=1, test=1; acquisition
+// also takes by + model.
+export interface AcqOpts { by: AcquisitionBy; model: AttributionModel; }
+function metricsUrl(name: string, from: string, to: string, q: Pick<Query, 'bots' | 'test'>, extra?: Record<string, string>): string {
+  const p = new URLSearchParams({ from, to });
+  if (q.bots) p.set('bots', '1');
+  if (q.test) p.set('test', '1');
+  for (const k of Object.keys(extra || {})) p.set(k, extra![k]);
+  return '/api/admin/metrics/' + name + '?' + p.toString();
 }
-const arr = <T>(v: any): T[] => (Array.isArray(v) ? v : []);
-
-const OVERVIEW_SPECS: Spec[] = [
-  { key: 'visitors', label: 'Visitors', unit: 'count', drill: { stage: 'all' } },
-  { key: 'returning', label: 'Returning', unit: 'pct', drill: { stage: 'returning' } },
-  { key: 'cartRate', label: 'Added to cart', unit: 'pct', drill: { stage: 'cart' } },
-  { key: 'orders', label: 'Orders', unit: 'count', drill: { stage: 'ordered' } },
-  { key: 'revenue', label: 'Revenue', unit: 'inr' },
-  { key: 'medianOrder', label: 'Median order', unit: 'inr' },
-];
-const CHECKOUT_SPECS: Spec[] = [
-  { key: 'checkoutStart', label: 'Reached checkout', unit: 'count' },
-  { key: 'phoneRate', label: 'Gave phone', unit: 'pct', drill: { stage: 'phone' } },
-  { key: 'paymentFail', label: 'Payment failures', unit: 'pct', lowerIsBetter: true, drill: { stage: 'payment' } },
-  { key: 'checkoutConv', label: 'Checkout to order', unit: 'pct', drill: { stage: 'ordered' } },
-];
-const RETENTION_SPECS: Spec[] = [
-  { key: 'repeatRate', label: 'Repeat buyers', unit: 'pct' },
-  { key: 'daysToBuy', label: 'Median days to first order', unit: 'days', lowerIsBetter: true },
-  { key: 'visitsToBuy', label: 'Median visits to first order', unit: 'count' },
-];
-
-// ── Section getters (metrics: still on fixtures until /api/admin/metrics lands) ──
-function section<T>(name: string, q: Query, demo: () => T, adapt: (raw: any) => T): Promise<Result<T>> {
+function section<T>(name: string, q: Query, demo: () => T, extra?: Record<string, string>, range?: { from: string; to: string }): Promise<Result<T>> {
   if (DEMO) return ok(demo());
-  return cached<T>(name + '|' + qs(q) + '|' + q.compare, async () => {
-    const h = await authHeaders();
-    const r = await getJson<any>('/api/admin/metrics/' + name + '?' + qs(q), h);
-    return r.ok ? { ok: true, data: adapt(r.data) } : r;
-  });
+  const url = metricsUrl(name, range?.from ?? q.from, range?.to ?? q.to, q, extra);
+  return cached<T>(url, async () => getJson<T>(url, await authHeaders()));
 }
 
-export const getOverview = (q: Query) => section<OverviewData>('overview', q, () => fx.demoOverview(q.from, q.to), (raw) => ({
-  metrics: pick(raw, OVERVIEW_SPECS, q.compare),
-  trend: arr(raw?.trend || raw?.series),
-  funnel: raw?.funnel && raw.funnel.steps ? raw.funnel : { steps: arr(raw?.funnel) },
-  channels: arr(raw?.channels),
-}));
-export const getAcquisition = (q: Query) => section<AcquisitionData>('acquisition', q, fx.demoAcquisition, (raw) => ({
-  channels: arr(raw?.channels), campaigns: arr(raw?.campaigns), landingPages: arr(raw?.landingPages),
-}));
-export const getProducts = (q: Query) => section<ProductsData>('products', q, fx.demoProducts, (raw) => ({
-  rows: arr(raw?.rows || raw?.products), soldOutDemand: arr(raw?.soldOutDemand), zeroResultSearches: arr(raw?.zeroResultSearches),
-}));
-export const getCheckout = (q: Query) => section<CheckoutData>('checkout', q, fx.demoCheckout, (raw) => ({
-  metrics: pick(raw, CHECKOUT_SPECS, q.compare),
-  funnel: raw?.funnel && raw.funnel.steps ? raw.funnel : { steps: arr(raw?.funnel) },
-  failures: arr(raw?.failures), paymentMix: arr(raw?.paymentMix),
-}));
-export const getAudience = (q: Query) => section<AudienceData>('audience', q, fx.demoAudience, (raw) => raw as AudienceData);
-export const getRetention = (q: Query) => section<RetentionData>('retention', q, fx.demoRetention, (raw) => ({
-  metrics: pick(raw, RETENTION_SPECS, q.compare), cohorts: arr(raw?.cohorts),
-}));
+export const getOverview = (q: Query) => section<OverviewResponse>('overview', q, () => fx.demoOverview(q.from, q.to));
+export const getAcquisition = (q: Query, a: AcqOpts) =>
+  section<AcquisitionResponse>('acquisition', q, () => fx.demoAcquisition(q.from, q.to, a), { by: a.by, model: a.model });
+export const getProducts = (q: Query) => section<ProductsResponse>('products', q, () => fx.demoProducts(q.from, q.to));
+export const getCheckout = (q: Query) => section<CheckoutResponse>('checkout', q, () => fx.demoCheckout(q.from, q.to));
+export const getAudience = (q: Query) => section<AudienceResponse>('audience', q, () => fx.demoAudience(q.from, q.to));
+export const getRetention = (q: Query) => section<RetentionResponse>('retention', q, () => fx.demoRetention(q.from, q.to));
+/** Daily funnel for one month (IST days). The grid has its own crawler switch. */
+export const getFunnelDaily = (q: Query, from: string, to: string, bots: boolean) =>
+  section<FunnelDailyResponse>('funnelDaily', { ...q, bots }, () => fx.demoFunnelDaily(from, to), undefined, { from, to });
 
-/** Tracking-health pill. Never throws; "unknown" when the endpoint isn't there. */
+/** Tracking-health pill, derived from the trackingHealth section. Never throws. */
 export async function getHealth(q: Query): Promise<TrackingHealth> {
-  if (DEMO) return fx.demoHealth();
-  const r = await cached<TrackingHealth>('health|' + q.to, async () => {
-    const h = await authHeaders();
-    const x = await getJson<any>('/api/admin/metrics/trackingHealth?' + qs(q), h);
-    if (!x.ok) return x;
-    const d = x.data || {};
-    return { ok: true, data: { status: d.status || 'unknown', label: d.label || 'Tracking status unknown', checks: arr(d.checks) } };
-  });
-  return r.ok ? r.data : { status: 'unknown', label: 'Tracking status not available yet', checks: [] };
+  const r = await section<TrackingHealthResponse>('trackingHealth', q, () => fx.demoTrackingHealth(q.from, q.to));
+  if (!r.ok) return { status: 'unknown', label: 'Tracking status unavailable', checks: [], notes: [r.error] };
+  const k = r.data.kpis;
+  const dead = k.daysWithoutPageViews.value ?? 0;
+  const rejects = k.rejectRate.value ?? 0;
+  const noEvents = (k.events.value ?? 0) === 0;
+  const checks = [k.events, k.rejectRate, k.botShare, k.daysWithoutPageViews].map((m) => ({
+    label: m.label,
+    ok: m.key === 'daysWithoutPageViews' ? (m.value ?? 0) === 0 : m.key === 'rejectRate' ? (m.value ?? 0) < 0.02 : m.key === 'events' ? (m.value ?? 0) > 0 : true,
+    detail: fmtValue(m.value, m.unit, false) + (m.num != null && m.den != null ? ' (' + m.num.toLocaleString('en-IN') + ' of ' + m.den.toLocaleString('en-IN') + ')' : ''),
+    definition: m.definition,
+  }));
+  const status = noEvents || dead > 0 || rejects >= 0.02 ? 'degraded' : 'healthy';
+  const label = noEvents ? 'No tracking events in this range'
+    : dead > 0 ? 'Tracking gap: ' + dead + (dead === 1 ? ' day' : ' days') + ' with no page views'
+    : rejects >= 0.02 ? 'Tracking: ' + fmtValue(rejects, 'rate') + ' of events refused'
+    : 'Tracking healthy';
+  return { status, label, checks, notes: r.data.notes };
 }
 
 // ── Action inbox: GET/POST /api/admin/inbox ──────────────────────────────────

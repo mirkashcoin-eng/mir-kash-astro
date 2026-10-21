@@ -1,13 +1,14 @@
 // Renderers for the "Today" and "Understand" sections. Each takes a mount element and the
-// current query, asks data.ts for its view-model, and paints loading / error / empty /
-// content states. No fetching happens here.
-import type { ChannelRow, InboxItem, InboxKind, Metric, OverviewData, Result, Series } from './types';
-import { outcomeLabel } from './mapping';
+// current query, asks data.ts for the section's response (GET /api/admin/metrics/*, in
+// the API's own shapes), and paints loading / error / empty / content states. Labels and
+// hover definitions are the API's; nothing here fetches directly.
+import type { AcquisitionBy, AcquisitionResponse, AttributionModel, Metric, OverviewResponse, Result, Series, Table } from './types';
 import * as data from './data';
 import type { Query } from './data';
-import { empty, funnelBars, heatmap, hbars, info, kpiRow, lineChart, notEnough, panel, peopleHref, stacked } from './charts';
+import { apiTable, empty, funnelBars, heatmap, hbars, kpiCard, kpiRow, lineChart, notEnough, notes, panel, peopleHref, stacked } from './charts';
 import type { BarRow } from './charts';
-import { esc, fmtValue, inrShort, num, pct1, SMALL_SAMPLE } from './format';
+import { esc, fmtValue, num } from './format';
+import type { PeopleQuery } from './types';
 
 export const LOADING = '<div class="ad-state ad-state--load" role="status"><span class="ad-spin" aria-hidden="true"></span> Loading…</div>';
 
@@ -31,203 +32,169 @@ export async function mount<T>(el: HTMLElement, p: Promise<Result<T>>, paint: (d
   if (after) after(r.data);
 }
 
-const hasAny = (ms: Metric[]) => ms.some((m) => m.value != null && (m.den == null || m.den > 0 || (m.value || 0) > 0));
-
-function channelsTable(rows: ChannelRow[], sub = ''): string {
-  if (!rows.length) return notEnough('No orders or visits by channel in this range.');
-  const top = Math.max(...rows.map((r) => r.revenue), 1);
-  const small = (r: ChannelRow) => r.visitors < SMALL_SAMPLE;
-  return '<div class="ad-scroll"><table class="ad-table"><thead><tr><th scope="col">Source</th><th scope="col" class="r">Visitors</th><th scope="col" class="r">Orders</th><th scope="col" class="r">Revenue</th><th scope="col" class="r">Cost per sale</th><th scope="col" class="ad-w160">Share of revenue</th></tr></thead><tbody>' +
-    rows.map((r) => {
-      const cps = r.costPerSale != null ? '₹' + num(r.costPerSale) : r.costNote ? esc(r.costNote) : '<span class="ad-mut" title="No spend recorded for this source">n/a</span>';
-      return '<tr><td class="nm">' + (r.drill ? '<a href="' + esc(peopleHref(r.drill)) + '">' + esc(r.source) + '</a>' : esc(r.source)) + (small(r) ? '<div class="sub">too few to judge</div>' : '') + '</td><td class="r">' + num(r.visitors) + '</td><td class="r">' + num(r.orders) + '</td><td class="r">' + esc(inrShort(r.revenue)) + '</td><td class="r">' + cps + '</td><td><div class="ad-bar" role="img" aria-label="' + esc(Math.round((r.revenue / top) * 100) + '% of the top channel') + '"><i style="width:' + Math.max(1, Math.round((r.revenue / top) * 100)) + '%"></i></div></td></tr>';
-    }).join('') + '</tbody></table></div>' + sub;
-}
+// People-list filters behind the numbers that have one.
+const DRILL: Record<string, PeopleQuery> = {
+  visitors: { stage: 'all' }, returningVisitors: { stage: 'returning' }, orders: { stage: 'ordered' },
+  viewedProduct: { stage: 'viewed' }, addedToCart: { stage: 'cart' }, startedCheckout: { stage: 'checkout' },
+  startedPayment: { stage: 'payment' }, ordered: { stage: 'ordered' },
+};
+const card = (m: Metric | undefined, q: Query, note?: string) => (m ? kpiCard(m, { compare: q.compare, drill: DRILL[m.key], note }) : '');
+const nothingYet = (ms: Metric[]) => ms.every((m) => m.value == null || m.value === 0);
 
 // ── Trend panel with series switch ───────────────────────────────────────────
-function trendPanel(series: Series[], compare: boolean, uid: string): string {
-  if (!series.length) return panel('Trend', '', notEnough());
-  const tabs = series.length > 1
-    ? '<div class="ad-seg" role="group" aria-label="Chart metric">' + series.map((s, i) => '<button type="button" class="ad-seg__b' + (i === 0 ? ' on' : '') + '" data-series="' + i + '" aria-pressed="' + (i === 0) + '">' + esc(s.label) + '</button>').join('') + '</div>' : '';
-  return '<section class="ad-panel ad-trend" id="' + uid + '" data-compare="' + (compare ? 1 : 0) + '"><div class="ad-panel__h"><h3 class="ad-panel__t"><span data-trend-title>' + esc(series[0].label) + ' by day</span></h3>' + tabs +
-    (compare ? '<span class="ad-chart-sub">Dotted line: previous period</span>' : '') + '</div><div class="ad-panel__body" data-trend-chart>' + lineChart(series[0], compare, series[0].label) + '</div></section>';
+function seriesOf(d: OverviewResponse): Series[] {
+  const pts = d.trend;
+  return [
+    { label: 'Revenue', unit: 'inr', points: pts.map((p) => ({ day: p.day, value: p.revenueInr, legacy: p.legacy })) },
+    { label: 'Orders', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.orders, legacy: p.legacy })) },
+    { label: 'Visitors', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.visitors, legacy: p.legacy })) },
+  ];
 }
-function wireTrend(el: HTMLElement, uid: string, series: Series[], compare: boolean) {
+function trendPanel(series: Series[], uid: string, legacy: boolean): string {
+  const tabs = '<div class="ad-seg" role="group" aria-label="Chart metric">' + series.map((s, i) => '<button type="button" class="ad-seg__b' + (i === 0 ? ' on' : '') + '" data-series="' + i + '" aria-pressed="' + (i === 0) + '">' + esc(s.label) + '</button>').join('') + '</div>';
+  return '<section class="ad-panel ad-trend" id="' + uid + '"><div class="ad-panel__h"><h3 class="ad-panel__t"><span data-trend-title>' + esc(series[0].label) + ' by day</span></h3>' + tabs + '</div>' +
+    '<div class="ad-panel__body"><div data-trend-chart>' + lineChart(series[0], series[0].label) + '</div>' +
+    (legacy ? '<p class="ad-note">Shaded days come from the old counters, which didn’t count visitors.</p>' : '') + '</div></section>';
+}
+function wireTrend(el: HTMLElement, uid: string, series: Series[]) {
   const root = el.querySelector('#' + uid); if (!root) return;
   root.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest('[data-series]') as HTMLElement | null; if (!b) return;
     const i = Number(b.getAttribute('data-series'));
     root.querySelectorAll('[data-series]').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
-    (root.querySelector('[data-trend-chart]') as HTMLElement).innerHTML = lineChart(series[i], compare, series[i].label);
+    (root.querySelector('[data-trend-chart]') as HTMLElement).innerHTML = lineChart(series[i], series[i].label);
     (root.querySelector('[data-trend-title]') as HTMLElement).textContent = series[i].label + ' by day';
   });
 }
 
-function overviewBody(d: OverviewData, q: Query, uid: string, opts: { all: boolean }): string {
-  const ms = opts.all ? d.metrics : d.metrics.filter((m) => m.key !== 'medianOrder');
-  const kpis = hasAny(ms) ? kpiRow(ms) : notEnough('No visits recorded in this range yet.');
-  return kpis +
-    '<div class="ad-two">' + trendPanel(d.trend, q.compare, uid) +
-    panel('Where people drop off', '', funnelBars(d.funnel, 'Funnel from visit to order')) + '</div>' +
-    panel('Which channels bring buyers', 'Last touch before the order', channelsTable(d.channels), { flush: true });
+// ── Channels (acquisition by source, last visit) ─────────────────────────────
+const sourceHref = (row: Table<any>['rows'][number]) => {
+  const s = row.key?.source;
+  return s && s !== '(unattributed)' && s !== '(direct)' ? peopleHref({ source: s }) : null;
+};
+function channelsPanel(a: AcquisitionResponse, q: Query, title = 'Which channels bring buyers'): string {
+  return panel(title, 'Orders credited to the last visit before ordering', apiTable(a.table, {
+    compare: q.compare, only: ['visitors', 'orders', 'revenue', 'conversionRate'], bar: 'revenue', href: sourceHref,
+    firstHeader: 'Source', limit: 8, emptyText: 'No visits or orders by channel in this range.',
+  }), { flush: true });
 }
 
+// ── Overview + Today ─────────────────────────────────────────────────────────
 export function renderOverview(el: HTMLElement, q: Query, opts: { all: boolean }) {
   const uid = 'trend' + (opts.all ? 'O' : 'T');
-  return mount(el, data.getOverview(q), (d) => overviewBody(d, q, uid, opts), (d) => wireTrend(el, uid, d.trend, q.compare));
-}
-
-// ── Today: inbox ─────────────────────────────────────────────────────────────
-// Ranked by the API; each group shows its top INBOX_TOP and a "Show all N" button.
-const INBOX_TOP = 10;
-
-/** "Done" with the outcomes the API suggests for this kind of item. */
-export function doneMenu(kind: string, ref: string, outcomes: string[], label = 'Done'): string {
-  return '<details class="ad-done"><summary class="ad-btn ad-btn--ghost">' + esc(label) + '</summary>' +
-    '<div class="ad-done__menu" role="group" aria-label="What happened?"><span class="ad-mut ad-small">What happened?</span>' +
-    outcomes.map((o) => '<button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-kind="' + esc(kind) + '" data-ref="' + esc(ref) + '" data-outcome="' + esc(o) + '">' + esc(outcomeLabel(o)) + '</button>').join('') +
-    '</div></details>';
-}
-
-function inboxRow(it: InboxItem, hidden: boolean): string {
-  const title = it.personId
-    ? '<button type="button" class="ad-linkbtn ad-linkbtn--strong" data-person="' + esc(it.personId) + '">' + esc(it.title) + '</button>'
-    : '<strong>' + esc(it.title) + '</strong>';
-  const wa = it.whatsapp
-    ? '<a class="ad-btn" href="' + esc(it.whatsapp) + '" target="_blank" rel="noopener">WhatsApp</a>'
-    : it.kind === 'hot_lead' || it.kind === 'payment_failed' ? '<span class="ad-mut ad-small ad-irow__note">No number to contact</span>' : '';
-  return '<div class="ad-irow"' + (hidden ? ' hidden data-more' : '') + ' data-item="' + esc(it.id) + '"><div class="ad-irow__main">' + title +
-    '<div class="ad-mut ad-small">' + esc(it.detail) + '</div></div>' + wa + doneMenu(it.kind, it.ref, it.outcomes) +
-    '<p class="ad-irow__msg ad-small" role="status"></p></div>';
-}
-
-/** Wires every outcome button under `root` to POST /api/admin/inbox. */
-export function wireDone(root: HTMLElement, onDone: (btn: HTMLElement, outcome: string) => void) {
-  root.addEventListener('click', async (e) => {
-    const b = (e.target as HTMLElement).closest('[data-outcome]') as HTMLButtonElement | null;
-    if (!b || !root.contains(b)) return;
-    const menu = b.closest('.ad-done__menu') as HTMLElement;
-    const msg = (b.closest('.ad-irow')?.querySelector('[role=status]') || root.querySelector('[data-drawer-msg]')) as HTMLElement | null;
-    menu.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = true; });
-    if (msg) msg.textContent = 'Saving…';
-    const err = await data.markDone(b.getAttribute('data-kind') as InboxKind, b.getAttribute('data-ref')!, b.getAttribute('data-outcome')!);
-    if (err) {
-      menu.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = false; });
-      if (msg) { msg.textContent = err; msg.classList.add('is-bad'); }
-      return;
-    }
-    if (msg) { msg.textContent = ''; msg.classList.remove('is-bad'); }
-    onDone(b, b.getAttribute('data-outcome')!);
-  });
-}
-
-export function renderInbox(el: HTMLElement, onOpenPerson: (id: string) => void, onCount: (n: number) => void) {
-  return mount(el, data.getInbox(), (d) => {
-    if (!d.total) return panel('Nothing needs you right now', '', '<p class="ad-note">Hot leads, failed payments, bookings to confirm and sold-out demand will show up here.</p>');
-    return '<div class="ad-inbox">' + d.groups.map((g) =>
-      '<section class="ad-panel ad-panel--flush" data-group="' + g.key + '"><div class="ad-panel__h"><h3 class="ad-panel__t">' + esc(g.title) + '</h3><span class="ad-chip" data-gcount>' + g.items.length + '</span></div>' +
-      g.items.map((it, i) => inboxRow(it, i >= INBOX_TOP)).join('') +
-      (g.items.length > INBOX_TOP ? '<div class="ad-irow ad-irow--more"><button type="button" class="ad-btn ad-btn--ghost" data-showall aria-expanded="false">Show all ' + g.items.length + '</button></div>' : '') +
-      '</section>').join('') + '</div>';
-  }, (d) => {
-    onCount(d.total);
-    el.querySelectorAll('[data-person]').forEach((b) => b.addEventListener('click', () => onOpenPerson((b as HTMLElement).getAttribute('data-person')!)));
-    el.querySelectorAll('[data-showall]').forEach((b) => b.addEventListener('click', () => {
-      const sec = b.closest('section')!;
-      sec.querySelectorAll('[data-more]').forEach((r) => { (r as HTMLElement).hidden = false; r.removeAttribute('data-more'); });
-      b.closest('.ad-irow')!.remove();
-    }));
-    wireDone(el, (btn) => {
-      const row = btn.closest('.ad-irow') as HTMLElement;
-      const sec = row.closest('section') as HTMLElement;
-      row.remove();
-      // Pull the next hidden row up so the group still shows its top ten.
-      const next = sec.querySelector('[data-more]') as HTMLElement | null;
-      if (next) { next.hidden = false; next.removeAttribute('data-more'); }
-      const left = sec.querySelectorAll('.ad-irow[data-item]').length;
-      const chip = sec.querySelector('[data-gcount]'); if (chip) chip.textContent = String(left);
-      const more = sec.querySelector('[data-showall]') as HTMLElement | null;
-      if (more) { if (!sec.querySelector('[data-more]')) more.closest('.ad-irow')!.remove(); else more.textContent = 'Show all ' + left; }
-      if (!left) sec.remove();
-      onCount(el.querySelectorAll('.ad-irow[data-item]').length);
-    });
-  });
+  const both = Promise.all([data.getOverview(q), data.getAcquisition(q, { by: 'source', model: 'last' })]).then(([o, a]) =>
+    (o.ok ? { ok: true as const, data: { o: o.data, a } } : o));
+  return mount(el, both, ({ o, a }) => {
+    const k = o.kpis;
+    const median = k.medianOrderValue.value != null && !k.medianOrderValue.smallSample ? k.medianOrderValue.label + ': ' + fmtValue(k.medianOrderValue.value, 'inr') : undefined;
+    const ms = opts.all
+      ? [card(k.visitors, q), card(k.newVisitors, q), card(k.returningVisitors, q), card(k.sessions, q), card(k.engagedSessionRate, q),
+         card(k.medianEngagedPerSession, q), card(k.orders, q), card(k.revenue, q), card(k.medianOrderValue, q), card(k.conversionRate, q)]
+      : [card(k.visitors, q), card(k.returningVisitors, q), card(k.conversionRate, q), card(k.orders, q), card(k.revenue, q, median)];
+    const kpis = nothingYet([k.visitors, k.orders]) ? notEnough('No visits or orders recorded in this range yet.') : kpiRow(ms);
+    const ch = a.ok ? channelsPanel(a.data, q) : panel('Which channels bring buyers', '', '<p class="ad-note ad-pad">' + esc(a.error) + '</p>');
+    return kpis +
+      '<div class="ad-two">' + trendPanel(seriesOf(o), uid, o.trend.some((p) => p.legacy)) +
+      panel('Where people drop off', 'Share of the step before', funnelBars(o.funnel, 'Funnel from visit to order', DRILL)) + '</div>' +
+      ch + notes(o.notes);
+  }, ({ o }) => wireTrend(el, uid, seriesOf(o)));
 }
 
 // ── Acquisition ──────────────────────────────────────────────────────────────
+const acq: { by: AcquisitionBy; model: AttributionModel } = { by: 'source', model: 'last' };
+const BY: [AcquisitionBy, string][] = [['source', 'Source'], ['source_medium', 'Source + medium'], ['campaign', 'Campaign'], ['content', 'Ad']];
+const MODEL: [AttributionModel, string][] = [['last', 'Last visit'], ['first', 'First visit']];
+function seg<T extends string>(name: string, label: string, opts: [T, string][], on: T): string {
+  return '<div class="ad-seg" role="group" aria-label="' + esc(label) + '">' + opts.map(([v, l]) =>
+    '<button type="button" class="ad-seg__b' + (v === on ? ' on' : '') + '" aria-pressed="' + (v === on) + '" data-' + name + '="' + v + '">' + esc(l) + '</button>').join('') + '</div>';
+}
 export function renderAcquisition(el: HTMLElement, q: Query) {
-  return mount(el, data.getAcquisition(q), (d) => {
-    if (!d.channels.length && !d.campaigns.length) return notEnough('No traffic in this range yet.');
-    const camp = d.campaigns.length
-      ? '<div class="ad-scroll"><table class="ad-table"><thead><tr><th scope="col">Campaign</th><th scope="col">Source</th><th scope="col" class="r">Visitors</th><th scope="col" class="r">Carts</th><th scope="col" class="r">Orders</th><th scope="col" class="r">Revenue</th><th scope="col" class="r">Spend</th><th scope="col" class="r">Return on spend</th></tr></thead><tbody>' +
-        d.campaigns.map((c) => '<tr><td class="nm">' + esc(c.campaign) + '</td><td>' + esc(c.source) + '</td><td class="r">' + num(c.visitors) + '</td><td class="r">' + num(c.carts) + '</td><td class="r">' + num(c.orders) + '</td><td class="r">' + esc(inrShort(c.revenue)) + '</td><td class="r">' + (c.spend != null ? esc(inrShort(c.spend)) : '<span class="ad-mut">n/a</span>') + '</td><td class="r">' + (c.roas != null && c.spend ? esc(fmtValue(c.roas, 'ratio')) : '<span class="ad-mut">n/a</span>') + '</td></tr>').join('') + '</tbody></table></div>'
-      : notEnough('No campaign-tagged visits in this range.');
-    const lp: BarRow[] = d.landingPages.map((l) => ({ label: l.page, right: num(l.visitors) + ' visitors · ' + num(l.orders) + ' orders (' + pct1(l.orders, l.visitors) + ')', value: l.visitors }));
-    return panel('Channels', 'Ranked by revenue', channelsTable(d.channels), { flush: true }) +
-      panel('Campaigns', 'Return on spend = revenue ÷ ad spend', camp, { flush: true }) +
-      panel('Landing pages', 'Where visits start', hbars(lp, 'Visitors by landing page'));
+  el.innerHTML = '<div class="ad-toolbar"><span class="ad-mut ad-small">Group by</span>' + seg('by', 'Group by', BY, acq.by) +
+    '<span class="ad-mut ad-small">Credit the order to</span>' + seg('model', 'Credit the order to', MODEL, acq.model) + '</div><div data-acq></div>';
+  el.querySelectorAll<HTMLElement>('[data-by]').forEach((b) => b.addEventListener('click', () => { acq.by = b.getAttribute('data-by') as AcquisitionBy; renderAcquisition(el, q); }));
+  el.querySelectorAll<HTMLElement>('[data-model]').forEach((b) => b.addEventListener('click', () => { acq.model = b.getAttribute('data-model') as AttributionModel; renderAcquisition(el, q); }));
+  const body = el.querySelector('[data-acq]') as HTMLElement;
+  return mount(body, data.getAcquisition(q, { ...acq }), (a) => {
+    const spendCols = a.by === 'campaign' || a.by === 'content';
+    const spendNote = spendCols && !a.spendAvailable ? '<p class="ad-note ad-pad">No ad spend is recorded for this range, so cost per sale and ROAS are empty.</p>' : '';
+    const first = BY.find(([v]) => v === a.by)?.[1] || 'Source';
+    return panel('Where buyers come from', a.model === 'first' ? 'Orders credited to the first visit ever' : 'Orders credited to the last visit before ordering',
+      apiTable(a.table, { compare: q.compare, bar: 'revenue', firstHeader: first, href: a.by === 'source' ? sourceHref : undefined, emptyText: 'No visits in this range yet.' }) + spendNote, { flush: true }) +
+      notes(a.notes);
   });
 }
 
 // ── Products ─────────────────────────────────────────────────────────────────
 export function renderProducts(el: HTMLElement, q: Query) {
-  return mount(el, data.getProducts(q), (d) => {
-    if (!d.rows.length) return notEnough('No product views in this range yet.');
-    const tbl = '<div class="ad-scroll"><table class="ad-table"><thead><tr><th scope="col">Bag</th><th scope="col" class="r">Views</th><th scope="col" class="r">Added to cart</th><th scope="col" class="r">Ordered</th><th scope="col" class="r">Views to order</th><th scope="col" class="r">Median look</th></tr></thead><tbody>' +
-      d.rows.map((r) => '<tr><td class="nm">' + esc(r.title) + (r.soldOut ? ' <span class="ad-chip ad-chip--orange">Sold out</span>' : '') + '</td><td class="r">' + num(r.views) + '</td><td class="r">' + num(r.carts) + '<div class="sub">' + (r.viewers >= SMALL_SAMPLE ? pct1(r.carts, r.viewers) + ' of ' + num(r.viewers) : 'too few to judge') + '</div></td><td class="r">' + num(r.orders) + '</td><td class="r">' + (r.viewers >= SMALL_SAMPLE ? pct1(r.orders, r.viewers) : '<span class="ad-mut">too few</span>') + '</td><td class="r">' + (r.medianViewSeconds != null ? esc(fmtValue(r.medianViewSeconds, 'seconds')) : '—') + '</td></tr>').join('') + '</tbody></table></div>';
-    const sold = d.soldOutDemand.length
-      ? hbars(d.soldOutDemand.map((s) => ({ label: s.title, right: num(s.views) + ' views · ' + num(s.longLooks) + ' looked longer than a minute', value: s.views })), 'Sold-out bags people still look at')
-      : '<p class="ad-note">No sold-out bags are drawing views.</p>';
-    const zero = d.zeroResultSearches.length
-      ? hbars(d.zeroResultSearches.map((s) => ({ label: s.term, right: num(s.count) + ' searches', value: s.count })), 'Searches that found nothing')
-      : '<p class="ad-note">No searches came back empty.</p>';
-    return panel('Bags: views to orders', 'Views to order uses people who viewed the bag', tbl, { flush: true }) +
-      '<div class="ad-two">' + panel('Wanted but sold out', '', sold) + panel('Searched for, not found', '', zero) + '</div>';
+  return mount(el, data.getProducts(q), (p) => {
+    if (!p.table.rows.length) return notEnough('No product views in this range yet.') + notes(p.notes);
+    const sold: BarRow[] = p.table.rows
+      .filter((r) => (r.cells.soldOutViews?.value ?? 0) > 0)
+      .sort((a, b) => (b.cells.soldOutViews.value ?? 0) - (a.cells.soldOutViews.value ?? 0))
+      .map((r) => ({ label: r.label, right: num(r.cells.soldOutViews.value) + ' sold-out views', value: r.cells.soldOutViews.value ?? 0 }));
+    return panel('Bags: attention to orders', 'Sorted by views', apiTable(p.table, { compare: q.compare, firstHeader: 'Bag', bar: 'views' }), { flush: true }) +
+      panel('Wanted but sold out', '', sold.length ? hbars(sold, 'Sold-out views by bag') : '<p class="ad-note">No views of sold-out colours in this range.</p>') +
+      notes(p.notes);
   });
 }
 
 // ── Checkout ─────────────────────────────────────────────────────────────────
 export function renderCheckout(el: HTMLElement, q: Query) {
-  return mount(el, data.getCheckout(q), (d) => {
-    if (!hasAny(d.metrics) && !(d.funnel.steps && d.funnel.steps.length)) return notEnough('Nobody reached checkout in this range.');
-    const fail = d.failures.length ? hbars(d.failures.map((f) => ({ label: f.reason, right: num(f.count), value: f.count })), 'Payment failures by reason') : '<p class="ad-note">No failed payments in this range.</p>';
-    const mix = d.paymentMix.length ? hbars(d.paymentMix.map((f) => ({ label: f.label, right: num(f.count) + ' orders', value: f.count, blue: true })), 'Orders by payment method') : '<p class="ad-note">No orders yet.</p>';
-    return kpiRow(d.metrics) + '<div class="ad-two">' + panel('Checkout steps', '', funnelBars(d.funnel, 'Checkout funnel')) + panel('Why payments fail', '', fail) + '</div>' + panel('How people pay', '', mix);
+  return mount(el, data.getCheckout(q), (c) => {
+    if (!c.steps.length || !c.steps[0].value) return notEnough('Nobody added to cart in this range.') + notes(c.notes);
+    const t = (title: string, tb: Table<any>, first: string, emptyText: string) => panel(title, '', apiTable(tb, { compare: q.compare, firstHeader: first, emptyText }), { flush: true });
+    return kpiRow([card(c.kpis.paymentFailureRate, q), card(c.kpis.otpFailureRate, q)]) +
+      panel('Checkout steps', 'People at each step · share of the step before', funnelBars(c.steps, 'Checkout funnel')) +
+      '<div class="ad-two">' + t('Why payments fail', c.paymentFailures, 'Reason', 'No failed payments in this range.') +
+      t('Why OTPs fail', c.otpFailures, 'Reason', 'No failed OTPs in this range.') + '</div>' +
+      '<div class="ad-two">' + t('How people pay', c.paymentMethods, 'Method', 'No payment methods chosen in this range.') +
+      t('Coupons tried', c.coupons, 'Code', 'No coupons tried in this range.') + '</div>' + notes(c.notes);
   });
 }
 
 // ── Audience ─────────────────────────────────────────────────────────────────
 export function renderAudience(el: HTMLElement, q: Query) {
-  return mount(el, data.getAudience(q), (d) => {
-    const nr = d.newReturning;
-    const rate = (o: number, v: number) => (v >= SMALL_SAMPLE ? pct1(o, v) : 'too few to judge');
-    const nrNote = '<div class="ad-mut">New visitors convert at ' + rate(nr.new.orders, nr.new.visitors) + ', returning at ' + rate(nr.returning.orders, nr.returning.visitors) + '.</div><div class="ad-mut ad-small">' + num(nr.new.visitors) + ' new, ' + num(nr.returning.visitors) + ' returning. Orders: ' + num(nr.new.orders) + ' and ' + num(nr.returning.orders) + '.</div>';
-    const dev = d.device;
-    const devNote = '<div class="ad-mut">' + dev.map((x) => esc(x.label) + ' converts at ' + esc(rate(x.orders, x.visitors))).join(', ') + '.</div>';
-    const ga = d.ga;
-    const gaTag = '<span class="ad-chip">from Google Analytics</span>';
-    const shares = (s: { label: string; share: number; hidden?: boolean }[]) => hbars(s.filter((x) => !x.hidden).map((x) => ({ label: x.label, right: x.share + '%', value: x.share, blue: true })), 'Share of visitors');
-    const gaBlock = (title: string, body: string) =>
-      '<section class="ad-panel"><div class="ad-panel__h"><h3 class="ad-panel__t">' + title + '</h3>' + gaTag + '</div><div class="ad-panel__body">' + (ga.available ? body : empty('Not enough data', ga.note || 'Google only shares this once Google Signals is on and a group is large enough.')) + '</div></section>';
+  const both = Promise.all([data.getAudience(q), data.getOverview(q)]).then(([a, o]) => (a.ok ? { ok: true as const, data: { a: a.data, o } } : a));
+  return mount(el, both, ({ a, o }) => {
+    const nr = o.ok ? o.data.kpis : null;
+    const own = (dim: keyof typeof a.own, title: string, first: string, href?: (r: any) => string | null) =>
+      panel(title, '', apiTable(a.own[dim], { compare: q.compare, only: ['visitors', 'share', 'buyers', 'conversionRate'], bar: 'visitors', firstHeader: first, limit: 10, href }), { flush: true });
+    const deviceParts = a.own.device.rows.map((r) => ({ label: r.label, value: r.cells.visitors?.value ?? 0 }));
+    const ga = (dim: keyof typeof a.ga, title: string, first: string) => {
+      const g = a.ga[dim];
+      return panel(title, '<span class="ad-chip">from Google Analytics</span>', g.available
+        ? apiTable(g.table, { compare: q.compare, only: ['users', 'share'], bar: 'users', firstHeader: first })
+        : '<div class="ad-panel__body">' + empty('Not enough data', g.note || 'Google Analytics has nothing for this yet.') + '</div>', { flush: true });
+    };
     return '<div class="ad-two">' +
-      panel('New vs returning', '', stacked([{ label: 'New', value: nr.new.visitors }, { label: 'Returning', value: nr.returning.visitors }], 'New versus returning visitors') + nrNote) +
-      panel('Device', '', stacked(dev.map((x) => ({ label: x.label, value: x.visitors })), 'Visitors by device') + devNote) + '</div>' +
-      '<div class="ad-two">' +
-      gaBlock('Age', shares(ga.age) + '<p class="ad-note">Google only reports ages for people signed in to Google, so this is a sample, not everyone. Small groups are hidden.</p>') +
-      gaBlock('Gender and interests', stacked(ga.gender.filter((g) => !g.hidden).map((g) => ({ label: g.label, value: g.share })), 'Gender') +
-        '<h4 class="ad-h4">Interests</h4><div class="ad-chips">' + ga.interests.map((i) => '<span class="ad-chip">' + esc(i) + '</span>').join('') + '</div><p class="ad-note">Gender and interests need Google Signals to be on. Groups under about 50 people are hidden by Google.</p>') + '</div>' +
-      '<div class="ad-two">' +
-      panel('Top cities', '', hbars(d.cities.map((c) => ({ label: c.city, right: num(c.visitors) + ' visitors · ' + num(c.orders) + ' orders', value: c.visitors })), 'Visitors by city')) +
-      '<section class="ad-panel"><div class="ad-panel__h"><h3 class="ad-panel__t">Likely gift orders</h3></div><div class="ad-panel__body">' +
-      (d.gift.den != null && d.gift.den < SMALL_SAMPLE ? '<div class="ad-big">Too few to judge</div>' : '<div class="ad-big">' + esc(fmtValue(d.gift.value, 'pct')) + '</div>') +
-      '<div class="ad-mut">' + (d.gift.num != null ? num(d.gift.num) + ' of ' + num(d.gift.den) + ' orders shipped to a different name or city than the buyer.' : '') + ' ' + info(d.gift.definition) + '</div>' +
-      '<p class="ad-note">Worked out from the order. Customers are never asked.</p>' +
-      '<h4 class="ad-h4">Browser and system</h4><div class="ad-mut">' + d.browsers.map((b) => esc(b.label) + ' ' + b.share + '%').join(' · ') + '</div></div></section></div>';
+      panel('New vs returning', '', nr ? stacked([{ label: 'New', value: nr.newVisitors.value ?? 0 }, { label: 'Returning', value: nr.returningVisitors.value ?? 0 }], 'New versus returning visitors') +
+        '<p class="ad-note">' + esc(num(nr.newVisitors.value) + ' new, ' + num(nr.returningVisitors.value) + ' returning.') + '</p>' : '<p class="ad-note">Not available right now.</p>') +
+      panel('Device', '', stacked(deviceParts, 'Visitors by device')) + '</div>' +
+      '<div class="ad-two">' + own('device', 'Devices', 'Device', (r) => peopleHref({ device: r.key.value })) + own('city', 'Top cities', 'City', (r) => peopleHref({ city: r.key.value })) + '</div>' +
+      '<div class="ad-two">' + own('browser', 'Browsers', 'Browser') + own('os', 'Systems', 'System') + '</div>' +
+      own('country', 'Countries', 'Country') +
+      '<div class="ad-two">' + ga('age', 'Age', 'Age') + ga('gender', 'Gender', 'Gender') + '</div>' +
+      ga('interest', 'Interests', 'Interest') +
+      '<p class="ad-note">Google only reports age, gender and interests for people signed in to Google with Signals on, and hides small groups — a sample, not everyone.</p>' +
+      notes(a.notes);
   });
 }
 
 // ── Retention ────────────────────────────────────────────────────────────────
+let COHORT_MODE: 'active' | 'buyers' = 'active';
 export function renderRetention(el: HTMLElement, q: Query) {
-  return mount(el, data.getRetention(q), (d) =>
-    (d.metrics.length ? kpiRow(d.metrics) : '') + panel('Do people come back?', 'Share of each weekly cohort that returned, by weeks since first visit', heatmap(d.cohorts), { flush: true }));
+  return mount(el, data.getRetention(q), (r) => {
+    const k = r.kpis;
+    const def = COHORT_MODE === 'active' ? 'Share of each weekly cohort with a visit, by weeks since first seen' : 'Share of each weekly cohort that ordered, by weeks since first seen';
+    return kpiRow([card(k.returningVisitorShare, q), card(k.repeatPurchaseRate, q), card(k.medianDaysToFirstOrder, q), card(k.medianSessionsToFirstOrder, q)]) +
+      panel('Do people come back?', def, heatmap(r.cohorts, COHORT_MODE, def), {
+        flush: true,
+        tools: '<div class="ad-seg" role="group" aria-label="Cohort measure"><button type="button" class="ad-seg__b' + (COHORT_MODE === 'active' ? ' on' : '') + '" data-cohort="active" aria-pressed="' + (COHORT_MODE === 'active') + '">Came back</button><button type="button" class="ad-seg__b' + (COHORT_MODE === 'buyers' ? ' on' : '') + '" data-cohort="buyers" aria-pressed="' + (COHORT_MODE === 'buyers') + '">Bought</button></div>',
+      }) + notes(r.notes);
+  }, () => {
+    el.querySelectorAll<HTMLElement>('[data-cohort]').forEach((b) => b.addEventListener('click', () => {
+      COHORT_MODE = b.getAttribute('data-cohort') as 'active' | 'buyers';
+      renderRetention(el, q);   // cached: no refetch
+    }));
+  });
 }

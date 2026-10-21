@@ -4,7 +4,8 @@ import * as data from './data';
 import type { Query } from './data';
 import type { PeopleQuery, PeopleSort, PersonDetail, PersonRow, Stage } from './types';
 import { esc, inr, num } from './format';
-import { mount, LOADING, doneMenu, wireDone } from './views';
+import { mount, LOADING } from './views';
+import { doneMenu, wireDone } from './inbox';
 import { empty } from './charts';
 import { DEFAULT_OUTCOMES, STAGE_LABEL, istDate, istWhen, outcomeLabel, productName } from './mapping';
 
