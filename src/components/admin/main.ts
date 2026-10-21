@@ -6,10 +6,10 @@ import * as data from './data';
 import type { Query } from './data';
 import { initOps } from './ops';
 import * as views from './views';
-import { peopleState, personDrawer, renderPeople, setPeopleQueryFromHash } from './people';
+import { peopleState, personDrawer, renderPeople, setPeopleQueryFromHash, wireDrawer } from './people';
 import { addDays, esc, fmtDay, fmtLongDay, istToday } from './format';
-import { info } from './charts';
-import type { TrackingHealth } from './types';
+import { istWhen } from './mapping';
+import type { RefreshState, TrackingHealth } from './types';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -102,7 +102,10 @@ function paint(view: string) {
   const el = (id: string) => $(id);
   if (view === 'today') {
     $('todayKpiTitle').textContent = 'The shop, ' + rangeLabel();
-    views.renderInbox(el('inboxBody'), openPerson).then(() => { $('inboxCount').textContent = views.inboxCount(el('inboxBody')) + ' things · each one tap'; });
+    $('inboxCount').textContent = '';
+    views.renderInbox(el('inboxBody'), openPerson, (n) => {
+      $('inboxCount').textContent = n ? n + (n === 1 ? ' thing' : ' things') + ' · each one tap' : '';
+    });
     views.renderOverview(el('todayOverview'), q, { all: false });
   } else if (view === 'overview') views.renderOverview(el('overviewBody'), q, { all: true });
   else if (view === 'acquisition') views.renderAcquisition(el('acquisitionBody'), q);
@@ -121,12 +124,24 @@ function invalidate() {
 }
 
 // ── Person drawer (new People API) ───────────────────────────────────────────
+let OPEN_PERSON = '';
 async function openPerson(id: string) {
-  if (id.indexOf('legacy:') === 0) { ops.openLegacyPerson(id.slice(7)); return; }
+  OPEN_PERSON = id;
   ops.openDrawerHtml('<div class="ad-state ad-state--load" role="status"><span class="ad-spin" aria-hidden="true"></span> Loading…</div>');
-  const r = await data.getPerson(id, query());
-  if (!ops.drawerOpen()) return;
-  ops.setDrawerHtml(r.ok ? personDrawer(r.data) : '<div class="ad-state ad-state--err" role="alert"><strong>Couldn’t load this person</strong><span>' + esc(r.error) + '</span></div>');
+  const r = await data.getPerson(id);
+  if (!ops.drawerOpen() || OPEN_PERSON !== id) return;
+  ops.setDrawerHtml(r.ok ? personDrawer(r.data, data.outcomesFor('hot_lead')) : '<div class="ad-state ad-state--err" role="alert"><strong>Couldn’t load this person</strong><span>' + esc(r.error) + '</span></div>');
+}
+
+// ── Header: "Updating orders…" while the once-per-open refresh runs ─────────
+function paintSync(s: RefreshState) {
+  const pill = $('syncPill');
+  pill.hidden = false;
+  pill.classList.toggle('ad-sync--busy', s.status === 'running');
+  if (s.status === 'running') { pill.textContent = 'Updating orders…'; return; }
+  if (s.status === 'failed' || !s.asOf) { pill.textContent = 'Orders as of last night'; return; }
+  const age = Date.now() - new Date(s.asOf).getTime();
+  pill.textContent = age < 90_000 ? 'Updated just now' : 'Updated ' + istWhen(s.asOf).replace(/^Today, /, 'today, ').replace(/^Yesterday, /, 'yesterday, ');
 }
 
 // ── Controls ─────────────────────────────────────────────────────────────────
@@ -243,6 +258,17 @@ function showShell(role: 'full' | 'affiliate') {
   if (data.DEMO) $('demoBanner').hidden = false;
   updateRangeUi();
   if (role === 'affiliate' && parseHash().view !== 'affiliates') history.replaceState(null, '', '#affiliates');
+  // Once per dashboard open, before the Today/Understand/People fetches (which wait
+  // for it briefly; it never blocks them). Founders only; not in demo mode.
+  if (role === 'full') data.refreshOnce(paintSync);
+  // "Mark handled" in the person drawer (the drawer body is reused, so wire it once).
+  wireDrawer($('drawerBody'), (ref) => {
+    // Take them off "Ready to buy" right away; the next visit to Today refetches.
+    document.querySelectorAll('.ad-irow[data-item]').forEach((r) => {
+      if (r.getAttribute('data-item') === 'hot_lead:' + ref) r.remove();
+    });
+    delete rendered.today; delete rendered.people;
+  });
   route();
   loadHealth();
 }
@@ -303,4 +329,3 @@ $('googleBtn').addEventListener('click', async () => {
 });
 
 boot();
-export { info };

@@ -1,8 +1,8 @@
 // @ts-nocheck
 // Operations views (orders, fulfilment, Try at Home, Private Viewing, affiliates, newsletter,
-// team, daily funnel grid) and the legacy person drawer. Carried over from the old single-file
+// team, daily funnel grid). Carried over from the old single-file
 // AdminDashboard.astro with behaviour unchanged; restyled by admin.css. Fed by /api/admin/data.
-import { authHeaders, callAffiliates, setLegacy } from './data';
+import { authHeaders, callAffiliates } from './data';
 export function initOps() {
     var ABANDONED = [];
     var DEMOS = [];
@@ -721,7 +721,6 @@ export function initOps() {
     // Paint every operations view from one /api/admin/data payload.
     function renderOps(data) {
       LAST_DATA = data;
-      setLegacy(data);
       ORDERS = data.orders || [];
       ABANDONED = data.abandoned || [];
       FUNNEL_DAILY = data.funnelDaily || {};
@@ -886,145 +885,6 @@ export function initOps() {
         if (resp.ok) loadTeam(); else b.disabled = false;
       } catch (err) { b.disabled = false; }
     });
-    // ── Person journey drawer ─────────────────────────────────────────────────
-    function addr(a) {
-      if (!a) return '<span class="ad-dv">—</span>';
-      var lines = [a.name, a.address1, a.address2, [a.city, a.province, a.zip].filter(Boolean).join(', '), a.country].filter(Boolean);
-      return lines.map(function (l) { return esc(l); }).join('<br>') || '<span class="ad-dv">—</span>';
-    }
-    // The Shopify-side breakdown of an unpaid draft — kept intact from the old
-    // Abandoned-checkouts view, now shown inside the person it belongs to.
-    function abandonedSection(r) {
-      var d = r.detail || {};
-      var lineRows = (d.lines || []).map(function (l) {
-        var unit = inr(l.price && l.price.amount, l.price && l.price.currencyCode);
-        var lineTot = l.price ? inr(String(Number(l.price.amount) * l.quantity), l.price.currencyCode) : '—';
-        return '<tr><td class="nm">' + esc(l.title) + (l.variant ? '<div class="sub">' + esc(l.variant) + '</div>' : '') + '</td><td class="r">' + l.quantity + ' × ' + esc(unit) + '</td><td class="r amt">' + esc(lineTot) + '</td></tr>';
-      }).join('');
-      var money = function (label, m, strong) {
-        return '<div class="ad-tot' + (strong ? ' ad-tot--strong' : '') + '"><span>' + label + '</span><span>' + esc(m ? inr(m.amount, m.currencyCode) : '—') + '</span></div>';
-      };
-      return '<div class="ad-dsect"><h3 class="ad-dh3">Unpaid checkout · ' + esc(r.name || '') + '</h3>' +
-        '<p class="ad-dmeta">Started ' + when(r.createdAt, true) + ' — never paid.</p>' +
-        (d.address ? '<p class="ad-daddr">' + addr(d.address) + '</p>' : '') +
-        '<table class="ad-dtable"><tbody>' + (lineRows || '<tr><td class="ad-dv">No items</td></tr>') + '</tbody></table>' +
-        '<div class="ad-tots">' + money('Subtotal', d.subtotal) + money('Shipping', d.shipping) + money('Total', d.total, true) + '</div>' +
-        (d.adminUrl ? '<div class="ad-dactions"><a class="ad-dbtn ad-dbtn--fill" href="' + esc(d.adminUrl) + '" target="_blank" rel="noopener">Open draft in Shopify →</a></div>' : '') +
-        '</div>';
-    }
-    var STEP_LABEL = { first_seen: 'Visited the site', cart: 'Added to bag', phone: 'Entered phone', address: 'Entered address' };
-    function timeline(steps) {
-      if (!steps || !steps.length) return '<p class="ad-note">No journey recorded yet.</p>';
-      return '<ol class="ad-tl">' + steps.map(function (s) {
-        return '<li class="ad-tl__i ad-tl__i--' + esc(s.type) + '">' +
-          '<span class="ad-tl__when">' + when(s.at, true) + '</span>' +
-          '<span class="ad-tl__what">' + esc(STEP_LABEL[s.type] || s.type) + '</span>' +
-          (s.detail ? '<span class="ad-tl__d">' + esc(s.detail) + '</span>' : '') +
-          '</li>';
-      }).join('') + '</ol>';
-    }
-    function buildPersonDrawer(p, steps, loading) {
-      var tel = (p.phone || '').replace(/[^0-9]/g, '');
-      var actions = [];
-      if (tel) actions.push('<a class="ad-dbtn ad-dbtn--fill" href="https://wa.me/' + tel + '" target="_blank" rel="noopener">WhatsApp</a>');
-      if (tel) actions.push('<a class="ad-dbtn" href="tel:+' + tel + '">Call</a>');
-      if (p.email) actions.push('<a class="ad-dbtn" href="mailto:' + esc(p.email) + '">Email</a>');
-      var bagRows = (p.cart && p.cart.lines && p.cart.lines.length)
-        ? p.cart.lines.map(function (l) {
-            return '<tr><td class="nm">' + esc(l.title) + (l.variant ? '<div class="sub">' + esc(l.variant) + '</div>' : '') +
-              '</td><td class="r">' + l.quantity + ' × ' + esc(inr(String(l.price), p.cartCurrency)) + '</td>' +
-              '<td class="r amt">' + esc(inr(String(l.price * l.quantity), p.cartCurrency)) + '</td></tr>';
-          }).join('')
-        : '';
-      // Acquisition + behaviour: how they found us, what they browsed, how they buy.
-      var facts = [];
-      if (p.bot) facts.push(['Crawler', p.bot]);
-      if (p.sourceLabel) facts.push(['Came from', p.sourceLabel]);
-      if (p.country) facts.push(['Country', p.country]);
-      if (p.landing) facts.push(['Landed on', p.landing]);
-      if (p.viewed && p.viewed.length) {
-        facts.push(['Products viewed', String(p.viewed.length)]);
-        if (p.lastViewed) facts.push(['Last viewed', p.lastViewed]);
-      }
-      if (p.pageViews) {
-        facts.push(['Pages viewed', p.pageViews + ((p.pages || []).length > 1 ? ' (' + p.pages.length + ' unique)' : '')]);
-      }
-      if (p.orderCount > 1) facts.push(['Orders', p.orderCount + ' · repeat buyer']);
-      if (p.lifetimeValue) facts.push(['Lifetime value', inr(String(p.lifetimeValue), p.cartCurrency)]);
-      if (p.daysToPurchase !== null && p.daysToPurchase !== undefined) {
-        facts.push(['Time to purchase', p.daysToPurchase === 0 ? 'Same day' :
-          p.daysToPurchase + (p.daysToPurchase === 1 ? ' day' : ' days')]);
-      }
-      var factsHtml = facts.length
-        ? '<div class="ad-dsect"><h3 class="ad-dh3">Acquisition &amp; behaviour</h3><dl class="ad-dfacts">' +
-          facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') +
-          '</dl></div>'
-        : '';
-      // Everything they opened but never bagged — the clearest "what to nudge" signal.
-      var bagged = {};
-      (p.items || []).forEach(function (t) { bagged[t] = 1; });
-      var browsedOnly = (p.viewed || []).filter(function (t) { return !bagged[t]; });
-      var browsedHtml = browsedOnly.length
-        ? '<div class="ad-dsect"><h3 class="ad-dh3">Viewed but not bagged</h3><p class="ad-daddr">' +
-          esc(browsedOnly.join(', ')) + '</p></div>'
-        : '';
-      // Every distinct page they opened. Products are listed above by name, so this
-      // is mostly the non-product path — home, shop, story, care, checkout.
-      var pagesHtml = (p.pages && p.pages.length)
-        ? '<div class="ad-dsect"><h3 class="ad-dh3">Pages visited</h3><ul class="ad-dpages">' +
-          p.pages.map(function (pg) {
-            return '<li>' + esc(pg) + (pg === p.landing ? '<span class="ad-tag">landed here</span>' : '') + '</li>';
-          }).join('') + '</ul></div>'
-        : '';
-      return '' +
-        '<div class="ad-dhead">' + stagePill(p.stage) +
-          '<h2 class="ad-display ad-dtitle">' + esc(p.name || 'Visitor') + '</h2>' +
-          '<p class="ad-dmeta">' + esc([p.phone, p.email].filter(Boolean).join(' · ') || '—') + '</p>' +
-          '<p class="ad-dmeta">' + p.visits + (p.visits === 1 ? ' session' : ' sessions') + ' · first seen ' + when(p.firstSeen, true) +
-            (p.source === 'legacy-checkout' ? ' · <span class="ad-tag">from earlier checkout capture</span>' : '') + '</p>' +
-        '</div>' +
-        (actions.length ? '<div class="ad-dactions">' + actions.join('') + '</div>' : '') +
-        bookingSection(p.booking) +
-        factsHtml +
-        (p.address ? '<div class="ad-dsect"><h3 class="ad-dh3">Delivery address</h3><p class="ad-daddr">' + esc(p.address) + '</p></div>' : '') +
-        browsedHtml +
-        pagesHtml +
-        (bagRows
-          ? '<div class="ad-dsect"><h3 class="ad-dh3">Their bag</h3><table class="ad-dtable"><tbody>' + bagRows + '</tbody></table>' +
-            '<div class="ad-tots"><div class="ad-tot ad-tot--strong"><span>Bag value</span><span>' + esc(inr(String(p.cartValue), p.cartCurrency)) + '</span></div></div></div>'
-          : '') +
-        (p.abandoned ? abandonedSection(p.abandoned) : '') +
-        '<div class="ad-dsect"><h3 class="ad-dh3">Journey</h3>' +
-          (loading ? '<p class="ad-note">Loading…</p>' : timeline(steps)) + '</div>';
-    }
-    function bookingSection(b) {
-      if (!b) return '';
-      var facts = [['Status', bookingStatus(b)]];
-      var pieces = bookingPieces(b);
-      if (pieces) facts.push(['Pieces', pieces]);
-      if (b.date) facts.push(['Day', bookingDay(b)]);
-      if (b.slot) facts.push(['Time', b.slot]);
-      if (b.at) facts.push(['Last step', when(b.at, true)]);
-      return '<div class="ad-dsect"><h3 class="ad-dh3">' + esc(bookingFlowName(b)) + '</h3><dl class="ad-dfacts">' +
-        facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') +
-        '</dl></div>';
-    }
-    // Open a person: paint what we already have, then fill in the stitched timeline.
-    async function openLegacyPerson(id) {
-      var p = PEOPLE.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-      $('drawerBody').innerHTML = buildPersonDrawer(p, null, true);
-      $('drawerBody').scrollTop = 0;
-      openDrawerShell();
-      var steps = [];
-      try {
-        var headers = await authHeaders();
-        if (headers) {
-          var resp = await fetch('/api/admin/journey?id=' + encodeURIComponent(p.id), { headers: headers });
-          if (resp.ok) steps = (await resp.json()).steps || [];
-        }
-      } catch (e) { /* show what we have */ }
-      if (!$('drawer').hidden) $('drawerBody').innerHTML = buildPersonDrawer(p, steps, false);
-    }
     // ── Home-demo detail + confirm/complete ───────────────────────────────────
     function fmtISO(iso) {
       if (!iso) return '';
@@ -1276,5 +1136,5 @@ export function initOps() {
     $('drawerScrim').addEventListener('click', closeDrawer);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('drawer').hidden) closeDrawer(); });
 
-    return { openDrawerHtml: function (h) { $('drawerBody').innerHTML = h; $('drawerBody').scrollTop = 0; openDrawerShell(); }, drawerOpen: function () { return !$('drawer').hidden; }, setDrawerHtml: function (h) { $('drawerBody').innerHTML = h; }, renderOps: renderOps, renderAffiliateOnly: renderAffiliateOnly, openLegacyPerson: openLegacyPerson, loadTeam: loadTeam, renderDaily: renderDaily, rerender: rerender, setShowHidden: function (v) { SHOW_HIDDEN = v; }, setShowBots: function (v) { SHOW_BOTS = v; }, badges: renderBadges, markSeen: markSeen, getPeople: function () { return PEOPLE; } };
+    return { openDrawerHtml: function (h) { $('drawerBody').innerHTML = h; $('drawerBody').scrollTop = 0; openDrawerShell(); }, drawerOpen: function () { return !$('drawer').hidden; }, setDrawerHtml: function (h) { $('drawerBody').innerHTML = h; }, renderOps: renderOps, renderAffiliateOnly: renderAffiliateOnly, loadTeam: loadTeam, renderDaily: renderDaily, rerender: rerender, setShowHidden: function (v) { SHOW_HIDDEN = v; }, setShowBots: function (v) { SHOW_BOTS = v; }, badges: renderBadges, markSeen: markSeen, getPeople: function () { return PEOPLE; } };
 }

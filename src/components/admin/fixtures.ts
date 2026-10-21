@@ -1,8 +1,8 @@
 // SAMPLE DATA for design review. Only used behind the ?demo=1 flag, and the UI labels
 // it "Sample data". None of these numbers describe the real shop.
 import type {
-  AcquisitionData, AudienceData, CheckoutData, InboxData, Metric, OverviewData, PeopleList,
-  PeopleQuery, PersonDetail, PersonRow, ProductsData, RetentionData, Series, TrackingHealth,
+  AcquisitionData, AudienceData, CheckoutData, Metric, OverviewData,
+  PeopleQuery, ProductsData, RetentionData, Series, TrackingHealth,
 } from './types';
 import { addDays } from './format';
 
@@ -176,82 +176,83 @@ export function demoHealth(): TrackingHealth {
   };
 }
 
-export function demoInbox(): InboxData {
-  const wa = { kind: 'whatsapp' as const, label: 'WhatsApp', href: 'https://wa.me/910000000000' };
-  const done = { kind: 'done' as const, label: 'Done' };
-  return {
-    total: 11,
-    groups: [
-      {
-        key: 'ready', title: 'Ready to buy',
-        items: [
-          { id: 'a1', title: 'Priya S. · Mumbai', detail: '₹18,400 cart · 3rd visit · gave phone yesterday', score: 92, personId: 'p1', actions: [wa, done] },
-          { id: 'a2', title: 'Aanya K. · Pune', detail: '₹12,900 cart · viewed Tote 6 min · reached checkout', score: 86, personId: 'p2', actions: [wa, done] },
-          { id: 'a3', title: 'Visitor from Instagram · Delhi', detail: '4 bags viewed · 2nd visit · no phone yet', score: 61, personId: 'p4', actions: [], note: 'No number to contact' },
-        ],
-      },
-      {
-        key: 'payment', title: 'Payment didn’t go through',
-        items: [
-          { id: 'b1', title: 'Neha R. · ₹9,800', detail: 'UPI declined 2 hours ago · cart still open', actions: [{ kind: 'link', label: 'Send retry link', href: 'https://wa.me/910000000000' }, done] },
-          { id: 'b2', title: 'Isha M. · ₹14,200', detail: 'Card failed yesterday · tried again, failed', actions: [{ kind: 'link', label: 'Send retry link', href: 'https://wa.me/910000000000' }, done] },
-        ],
-      },
-      {
-        key: 'tah', title: 'Try at Home to confirm',
-        items: [
-          { id: 'c1', title: 'Riya D. · Tomorrow, 4–6 pm', detail: 'Bandra · 2 bags chosen', actions: [{ kind: 'link', label: 'Confirm', href: '#demos' }, { kind: 'link', label: 'Reschedule', href: '#demos' }] },
-          { id: 'c2', title: 'Meera P. · Today, 11 am', detail: 'Worli · 1 bag · mark what happened', actions: [{ kind: 'done', label: 'Completed' }, { kind: 'done', label: 'No-show' }] },
-        ],
-      },
-      {
-        key: 'soldout', title: 'Wanted but sold out',
-        items: [
-          { id: 'd1', title: 'Tote · Rust', detail: '212 views in 30 days · 41 people looked longer than a minute', bar: 84, actions: [] },
-          { id: 'd2', title: 'Satchel · Ink', detail: '96 views in 30 days · 12 looked longer than a minute', bar: 38, actions: [] },
-        ],
-      },
-    ],
-  };
+// The People + inbox fixtures are in the API's own raw shapes (people.ts, inbox.ts), so
+// demo mode runs the same mapping code as real mode.
+const hAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
+const OUT_LEAD = ['contacted', 'no_answer', 'ordered', 'not_interested'];
+
+export function demoInboxRaw(): any {
+  const lead = (i: number, name: string, city: string, score: number, reason: string, cart: number | null, phone: boolean) => ({
+    kind: 'hot_lead', ref: 'demo-p' + i, title: `${name} · score ${score}`, reason, value: cart, currency: cart ? 'INR' : null,
+    whatsapp: phone ? 'https://wa.me/910000000000?text=Hi%2C%20this%20is%20Mir%20Kash.' : null,
+    created_at: hAgo(i), person_id: 'demo-p' + i, priority: 200 + score, outcomes: OUT_LEAD, _city: city,
+  });
+  const leads = [
+    lead(1, 'Priya S.', 'Mumbai', 92, '₹18.4k cart · 3rd visit · gave phone yesterday', 18400, true),
+    lead(2, 'Aanya K.', 'Pune', 86, '₹12.9k cart · 2nd visit · reached checkout', 12900, true),
+    lead(3, 'Ritika M.', 'Delhi', 78, '₹9.8k cart · 4th visit · 12 min browsing', 9800, true),
+    lead(4, 'Sneha P.', 'Bengaluru', 74, '₹21k cart · 2nd visit · gave phone today', 21000, true),
+    lead(5, 'Kavya J.', 'Hyderabad', 71, '₹15k cart · started Try at Home', 15000, true),
+    lead(6, 'Ira B.', 'Mumbai', 66, '₹8.5k cart · 3rd visit', 8500, true),
+    lead(7, 'Meher T.', 'Pune', 63, '₹6k cart · gave phone 3 days ago', 6000, true),
+    lead(8, 'Nisha G.', 'Chennai', 60, '₹11k cart · reached checkout', 11000, true),
+    lead(9, 'Diya R.', 'Kolkata', 57, '₹4.5k cart · 2nd visit · gave phone', 4500, true),
+    lead(10, 'Anika V.', 'Jaipur', 55, '₹13k cart · 2nd visit', 13000, true),
+    lead(11, 'Pooja L.', 'Mumbai', 53, '₹7k cart · gave phone', 7000, true),
+    lead(12, 'Zara Q.', 'Delhi', 51, '₹5k cart · 3rd visit', 5000, true),
+  ];
+  const items = [
+    { kind: 'payment_failed', ref: 'demo-p20', title: 'Neha R. · payment failed', reason: '₹9.8k cart · “UPI declined” · 2 hours ago', value: 9800, currency: 'INR', whatsapp: 'https://wa.me/910000000000', created_at: hAgo(2), person_id: 'demo-p20', priority: 409, outcomes: OUT_LEAD },
+    { kind: 'payment_failed', ref: 'gid://shopify/DraftOrder/demo', title: 'Isha M. · payment not completed', reason: '₹14.2k order · Tote Rust · left yesterday', value: 14200, currency: 'INR', whatsapp: 'https://wa.me/910000000000', created_at: hAgo(26), person_id: null, priority: 414, outcomes: OUT_LEAD },
+    { kind: 'booking_confirm', ref: 'demo-b1', title: 'Confirm Try at Home · Riya D. · tomorrow', reason: 'tomorrow · 4–6 pm · 2 bags · Mumbai', value: null, currency: null, whatsapp: 'https://wa.me/910000000000', created_at: hAgo(30), person_id: 'demo-p5', priority: 300, outcomes: ['confirmed', 'completed', 'no_show', 'cancelled'] },
+    { kind: 'booking_confirm', ref: 'demo-b2', title: "How did Meera P.'s Try at Home go?", reason: 'was 19 Oct · 11 am · 1 bag · Mumbai', value: null, currency: null, whatsapp: null, created_at: hAgo(80), person_id: null, priority: 370, outcomes: ['confirmed', 'completed', 'no_show', 'cancelled'] },
+    ...leads,
+    { kind: 'restock', ref: 'tote', title: 'Restock tote (Rust)', reason: '41 people looked while sold out · 212 views in 30 days · 9 we can message', value: null, currency: null, whatsapp: null, created_at: hAgo(3), person_id: null, priority: 141, outcomes: ['restocking', 'not_restocking'] },
+  ];
+  return { as_of: new Date().toISOString(), hot_threshold: 50, counts: {}, items };
 }
 
-const ROWS: PersonRow[] = [
-  { id: 'p1', name: 'Priya S.', location: 'Mumbai', contact: '+91 98•••• 4821', stage: 'cart', visits: 3, returning: true, source: 'Instagram · reel-1', device: 'iPhone', timeOnSiteMin: 11, cartValue: 18400, score: 92, ordered: false },
-  { id: 'p2', name: 'Aanya K.', location: 'Pune', contact: '+91 99•••• 1207', stage: 'payment', visits: 2, returning: true, source: 'Google · search', device: 'Android', timeOnSiteMin: 9, cartValue: 12900, score: 86, ordered: false },
-  { id: 'p3', name: 'Neha R.', location: 'Delhi', contact: '+91 98•••• 7733', stage: 'payment', visits: 1, returning: false, source: 'Direct', device: 'Desktop', timeOnSiteMin: 6, cartValue: 9800, score: 74, ordered: false },
-  { id: 'p4', name: 'Visitor', location: 'Delhi', contact: 'no contact yet', stage: 'viewed', visits: 2, returning: true, source: 'Instagram · paid', device: 'iPhone', timeOnSiteMin: 8, cartValue: null, score: 61, ordered: false },
-  { id: 'p5', name: 'Riya D.', location: 'Mumbai', contact: '+91 97•••• 5590', stage: 'ordered', visits: 4, returning: true, source: 'Affiliate · priya', device: 'iPhone', timeOnSiteMin: 22, cartValue: 21000, score: null, ordered: true },
-  { id: 'p6', name: 'Visitor', location: 'Bengaluru', contact: 'no contact yet', stage: 'viewed', visits: 1, returning: false, source: 'Google · organic', device: 'Android', timeOnSiteMin: 1, cartValue: null, score: 18, ordered: false },
-];
+const DEMO_PEOPLE: any[] = [
+  { id: 'demo-p1', kind: 'person', name: 'Priya S.', phone: '+919800004821', city: 'Mumbai', stage: 'cart', visits: 3, returning: true, first_touch: { source: 'instagram', medium: 'paid_social', campaign: 'reel-1' }, last_touch: { source: 'direct' }, device: 'mobile', engaged_ms: 660000, cart_value: 18400, score: 92, reason: '₹18.4k cart · 3rd visit · gave phone yesterday', orders: 0, products: ['tote-rust', 'tote-ink'] },
+  { id: 'demo-p2', kind: 'person', name: 'Aanya K.', phone: '+919900001207', city: 'Pune', stage: 'payment', visits: 2, returning: true, first_touch: { source: 'google', medium: 'organic' }, last_touch: { source: 'google', medium: 'organic' }, device: 'mobile', engaged_ms: 540000, cart_value: 12900, score: 86, reason: '₹12.9k cart · 2nd visit · reached checkout', orders: 0 },
+  { id: 'demo-p20', kind: 'person', name: 'Neha R.', phone: '+919800007733', city: 'Delhi', stage: 'payment', visits: 1, returning: false, first_touch: { source: 'direct' }, last_touch: { source: 'direct' }, device: 'desktop', engaged_ms: 360000, cart_value: 9800, score: 74, reason: '₹9.8k cart · reached checkout', orders: 0 },
+  { id: 'v:demo-anon', kind: 'visitor', name: null, city: 'Delhi', stage: 'viewed', visits: 2, returning: true, first_touch: { source: 'instagram', medium: 'paid_social' }, last_touch: { source: 'instagram' }, device: 'mobile', engaged_ms: 480000, cart_value: null, score: 31, reason: '2nd visit · viewed 4 bags', orders: 0 },
+  { id: 'demo-p5', kind: 'person', name: 'Riya D.', phone: '+919700005590', city: 'Mumbai', stage: 'ordered', visits: 4, returning: true, first_touch: { source: 'affiliate', campaign: 'priya' }, last_touch: { source: 'direct' }, device: 'mobile', engaged_ms: 1320000, cart_value: 21000, score: null, reason: 'Already ordered', orders: 1, ltv: 21000 },
+  { id: 'v:demo-anon2', kind: 'visitor', name: null, city: 'Bengaluru', stage: 'viewed', visits: 1, returning: false, first_touch: { source: 'google', medium: 'organic' }, last_touch: { source: 'google' }, device: 'mobile', engaged_ms: 60000, cart_value: null, score: 4, reason: 'Browsed once', orders: 0 },
+].map((r, i) => ({ email: null, country: 'IN', first_seen: hAgo(200 - i * 20), last_seen: hAgo(i + 1), products: [], ltv: 0, bookings: 0, is_bot: false, is_test: false, whatsapp: r.phone ? 'https://wa.me/' + String(r.phone).slice(1) : null, ...r }));
 
-export function demoPeople(pq: PeopleQuery): PeopleList {
-  let rows = ROWS.slice();
+export function demoPeopleRaw(pq: PeopleQuery): any {
+  let rows = DEMO_PEOPLE.slice();
   if (pq.stage === 'returning') rows = rows.filter((r) => r.returning);
   else if (pq.stage && pq.stage !== 'all') rows = rows.filter((r) => r.stage === pq.stage);
+  if (pq.device) rows = rows.filter((r) => r.device === pq.device!.toLowerCase());
   if (pq.q) {
-    const q = pq.q.toLowerCase();
-    rows = rows.filter((r) => [r.name, r.location, r.contact, r.source, r.device].join(' ').toLowerCase().includes(q));
+    const s = pq.q.toLowerCase();
+    rows = rows.filter((r) => [r.name, r.phone, r.city, r.first_touch.source, r.first_touch.campaign].join(' ').toLowerCase().includes(s));
   }
-  return { total: rows.length, returning: ROWS.filter((r) => r.returning).length, page: 1, pageSize: 50, rows };
+  return { as_of: new Date().toISOString(), page: 1, size: 50, pages: 1, count: rows.length, returning: rows.filter((r) => r.returning).length, total: DEMO_PEOPLE.length, rows };
 }
 
-export function demoPerson(id: string): PersonDetail | null {
-  const row = ROWS.find((r) => r.id === id);
-  if (!row) return null;
+export function demoPersonRaw(id: string): any | null {
+  const summary = DEMO_PEOPLE.find((r) => r.id === id);
+  if (!summary) return null;
+  const v = (n: number, h: number, source: string, extra: any = {}) => ({ type: 'visit', ts: hAgo(h), visit: n, source, device: 'mobile', city: summary.city, ...extra });
+  const e = (name: string, h: number, extra: any = {}) => ({ type: 'event', ts: hAgo(h), name, ...extra });
   return {
-    row,
-    summary: row.cartValue ? '₹' + row.cartValue.toLocaleString('en-IN') + ' cart · ' + row.visits + ' visits' : row.visits + ' visits',
-    firstSeen: '9 Oct',
-    firstCame: row.source,
-    lastCame: 'Direct',
-    deviceLine: row.device + ' · Safari',
-    timeOnSite: (row.timeOnSiteMin ?? 0) + ' min total',
-    sections: [],
+    as_of: new Date().toISOString(), id, summary,
+    person: summary.kind === 'person' ? { person_id: id, name: summary.name, phone: summary.phone, email: null, address1: null, city: summary.city, province: null, pin: null, first_seen: summary.first_seen, whatsapp: summary.whatsapp } : null,
+    visitors: [],
+    actions: [],
+    counts: { visits: 3, events: 9, orders: summary.orders, bookings: 0 },
     timeline: [
-      { at: 'Today, 10:12', text: 'Added Tote · Rust to cart', sub: 'Visit 3 · Direct' },
-      { at: 'Yesterday, 21:40', text: 'Entered phone number', sub: 'Visit 2 · reached checkout, left at payment' },
-      { at: 'Yesterday, 21:31', text: 'Looked at Tote gallery for 3 min, opened materials', sub: 'Visit 2 · Google' },
-      { at: '9 Oct, 19:05', text: 'First visit, viewed 2 bags', sub: 'Visit 1 · ' + row.source },
+      v(1, 300, 'instagram', { campaign: 'reel-1', landing: '/products/tote' }),
+      e('page_view', 300, { page_view_id: 'a' }), e('product_view', 299.9, { product: 'tote-rust' }), e('product_view', 299.8, { product: 'tote-ink' }),
+      e('page_engaged', 299.7, { page_view_id: 'a', props: { ms: 180000 } }),
+      v(2, 26, 'google', { medium: 'organic' }),
+      e('page_view', 26, { page_view_id: 'b' }), e('gallery_zoom', 25.9, { product: 'tote-rust' }), e('section_open', 25.8, { product: 'tote-rust', props: { section: 'materials' } }),
+      e('checkout_start', 25.5), e('phone', 25.4), e('payment_failed', 25.3, { props: { reason: 'UPI declined' } }),
+      v(3, 2, 'direct'),
+      e('add_to_cart', 1.9, { product: 'tote-rust', value: 18400, currency: 'INR' }),
     ],
   };
 }
