@@ -1,13 +1,8 @@
-// WhatsApp sending via the Meta Cloud API. Order messages (confirmed / shipped / cancelled /
-// refund) are NOT sent from here — the Supabase service does that (whatsapp/). Business-
-// initiated messages are pre-approved templates (sendTemplate); free text (sendText) is only for a founder's reply from the
-// inbox at /admin/whatsapp, inside the customer's 24h window. Every template send is also
-// logged to the WhatsApp Supabase store (messages_out, source='site') so the inbox shows
-// it. Isolated + best-effort: never throws, so a messaging failure can never affect an
-// order or a cron's other work.
-import { adminDb } from './firebaseAdmin';
-import { insertOut, waStoreConfigured } from './whatsapp-store';
-import type { WaOutRow } from './whatsapp-types';
+// WhatsApp from the website: ONLY a founder's free-text reply from /admin/whatsapp
+// (sendText), which Meta allows inside the customer's 24h window. Every template message
+// — order confirmed / shipped / cancelled / refund and the abandoned-cart reminder — is
+// sent by the Supabase service (whatsapp/), so there's one system sending them.
+// Never throws, so a messaging failure can't break the inbox.
 
 function env(k: string): string {
   if (typeof process !== 'undefined' && process.env && process.env[k]) return process.env[k] as string;
@@ -27,50 +22,6 @@ export function waNumber(phone: string | null | undefined): string {
   let d = String(phone ?? '').replace(/[^0-9]/g, '');
   if (d.length === 10) d = '91' + d;
   return d;
-}
-
-// Send a pre-approved template. Returns true on success; logs and returns false on
-// any failure. Never throws. Every attempt that reached Meta is also logged to
-// messages_out (best-effort) so it shows in the inbox.
-export async function sendTemplate(
-  toPhone: string,
-  template: string,
-  bodyParams: string[] = [],
-  langCode = 'en',
-): Promise<boolean> {
-  if (!whatsappConfigured()) return false;
-  const to = waNumber(toPhone);
-  if (to.length < 11) return false; // no usable number
-  const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
-  const body = {
-    messaging_product: 'whatsapp',
-    to,
-    type: 'template',
-    template: {
-      name: template,
-      language: { code: langCode },
-      ...(bodyParams.length
-        ? { components: [{ type: 'body', parameters: bodyParams.map((t) => ({ type: 'text', text: String(t) })) }] }
-        : {}),
-    },
-  };
-  const r = await postMessage(phoneNumberId, body);
-  if (r.networkError) console.error('[whatsapp] send error', r.networkError);
-  else if (!r.ok) console.error('[whatsapp] send failed', r.status, JSON.stringify(r.json ?? null).slice(0, 500));
-  await logOut({
-    to_phone: to,
-    template_name: template,
-    meta_message_id: messageIdOf(r.json),
-    status: r.ok ? 'sent' : 'failed',
-    request: body,
-    response: r.networkError ? { error: String(r.networkError) } : r.json,
-    phone_number_id: phoneNumberId,
-    source: 'site',
-    kind: 'template',
-    body: null,
-    sent_by: null,
-  });
-  return r.ok;
 }
 
 // Free-text message (a founder's reply from /admin/whatsapp). Meta only delivers free
@@ -145,29 +96,4 @@ function metaError(json: unknown, status: number): string {
     return 'More than 24 hours since they last wrote. WhatsApp only allows an approved template now.';
   }
   return err?.error_data?.details || err?.message || `WhatsApp rejected the message (HTTP ${status})`;
-}
-
-// Best-effort messages_out log. The store never throws, but guard anyway: a logging
-// problem must never turn a send into a failure.
-async function logOut(row: WaOutRow): Promise<void> {
-  try {
-    if (waStoreConfigured()) await insertOut(row);
-  } catch { /* best-effort */ }
-}
-
-// Run `fn` at most once per `key`, ever, across cron re-runs. Claims an atomic lock
-// (`wa_sent/{key}` via create(), which fails if it exists), runs, and RELEASES the
-// lock if the send failed so a later run can retry. Returns whether a message went out.
-export async function once(key: string, fn: () => Promise<boolean>): Promise<boolean> {
-  const db = adminDb();
-  if (!db) return false; // no store → can't dedupe → don't risk spamming
-  const ref = db.collection('wa_sent').doc(key);
-  try {
-    await ref.create({ at: new Date().toISOString() });
-  } catch {
-    return false; // already claimed (or a write error) → treat as already handled
-  }
-  const ok = await fn();
-  if (!ok) { try { await ref.delete(); } catch { /* leave the claim; a retry is harmless */ } }
-  return ok;
 }

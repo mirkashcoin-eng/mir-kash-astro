@@ -1,6 +1,6 @@
 // Client for /admin/whatsapp: sign-in gate, conversation list, chat, composer and media.
 // Data loads when the page opens, when a conversation is opened, after a send and on
-// Refresh (button or pull-down). Nothing polls, and there's no focus/visibility refetch
+// Refresh (the one button above the list, or pull-down; reloads the list and the open chat). Nothing polls, and there's no focus/visibility refetch
 // or realtime (see admin-no-polling). Response shapes: src/lib/whatsapp-types.ts.
 //
 // ?demo=1 on the dev server skips sign-in and serves fixtures.ts through the same
@@ -208,7 +208,6 @@ function rowHtml(t: WaThread): string {
       '<span class="wa-row__top"><span class="wa-row__name">' + esc(t.name || fmtPhone(t.phone)) + '</span>' +
       '<span class="wa-row__time">' + esc(listTime(t.last_at)) + '</span></span>' +
       '<span class="wa-row__bot"><span class="wa-row__pre">' + (t.last_direction === 'out' ? '<span class="wa-you">You: </span>' : '') + esc(oneLine(t.last_preview)) + '</span>' +
-      (t.window_open ? '<span class="wa-dot" title="Can reply"><span class="ad-sr">Can reply</span></span>' : '') +
       (t.unread ? '<span class="wa-badge"><span class="ad-sr">Unread: </span>' + t.unread + '</span>' : '') +
       '</span>' +
     '</span></button>';
@@ -429,15 +428,21 @@ async function openConv(phone: string, how: 'push' | 'replace') {
   await loadConv();
 }
 
-async function loadConv() {
+// quiet = refresh the open chat in place (no spinner, keep the reading position, and keep
+// what's already on screen if the fetch fails).
+async function loadConv(quiet = false) {
   const phone = S.phone;
   if (!phone) return;
   const seq = ++S.convSeq;
   const box = $('waMsgs');
-  box.innerHTML = '<div class="wa-loading" role="status"><span class="ad-spin" aria-hidden="true"></span> Loading messages…</div>';
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  if (!quiet) box.innerHTML = '<div class="wa-loading" role="status"><span class="ad-spin" aria-hidden="true"></span> Loading messages…</div>';
   const r = await getThread(phone, null);
   if (seq !== S.convSeq || phone !== S.phone) return;
-  if (!r.ok) { S.conv = null; paintComposer(); box.innerHTML = stateHtml('Couldn’t load this conversation', r.error, 'data-conv'); return; }
+  if (!r.ok) {
+    if (quiet) return;
+    S.conv = null; paintComposer(); box.innerHTML = stateHtml('Couldn’t load this conversation', r.error, 'data-conv'); return;
+  }
   if (r.data.configured === false) setConfigured(false);
   S.conv = r.data;
   S.olderError = '';
@@ -445,10 +450,22 @@ async function loadConv() {
   const t = threadInfo(phone);
   if (t) { t.unread = 0; t.window_open = r.data.window_open; paintRow(phone); markSelected(); }
   paintHeader();
+  if (quiet) {
+    const fromBottom = box.scrollHeight - box.scrollTop;
+    renderMessages();
+    if (nearBottom) toBottom(); else box.scrollTop = box.scrollHeight - fromBottom;
+    paintComposer();
+    return;
+  }
   renderMessages();
   paintComposer();
   toBottom();
   if (wide() && !touch()) ($('waText') as HTMLTextAreaElement).focus({ preventScroll: true });
+}
+
+// Refresh = the list AND the open chat, so a message that shows in the list is in the chat too.
+async function refreshAll() {
+  await Promise.all([loadList(), S.phone ? loadConv(true) : Promise.resolve()]);
 }
 
 async function loadOlder() {
@@ -605,7 +622,7 @@ function bindPull() {
   const end = () => {
     const go = y0 >= 0 && dy > 110;
     y0 = -1; dy = 0; reset();
-    if (go) void loadList();
+    if (go) void refreshAll();
   };
   box.addEventListener('touchend', end);
   box.addEventListener('touchcancel', () => { y0 = -1; dy = 0; reset(); });
@@ -644,8 +661,7 @@ function bind() {
     const b = $('waRows');
     if (b.scrollHeight - b.scrollTop - b.clientHeight < 200) void loadMore();
   }, { passive: true });
-  $('waListRefresh').addEventListener('click', () => { void loadList(); });
-  $('waConvRefresh').addEventListener('click', () => { void loadConv(); });
+  $('waListRefresh').addEventListener('click', () => { void refreshAll(); });
 
   document.querySelectorAll<HTMLElement>('[data-filter]').forEach((b) => b.addEventListener('click', () => {
     S.filter = b.getAttribute('data-filter') as WaFilter;

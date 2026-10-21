@@ -211,3 +211,24 @@ Without them the inbox shows "not set up yet" and the website quietly skips logg
   and inbox replies with `source = 'inbox'`, `kind = 'text'` and `sent_by` = the founder's email.
 - For receipts and replies to reach the webhook, the sending number must be in the **same Meta app** whose webhook
   points at the website, with the **messages** field subscribed.
+
+---
+
+## One sender: everything goes out from this service (Phase 1.3)
+Every template message now comes from here; the website only sends a founder's free-text reply from
+`/admin/whatsapp`.
+
+| Message | Trigger | Function |
+|---|---|---|
+| order_confirmed / cod_confirmation | Shopify `orders/create` | `shopify-webhook` |
+| order_shipped (`order_shipped_v2`) | Shopify `orders/fulfilled` | `shopify-webhook` |
+| order_cancelled / refund_processed | Shopify `orders/cancelled` / `refunds/create` | `shopify-webhook` |
+| cart_reminder | schedule (hourly) | `wa-cart-reminder` |
+| retries of failed sends | schedule (every 10 min) | `wa-retry` |
+
+`wa-cart-reminder` finds open checkout drafts tagged `web-otp` + `wa-optin`, 2h–7d old, created after
+`wa_settings.cart_reminder_from`, and reminds each once (`cart_reminders` is the lock). Needs the
+`SHOPIFY_IN_ADMIN_*` secrets. `?dry=1` reports what it would send.
+
+Both scheduled functions are gated by the `RETRY_SECRET` secret. pg_cron reads the same value from
+Vault (`wa_cron_secret`), so it never appears in SQL. Migration: `0004_cart_reminder.sql`.
