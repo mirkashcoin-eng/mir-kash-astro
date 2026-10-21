@@ -86,6 +86,7 @@ export const DEFS = {
   audienceVisitors: d('Visitors', 'count', 'Visitors with at least one visit from this value in the range. Someone on two devices counts under both.'),
   audienceShare: d('Share', 'rate', 'Visitors with this value ÷ all visitors.'),
   audienceBuyers: d('Buyers', 'count', 'Of those visitors, people who placed a live order in the range.'),
+  giftOrders: d('Likely gift orders', 'rate', 'Live orders in the range shipped to a different name or city than the buyer ÷ live orders where that could be judged. Inferred from the order; customers are never asked.'),
   audienceConversion: d('Conversion', 'rate', 'Buyers ÷ visitors with this value.'),
   gaUsers: d('Users (GA)', 'count', 'Google Analytics active users, added up over the days of the range (someone active on 3 days counts 3 times). GA is blocked for an estimated 15–30% of visitors, so it runs lower than our own counts.'),
   gaShare: d('Share (GA)', 'rate', 'This group\'s GA users ÷ GA users across all groups GA reported.'),

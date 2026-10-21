@@ -161,10 +161,23 @@ export async function getHealth(q: Query): Promise<TrackingHealth> {
     detail: fmtValue(m.value, m.unit, false) + (m.num != null && m.den != null ? ' (' + m.num.toLocaleString('en-IN') + ' of ' + m.den.toLocaleString('en-IN') + ')' : ''),
     definition: m.definition,
   }));
-  const status = noEvents || dead > 0 || rejects >= 0.02 ? 'degraded' : 'healthy';
+  const par = r.data.shopifyParity;
+  if (par) {
+    checks.push({
+      label: 'Orders match Shopify',
+      ok: par.ok,
+      detail: par.stores.map((s) => s.store + ': ' + (s.ours ?? '?') + ' of ' + (s.shopify ?? '?')).join(' · ') +
+        (par.checkedAt ? ' · checked ' + new Date(par.checkedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''),
+      definition: 'Shopify\'s own order count compared with the orders this dashboard holds, per store, after the last sync.',
+    });
+  }
+  const mismatch = par != null && !par.ok;
+  const status = noEvents || dead > 0 || rejects >= 0.02 || mismatch ? 'degraded' : 'healthy';
   const label = noEvents ? 'No tracking events in this range'
     : dead > 0 ? 'Tracking gap: ' + dead + (dead === 1 ? ' day' : ' days') + ' with no page views'
     : rejects >= 0.02 ? 'Tracking: ' + fmtValue(rejects, 'rate') + ' of events refused'
+    : mismatch ? 'Orders differ from Shopify'
+    : par ? 'Tracking healthy · orders match Shopify'
     : 'Tracking healthy';
   return { status, label, checks, notes: r.data.notes };
 }
@@ -225,9 +238,11 @@ function peopleParams(q: Query, pq: PeopleQuery): URLSearchParams {
   if (pq.city) p.set('city', pq.city);
   if (pq.kind) p.set('kind', pq.kind);
   if (pq.minScore != null) p.set('min_score', String(pq.minScore));
-  // The range filters on first seen (IST dates), like the API.
+  // The range means "had a visit in the range" — the same as every other section,
+  // so a number's drill-down here shows the same people.
   p.set('from', q.from);
   p.set('to', q.to);
+  p.set('range', 'active');
   if (q.bots) p.set('include_bots', '1');
   if (q.test) p.set('include_test', '1');
   p.set('sort', pq.sort || 'last_seen');

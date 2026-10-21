@@ -116,6 +116,8 @@ export interface TrendPoint {
   sessions: number | null;
   orders: number;
   revenueInr: number;
+  // The same day-offset in the previous period (day 1 ↔ day 1), for the dotted line.
+  prev: { day: IstDate; legacy: boolean; visitors: number | null; orders: number; revenueInr: number } | null;
 }
 
 export interface OverviewResponse extends SectionMeta {
@@ -200,6 +202,9 @@ export interface AudienceResponse extends SectionMeta {
   own: Record<OwnDimension, Table<ValueKey>>;
   // From Google Analytics (nightly sync). Columns: users, share, sessions, conversions.
   ga: Record<GaDimension, GaBreakdown>;
+  // Live orders inferred to be gifts (shipping name or city differs from the buyer's).
+  // Customers are never asked; see likelyGift() in src/lib/warehouse/shopify-map.ts.
+  giftOrders: Metric;
 }
 
 // ── Retention ───────────────────────────────────────────────────────────────
@@ -275,6 +280,13 @@ export interface TrackingHealthResponse extends SectionMeta {
   days: HealthDay[];                  // one per IST day of the period, newest first
   rejectReasons: Table<ValueKey>;     // rejected payloads by reason
   eventNames: Table<ValueKey>;        // events received by name
+  // Last Shopify sync's own order count vs the rows we hold, per store. All-time, not
+  // ranged. null until the first sync has run.
+  shopifyParity: {
+    checkedAt: string | null;
+    ok: boolean;
+    stores: { store: string; shopify: number | null; ours: number | null }[];
+  } | null;
 }
 
 export interface SectionResponses {

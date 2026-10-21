@@ -108,6 +108,9 @@ export const GET: APIRoute = async ({ request }) => {
 //   device       mobile | tablet | desktop
 //   city         exact, case-insensitive
 //   from, to     first seen between these IST dates (YYYY-MM-DD, inclusive)
+//   range=active from/to instead mean "had a visit that started in the range" — the
+//                definition every /admin metrics section uses, so a drill-down from a
+//                number lands on the same people
 //   min_score    only leads scoring at least this
 //   include_bots=1, include_test=1
 //   sort         last_seen (default) | first_seen | score | value | cart | visits
@@ -151,13 +154,22 @@ async function list(sp: URLSearchParams): Promise<Response> {
   const city = (sp.get('city') || '').trim();
   if (city) f.push(`lower(city) = lower(${p(city)})`);
   const from = sp.get('from'), to = sp.get('to');
-  if (from) {
-    if (!DAY.test(from)) return json({ error: 'from must be YYYY-MM-DD' }, 400);
-    f.push(`first_seen >= (${p(from)}::date)::timestamp AT TIME ZONE 'Asia/Kolkata'`);
-  }
-  if (to) {
-    if (!DAY.test(to)) return json({ error: 'to must be YYYY-MM-DD' }, 400);
-    f.push(`first_seen < (${p(to)}::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata'`);
+  if (from && !DAY.test(from)) return json({ error: 'from must be YYYY-MM-DD' }, 400);
+  if (to && !DAY.test(to)) return json({ error: 'to must be YYYY-MM-DD' }, 400);
+  const lo = from ? `(${p(from)}::date)::timestamp AT TIME ZONE 'Asia/Kolkata'` : null;
+  const hi = to ? `(${p(to)}::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata'` : null;
+  if (sp.get('range') === 'active' && (lo || hi)) {
+    // A visit in the range, on any of the row's browsers. Two branches so each uses an
+    // index: visitors(person_id) for people, sessions(visitor_id, started_at) for both.
+    // `s` is the outer row (FROM (scored) s); sessions are aliased `ss`.
+    const inRange = [lo && `ss.started_at >= ${lo}`, hi && `ss.started_at < ${hi}`].filter(Boolean).join(' AND ');
+    f.push(`((s.kind = 'person' AND EXISTS (SELECT 1 FROM visitors v JOIN sessions ss ON ss.visitor_id = v.visitor_id
+                WHERE v.person_id = s.id AND ${inRange}))
+          OR (s.kind = 'visitor' AND EXISTS (SELECT 1 FROM sessions ss
+                WHERE ss.visitor_id = substr(s.id, 3) AND ${inRange})))`);
+  } else {
+    if (lo) f.push(`first_seen >= ${lo}`);
+    if (hi) f.push(`first_seen < ${hi}`);
   }
   const minScore = sp.get('min_score');
   if (minScore && Number.isFinite(Number(minScore))) f.push(`score >= ${p(Number(minScore))}`);

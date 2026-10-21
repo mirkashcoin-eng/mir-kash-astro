@@ -40,7 +40,8 @@ export function demoOverview(from: string, to: string): OverviewResponse {
   for (let i = 0; i < n; i++) {
     const day = addDays(from, i);
     const wave = 0.75 + 0.5 * (i / Math.max(n - 1, 1)) + 0.18 * Math.sin(i * 0.9);
-    days.push({ day, legacy: i < 3 && n > 20, visitors: i < 3 && n > 20 ? null : Math.round(420 * wave), sessions: i < 3 && n > 20 ? null : Math.round(560 * wave), orders: Math.max(0, Math.round(5.4 * wave + Math.cos(i * 2.1))), revenueInr: Math.round(71000 * wave + 15000 * Math.cos(i * 1.7)) });
+    days.push({ day, legacy: i < 3 && n > 20, visitors: i < 3 && n > 20 ? null : Math.round(420 * wave), sessions: i < 3 && n > 20 ? null : Math.round(560 * wave), orders: Math.max(0, Math.round(5.4 * wave + Math.cos(i * 2.1))), revenueInr: Math.round(71000 * wave + 15000 * Math.cos(i * 1.7)),
+      prev: { day, legacy: false, visitors: Math.round(380 * wave), orders: Math.max(0, Math.round(4.9 * wave)), revenueInr: Math.round(62000 * wave + 9000 * Math.sin(i * 1.3)) } });
   }
   return {
     ...meta('overview', from, to),
@@ -165,6 +166,7 @@ export function demoAudience(from: string, to: string): AudienceResponse {
       country: own([['IN', 11800, 152], ['AE', 420, 6], ['US', 310, 4], ['GB', 190, 2]]),
     },
     ga: { age: ga([['18-24', 90], ['25-34', 380], ['35-44', 290], ['45-54', 160], ['55+', 80]]), gender: ga([['female', 710], ['male', 270]]), interest: ga(null) },
+    giftOrders: metric('giftOrders', 'giftOrders', rate(r(36, k), r(164, k), r(29, k), r(150, k))),
   };
 }
 
@@ -219,7 +221,7 @@ export function demoTrackingHealth(from: string, to: string): TrackingHealthResp
   const days = Array.from({ length: n }, (_, i) => ({ day: addDays(to, -i), events: 5200, botEvents: 400, pageViews: 1900, rejects: 3, orders: 5 }));
   const e = 5200 * n;
   return {
-    ...meta('trackingHealth', from, to, ['Orders per day should match Shopify exactly; a gap means a webhook was missed.']), section: 'trackingHealth',
+    ...meta('trackingHealth', from, to, ['Order counts are compared with Shopify after every sync (nightly, and whenever /admin is opened).']), section: 'trackingHealth',
     kpis: {
       events: metric('events', 'healthEvents', count(e, e * 0.95)),
       rejectRate: metric('rejectRate', 'healthRejectRate', rate(3 * n, e + 3 * n, 4 * n, e + 4 * n)),
@@ -227,6 +229,7 @@ export function demoTrackingHealth(from: string, to: string): TrackingHealthResp
       daysWithoutPageViews: metric('daysWithoutPageViews', 'healthNoPageViews', count(0, 0)),
     },
     days, rejectReasons: { columns: [column('n', 'healthRejects')], rows: [] }, eventNames: { columns: [column('n', 'healthEvents')], rows: [] },
+    shopifyParity: { checkedAt: new Date().toISOString(), ok: true, stores: [{ store: 'india', shopify: 47, ours: 47 }, { store: 'global', shopify: 59, ours: 59 }] },
   };
 }
 

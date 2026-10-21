@@ -77,7 +77,8 @@ export function lineChart(s: Series, label: string): string {
   if (!pts.some((p) => p.value != null && p.value > 0)) return notEnough('Nothing to chart in this range.');
   const W = 600, H = 220, L = 8, R = 8, T = 18, B = 26;
   const pw = W - L - R, ph = H - T - B;
-  const max = niceCeil(Math.max(...pts.map((p) => p.value ?? 0), 1));
+  const hasPrev = pts.some((p) => p.prev != null);
+  const max = niceCeil(Math.max(...pts.map((p) => Math.max(p.value ?? 0, p.prev ?? 0)), 1));
   const x = (i: number) => L + (i / (pts.length - 1)) * pw;
   const y = (v: number) => T + ph - (v / max) * ph;
   // Break the line wherever a day has no number.
@@ -88,6 +89,14 @@ export function lineChart(s: Series, label: string): string {
     cur.push(x(i).toFixed(1) + ',' + y(p.value).toFixed(1));
   });
   if (cur.length) segs.push(cur.join(' '));
+  // Previous period, same day-offset, dotted and drawn underneath.
+  const prevSegs: string[] = [];
+  let pc: string[] = [];
+  pts.forEach((p, i) => {
+    if (p.prev == null) { if (pc.length) prevSegs.push(pc.join(' ')); pc = []; return; }
+    pc.push(x(i).toFixed(1) + ',' + y(p.prev).toFixed(1));
+  });
+  if (pc.length) prevSegs.push(pc.join(' '));
   const fmt = (v: number) => fmtValue(v, s.unit);
   const grid = [0, 0.5, 1].map((f) => {
     const yy = T + ph - f * ph;
@@ -101,12 +110,15 @@ export function lineChart(s: Series, label: string): string {
   const legacy = pts.map((p, i) => (p.legacy ? '<rect x="' + (x(i) - step / 2).toFixed(1) + '" y="' + T + '" width="' + step.toFixed(1) + '" height="' + ph + '" class="ad-legacyband"/>' : '')).join('');
   const hover = pts.map((p, i) =>
     '<rect x="' + (x(i) - step / 2).toFixed(1) + '" y="' + T + '" width="' + step.toFixed(1) + '" height="' + ph + '" fill="transparent"><title>' +
-    esc(fmtDay(p.day) + ': ' + (p.value == null ? 'not measured' : fmt(p.value)) + (p.legacy ? ' (old counters)' : '')) + '</title></rect>').join('');
+    esc(fmtDay(p.day) + ': ' + (p.value == null ? 'not measured' : fmt(p.value)) + (p.legacy ? ' (old counters)' : '') +
+      (p.prev != null ? ' · previous period (' + (p.prevDay ? fmtDay(p.prevDay) : 'same day') + '): ' + fmt(p.prev) : '')) + '</title></rect>').join('');
   const vals = pts.map((p) => p.value ?? 0);
   const total = vals.reduce((a, b) => a + b, 0);
   const aria = label + ' by day, ' + fmtDay(pts[0].day) + ' to ' + fmtDay(pts[pts.length - 1].day) + '. Total ' + fmt(total) + ', highest day ' + fmt(Math.max(...vals)) + '.';
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="ad-svg" role="img" aria-label="' + esc(aria) + '">' + legacy + grid +
-    segs.map((p) => '<polyline fill="none" class="ad-line" points="' + p + '"/>').join('') + xl + hover + '</svg>';
+    prevSegs.map((p) => '<polyline fill="none" class="ad-line-prev" points="' + p + '"/>').join('') +
+    segs.map((p) => '<polyline fill="none" class="ad-line" points="' + p + '"/>').join('') + xl + hover + '</svg>' +
+    (hasPrev ? '<p class="ad-note">Solid: this period. Dotted: the previous period, day for day.</p>' : '');
 }
 
 // ── Funnel (horizontal bars, share of the step before) ───────────────────────

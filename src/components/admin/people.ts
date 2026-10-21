@@ -75,7 +75,7 @@ export function renderPeople(el: HTMLElement, q: Query, openPerson: (id: string)
     reload();
   }));
   mount(body, data.getPeople(q, pq), (d) => {
-    const head = '<div class="ad-people-head ad-mut">' + num(d.count) + ' of ' + num(d.total) + ' · ' + num(d.returning) + ' returning · first seen in the selected range' +
+    const head = '<div class="ad-people-head ad-mut">' + num(d.count) + ' of ' + num(d.total) + ' · ' + num(d.returning) + ' returning · active in the selected range' +
       (d.asOf ? ' · list as of ' + esc(istWhen(d.asOf).replace(/^(Today|Yesterday)/, (s) => s.toLowerCase())) : '') + '</div>';
     if (!d.rows.length) return head + '<div class="ad-panel">' + empty(d.total === 0 ? 'No one here yet' : 'No one matches that', 'Try a wider date range or fewer filters. People appear as they browse, add bags or enter a phone number.') + '</div>';
     const from = (d.page - 1) * d.size + 1, to = from + d.rows.length - 1;

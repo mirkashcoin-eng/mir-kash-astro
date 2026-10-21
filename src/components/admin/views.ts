@@ -45,9 +45,9 @@ const nothingYet = (ms: Metric[]) => ms.every((m) => m.value == null || m.value 
 function seriesOf(d: OverviewResponse): Series[] {
   const pts = d.trend;
   return [
-    { label: 'Revenue', unit: 'inr', points: pts.map((p) => ({ day: p.day, value: p.revenueInr, legacy: p.legacy })) },
-    { label: 'Orders', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.orders, legacy: p.legacy })) },
-    { label: 'Visitors', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.visitors, legacy: p.legacy })) },
+    { label: 'Revenue', unit: 'inr', points: pts.map((p) => ({ day: p.day, value: p.revenueInr, legacy: p.legacy, prev: p.prev?.revenueInr ?? null, prevDay: p.prev?.day })) },
+    { label: 'Orders', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.orders, legacy: p.legacy, prev: p.prev?.orders ?? null, prevDay: p.prev?.day })) },
+    { label: 'Visitors', unit: 'count', points: pts.map((p) => ({ day: p.day, value: p.visitors, legacy: p.legacy, prev: p.prev?.visitors ?? null, prevDay: p.prev?.day })) },
   ];
 }
 function trendPanel(series: Series[], uid: string, legacy: boolean): string {
@@ -170,6 +170,7 @@ export function renderAudience(el: HTMLElement, q: Query) {
       panel('New vs returning', '', nr ? stacked([{ label: 'New', value: nr.newVisitors.value ?? 0 }, { label: 'Returning', value: nr.returningVisitors.value ?? 0 }], 'New versus returning visitors') +
         '<p class="ad-note">' + esc(num(nr.newVisitors.value) + ' new, ' + num(nr.returningVisitors.value) + ' returning.') + '</p>' : '<p class="ad-note">Not available right now.</p>') +
       panel('Device', '', stacked(deviceParts, 'Visitors by device')) + '</div>' +
+      '<div class="ad-kpis">' + kpiCard(a.giftOrders, { compare: q.compare, note: 'Worked out from the order. Customers are never asked.' }) + '</div>' +
       '<div class="ad-two">' + own('device', 'Devices', 'Device', (r) => peopleHref({ device: r.key.value })) + own('city', 'Top cities', 'City', (r) => peopleHref({ city: r.key.value })) + '</div>' +
       '<div class="ad-two">' + own('browser', 'Browsers', 'Browser') + own('os', 'Systems', 'System') + '</div>' +
       own('country', 'Countries', 'Country') +

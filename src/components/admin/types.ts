@@ -11,7 +11,7 @@ export type {
 } from '~/lib/metrics/types';
 
 /** One line on the trend chart (built from OverviewResponse.trend). */
-export interface SeriesPoint { day: string; value: number | null; legacy?: boolean; }
+export interface SeriesPoint { day: string; value: number | null; legacy?: boolean; prev?: number | null; prevDay?: string; }
 export interface Series { label: string; unit: import('~/lib/metrics/types').Unit; points: SeriesPoint[]; }
 
 export type HealthStatus = 'healthy' | 'degraded' | 'unknown';

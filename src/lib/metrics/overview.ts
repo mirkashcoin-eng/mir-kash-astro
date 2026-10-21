@@ -57,7 +57,7 @@ async function trend(run: Run, period: Period, p: MetricsParams): Promise<TrendP
     const r = rows.get(day) ?? {};
     return {
       day, legacy: r.legacy === true, visitors: num(r.visitors), sessions: num(r.sessions),
-      orders: num0(r.orders), revenueInr: num0(r.revenue_inr),
+      orders: num0(r.orders), revenueInr: num0(r.revenue_inr), prev: null,
     };
   });
 }
@@ -93,10 +93,16 @@ export function funnel(cur: Row, prev: Row): FunnelStep[] {
 }
 
 export async function getOverview(run: Run, p: MetricsParams): Promise<OverviewResponse> {
-  const [[cur, prev], days] = await Promise.all([
+  const { current, previous } = periods(p);
+  const [[cur, prev], curDays, prevDays] = await Promise.all([
     both(p, (per) => load(run, per, p)),
-    trend(run, periods(p).current, p),
+    trend(run, current, p),
+    trend(run, previous, p),
   ]);
+  const days = curDays.map((d, i) => {
+    const q = prevDays[i];
+    return { ...d, prev: q ? { day: q.day, legacy: q.legacy, visitors: q.visitors, orders: q.orders, revenueInr: q.revenueInr } : null };
+  });
   const visitors = num0(cur.visitors), pVisitors = num0(prev.visitors);
   const newV = num0(cur.new_visitors), pNewV = num0(prev.new_visitors);
   return {

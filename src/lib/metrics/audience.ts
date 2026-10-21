@@ -2,7 +2,7 @@
 // our own visits (v_sessions), so they join to orders; age / gender / interests exist
 // only as Google Analytics totals (ga_audience_daily), shown as GA reports them.
 import {
-  both, column, countCell, dayArgs, FILTER, medianCell, meta, num, num0, rangeArgs, rateCell, table,
+  both, column, countCell, dayArgs, FILTER, medianCell, meta, metric, num, num0, rangeArgs, rateCell, table,
   type Row, type Run,
 } from './core.ts';
 import type {
@@ -41,12 +41,20 @@ const GA_SQL = `
   WHERE day BETWEEN $1::date AND $2::date AND dimension = ANY ($3::text[])
   GROUP BY dimension, value`;
 
-async function load(run: Run, period: Period, p: MetricsParams): Promise<{ own: Row[]; ga: Row[] }> {
-  const [own, ga] = await Promise.all([
+// likely_gift is NULL when the order didn't carry enough to judge; those are left out.
+const GIFT_SQL = `
+  SELECT count(*) FILTER (WHERE likely_gift) AS gifts, count(likely_gift) AS judged
+  FROM v_orders
+  WHERE created_at >= $1 AND created_at < $2 AND ($4::boolean OR NOT is_test)
+    AND ($3::boolean OR true) -- $3 (bots) can't apply to orders; typed so the shared args fit`;
+
+async function load(run: Run, period: Period, p: MetricsParams): Promise<{ own: Row[]; ga: Row[]; gift: Row }> {
+  const [own, ga, gift] = await Promise.all([
     run(OWN_SQL, rangeArgs(period, p)),
     run(GA_SQL, [...dayArgs(period, p).slice(0, 2), GA]),
+    run(GIFT_SQL, rangeArgs(period, p)),
   ]);
-  return { own, ga };
+  return { own, ga, gift: gift[0] ?? {} };
 }
 
 function ownTable(dim: OwnDimension, cur: Row[], prev: Row[]): Table<ValueKey> {
@@ -113,5 +121,7 @@ export async function getAudience(run: Run, p: MetricsParams): Promise<AudienceR
     section: 'audience',
     own,
     ga,
+    giftOrders: metric('giftOrders', 'giftOrders',
+      rateCell(num0(cur.gift.gifts), num0(cur.gift.judged), num0(prev.gift.gifts), num0(prev.gift.judged))),
   };
 }

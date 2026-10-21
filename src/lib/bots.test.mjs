@@ -15,6 +15,9 @@ const NAMED_BOTS = [
   [/Applebot/i, 'Applebot'],
   [/facebookexternalhit|meta-externalagent/i, 'Facebook'],
   [/Bytespider/i, 'Bytespider'],
+  // Scripted browsers (test runners, screenshot tools, page-speed audits) run page
+  // scripts like a person would, but aren't visitors.
+  [/HeadlessChrome|Chrome-Lighthouse|PhantomJS|Puppeteer|Playwright|Selenium/i, 'Headless browser'],
 ];
 function botName(ua) {
   for (const [re, name] of NAMED_BOTS) if (re.test(ua)) return name;
@@ -63,3 +66,9 @@ assert.equal(offsiteReferrer('javascript:alert(1)', 'www.mirkash.com'), '', 'no 
 assert.equal(offsiteReferrer('not a url', 'www.mirkash.com'), '', 'malformed degrades to empty');
 
 console.log('bots self-check: all assertions passed');
+
+// Headless/automated browsers are flagged, real Chrome is not.
+assert.equal(botName('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/131.0.0.0 Safari/537.36'), 'Headless browser');
+assert.equal(botName('Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36 Chrome-Lighthouse'), 'Headless browser');
+assert.equal(botName('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'), '');
+console.log('bots: headless checks passed');

@@ -15,6 +15,29 @@ async function load(run: Run, period: Period): Promise<Row[]> {
   return run(SQL, [period.from, period.to]);
 }
 
+// Written by the Shopify sync (src/lib/warehouse/orders.ts) after each run.
+const PARITY_SQL = `
+  SELECT substr(key, 8) AS store, last_run_at, last_result->>'shopifyCount' AS shopify,
+         last_result->>'mirrorCount' AS ours
+  FROM sync_state WHERE key LIKE 'orders:%' ORDER BY key`;
+
+async function parity(run: Run): Promise<TrackingHealthResponse['shopifyParity']> {
+  const rows = await run(PARITY_SQL, []);
+  if (!rows.length) return null;
+  const stores = rows.map((r) => ({
+    store: String(r.store),
+    shopify: r.shopify == null ? null : Number(r.shopify),
+    ours: r.ours == null ? null : Number(r.ours),
+  }));
+  const last = rows.map((r) => (r.last_run_at instanceof Date ? r.last_run_at : new Date(String(r.last_run_at))))
+    .filter((d) => isFinite(d.getTime())).sort((a, b) => a.getTime() - b.getTime());
+  return {
+    checkedAt: last.length ? last[0].toISOString() : null, // the oldest store's check
+    ok: stores.every((s) => s.shopify != null && s.ours != null && s.shopify === s.ours),
+    stores,
+  };
+}
+
 function days(period: Period, rows: Row[]): HealthDay[] {
   const out = new Map<string, HealthDay>();
   for (let i = period.days - 1; i >= 0; i--) {
@@ -49,14 +72,14 @@ function byName(cur: Row[], prev: Row[], kind: string, def: 'healthRejects' | 'h
 }
 
 export async function getTrackingHealth(run: Run, p: MetricsParams): Promise<TrackingHealthResponse> {
-  const [curRows, prevRows] = await both(p, (per) => load(run, per));
+  const [[curRows, prevRows], shopifyParity] = await Promise.all([both(p, (per) => load(run, per)), parity(run)]);
   const { period, previous } = meta('trackingHealth', p);
   const cur = days(period, curRows), prev = days(previous, prevRows);
   const sum = (ds: HealthDay[], k: keyof Omit<HealthDay, 'day'>) => ds.reduce((s, d) => s + d[k], 0);
   const dead = (ds: HealthDay[]) => ds.filter((d) => d.pageViews === 0).length;
   return {
     ...meta('trackingHealth', p, [
-      'Orders per day should match Shopify exactly; a gap means a webhook was missed.',
+      'Order counts are compared with Shopify after every sync (nightly, and whenever /admin is opened).',
     ]),
     section: 'trackingHealth',
     kpis: {
@@ -71,5 +94,6 @@ export async function getTrackingHealth(run: Run, p: MetricsParams): Promise<Tra
     days: cur,
     rejectReasons: byName(curRows, prevRows, 'reject', 'healthRejects'),
     eventNames: byName(curRows, prevRows, 'event', 'healthEvents'),
+    shopifyParity,
   };
 }
