@@ -116,7 +116,7 @@ const lightProducts = cards;
 <SiteFooter />
 <ViewingPrompt page="shop" />
 
-<script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix, store: market, countryCode: marketConfig.countryCode }}>
+<script define:vars={{ PRODUCTS: lightProducts, marketPrefix: marketConfig.urlPrefix, store: market, countryCode: marketConfig.countryCode, currency: marketConfig.currency }}>
   const grid = document.getElementById('shopGrid');
 
   // Favorites (heart) — persisted in localStorage by product handle
@@ -213,7 +213,13 @@ const lightProducts = cards;
         if (!res.ok) throw new Error('add failed');
         const cart = await res.json();
         if (window.mkTrack) window.mkTrack('add_to_cart', { product: p.name });
-        if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: p.name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+        // mkLeadOnly: the event-log copy goes below, keyed by handle with the line value.
+        if (window.mkLeadOnly) window.mkLeadOnly({ event: 'add_to_cart', item: p.name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+        try {
+          const ep = { title: p.name, where: 'shop', cart_total: cart.total, cart_qty: cart.totalQuantity };
+          if (p.colour) ep.colour = p.colour;
+          if (window.mkEvent) window.mkEvent('add_to_cart', { product: p.handle, value: p.amount || undefined, currency, props: ep });
+        } catch (_) {}
         document.querySelectorAll('.hdr-bag__count, .bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
         qa.classList.add('is-added');
         qa.textContent = 'Added ✓';

@@ -289,18 +289,18 @@ const shipLines = shippingList.length ? shippingList : FALLBACK_SHIPPING;
 const returnsRef = shipLines.at(-1)?.match(/^(.*?\.\s+)?([^.]*?)Returns page([^.]*\.?)$/);
 if (returnsRef) shipLines.splice(-1, 1, ...(returnsRef[1] ? [returnsRef[1].trim()] : []));
 const hasWarranty = !product.tags.includes('no-warranty');
-type Accordion = { title: string; vegan?: boolean; lines?: string[]; text?: string; sub?: { title: string; lines: string[] }; link?: { href: string; before: string; label: string; after: string } };
+type Accordion = { key: string; title: string; vegan?: boolean; lines?: string[]; text?: string; sub?: { title: string; lines: string[] }; link?: { href: string; before: string; label: string; after: string } };
 const accordions: Accordion[] = [
   // Details, size and care in one dropdown (decided 29 Sep): details → dimensions → a "Care" sub-list.
   // Products without care tips (e.g. charms) are titled just "Product Details".
-  { title: careLines.length ? 'Product Details & Care' : 'Product Details', lines: detailsList, ...(careLines.length ? { sub: { title: 'Care', lines: careLines } } : {}) },
+  { key: 'details', title: careLines.length ? 'Product Details & Care' : 'Product Details', lines: detailsList, ...(careLines.length ? { sub: { title: 'Care', lines: careLines } } : {}) },
   // The material dropdown carries a small Forest Green leaf: the one quiet "vegan" mark on the page.
-  ...(mf(product.materialName) && mf(product.materialStory) ? [{ title: mf(product.materialName), vegan: true, text: mf(product.materialStory) }] : []),
-  { title: 'Shipping & Returns', lines: shipLines,
+  ...(mf(product.materialName) && mf(product.materialStory) ? [{ key: 'materials', title: mf(product.materialName), vegan: true, text: mf(product.materialStory) }] : []),
+  { key: 'shipping', title: 'Shipping & Returns', lines: shipLines,
     link: { href: `${prefix}/pages/shipping-returns`, label: 'Returns page',
             ...(returnsRef ? { before: returnsRef[2], after: returnsRef[3] } : { before: 'Visit our ', after: ' for more information.' }) } },
   // Products tagged "no-warranty" (e.g. charms) carry no warranty: no dropdown, and no warranty in the trust line.
-  ...(hasWarranty ? [{ title: '1-Year Warranty', text: mf(product.warranty) || 'Every Mir Kash bag is covered against manufacturing defects for one year from purchase.',
+  ...(hasWarranty ? [{ key: 'warranty', title: '1-Year Warranty', text: mf(product.warranty) || 'Every Mir Kash bag is covered against manufacturing defects for one year from purchase.',
     link: { href: `${prefix}/pages/shipping-returns`, before: 'Read the full ', label: 'warranty terms', after: '.' } }] : []),
 ];
 
@@ -409,7 +409,7 @@ const faq = faqFor(product, marketConfig);
 
       <div>
       {accordions.map((a) => (
-        <div class="acc-item">
+        <div class="acc-item" data-sec={a.key}>
           <button class="acc-btn"><span class="acc-title">{a.vegan && <LeafIcon />}{a.title}</span> <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
             {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
@@ -483,7 +483,7 @@ const faq = faqFor(product, marketConfig);
 
     <div class="mob-acc">
       {accordions.map((a) => (
-        <div class="acc-item">
+        <div class="acc-item" data-sec={a.key}>
           <button class="acc-btn"><span class="acc-title">{a.vegan && <LeafIcon />}{a.title}</span> <span class="acc-icon">+</span></button>
           <div class="acc-body"><div class="acc-inner">
             {a.lines ? <ul>{a.lines.map((l) => <li>{l}</li>)}</ul> : <p>{a.text}</p>}
@@ -632,15 +632,43 @@ const faq = faqFor(product, marketConfig);
 <script define:vars={{ pvTitle: product.title }}>
   if (window.mkTrack) window.mkTrack('product_view', { product: pvTitle });
   // Also against this person, so /admin can count how many distinct products they saw.
-  if (window.mkLead) window.mkLead({ event: 'product_view', item: pvTitle });
+  // mkLeadOnly: the event-log copy is sent below with the handle and price instead.
+  if (window.mkLeadOnly) window.mkLeadOnly({ event: 'product_view', item: pvTitle });
 </script>
-<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, currency: marketConfig.currency, cartHref, storyImgs: storyImgArr, productTitle: product.title }}>
+<script define:vars={{ firstVariantId, store: market, countryCode: marketConfig.countryCode, currency: marketConfig.currency, cartHref, storyImgs: storyImgArr, productTitle: product.title, productHandle: product.handle }}>
   const data = JSON.parse(document.getElementById('pdpData').textContent || '{}');
   const variants = data.variants || [];
   const optionNames = (data.options || []).map((o) => o.name);
 
   const state = { variantId: firstVariantId };
   const selected = {};
+
+  // Event log (window.mkEvent, BaseLayout). Keyed by the Shopify handle, so a renamed
+  // bag keeps its history. Tracking must never break the page, hence the try.
+  function ev(name, d) { try { if (window.mkEvent) window.mkEvent(name, d); } catch (_) {} }
+  const colourOptName = (data.options || []).find((o) => o.isColor)?.name || '';
+  function variantProps(v) {
+    const p = { title: productTitle };
+    try { if (v && colourOptName && v.options[colourOptName]) p.colour = v.options[colourOptName]; } catch (_) {}
+    return p;
+  }
+  try {
+    const opened = variants.find((v) => v.id === firstVariantId) || variants[0];
+    const p = variantProps(opened);
+    if (opened) p.available = !!opened.available;
+    ev('product_view', { product: productHandle, value: opened ? opened.amount : undefined, currency, props: p });
+  } catch (_) {}
+  // Demand for sold-out colours: once per variant per page, on open and on each pick.
+  const soldOutSeen = {};
+  function noteSoldOut(v, initial) {
+    try {
+      if (!v || v.available || soldOutSeen[v.id]) return;
+      soldOutSeen[v.id] = 1;
+      const p = variantProps(v);
+      p.initial = !!initial;
+      ev('sold_out_view', { product: productHandle, value: v.amount, currency, props: p });
+    } catch (_) {}
+  }
 
   // Meta ViewContent — once per product page view, for the variant the page opened on.
   // Feeds catalog ads and retargeting; browser-only, like PageView.
@@ -713,10 +741,12 @@ const faq = faqFor(product, marketConfig);
     applyColourGallery();
     // On first paint the server already opened the right photos; only scroll after a deliberate change.
     if (!initial) showVariantImage(match.image);
+    noteSoldOut(match, initial);
   }
 
   // One handler for every option button (colour swatch or pill), desktop + mobile.
   function selectOption(name, value) {
+    if (name === colourOptName && selected[name] !== value) ev('swatch_select', { product: productHandle, props: { colour: value } });
     selected[name] = value;
     document.querySelectorAll('[data-opt="' + esc(name) + '"][data-name]').forEach((b) => {
       b.classList.toggle('is-active', b.dataset.name === value);
@@ -755,7 +785,12 @@ const faq = faqFor(product, marketConfig);
       if (!res.ok) throw new Error('add failed');
       const cart = await res.json();
       if (window.mkTrack) window.mkTrack('add_to_cart', { product: productTitle });
-      if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: productTitle, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+      if (window.mkLeadOnly) window.mkLeadOnly({ event: 'add_to_cart', item: productTitle, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+      try {
+        const p = variantProps(variants.find((v) => v.id === state.variantId));
+        p.where = 'pdp'; p.cart_total = cart.total; p.cart_qty = cart.totalQuantity;
+        ev('add_to_cart', { product: productHandle, value: state.amount, currency, props: p });
+      } catch (_) {}
       try {
         if (typeof gtag === 'function') {
           const items = [{ item_id: state.variantId, item_name: productTitle, price: state.amount, quantity: 1 }];
@@ -842,7 +877,76 @@ const faq = faqFor(product, marketConfig);
 
   // Accordions
   document.querySelectorAll('.acc-item .acc-btn').forEach((btn) => {
-    btn.addEventListener('click', () => btn.closest('.acc-item').classList.toggle('is-open'));
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.acc-item');
+      const open = item.classList.toggle('is-open');
+      if (open) ev('section_open', { product: productHandle, props: { section: item.dataset.sec || 'other' } });
+    });
+  });
+  // The bag's own FAQ (<details>): which question was opened.
+  document.querySelectorAll('.faq__item').forEach((d, i) => {
+    d.addEventListener('toggle', () => { if (d.open) ev('section_open', { product: productHandle, props: { section: 'faq', index: i } }); });
+  });
+
+  // ── Gallery attention: which photos were actually looked at, and zoomed ──
+  // An image counts as viewed after ~1 s mostly on screen (debounced, so a fast
+  // scroll or swipe past it doesn't count), once per image per page view. Desktop
+  // stacks the photos vertically, phones swipe a horizontal track; whichever layout
+  // is hidden never intersects, so the two never double-count.
+  (function () {
+    if (!('IntersectionObserver' in window)) return;
+    const seen = {}, zoomed = {}, timers = new Map(), inView = new Set();
+    let current = null;
+    const slides = Array.prototype.slice.call(document.querySelectorAll('#mobTrack .mob-gal__slide'));
+    function idxOf(el) {
+      const g = el.dataset.gidx;
+      return g != null ? Number(g) : slides.indexOf(el);
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const el = e.target;
+        if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+          inView.add(el); current = el;
+          if (!timers.has(el)) {
+            timers.set(el, setTimeout(() => {
+              timers.delete(el);
+              const i = idxOf(el);
+              if (seen[i]) return;
+              seen[i] = 1;
+              const p = { index: i };
+              if (el.dataset.colour) p.colour = el.dataset.colour;
+              ev('gallery_view', { product: productHandle, props: p });
+            }, 1000));
+          }
+        } else {
+          inView.delete(el);
+          if (current === el) current = inView.size ? Array.from(inView).pop() : null;
+          clearTimeout(timers.get(el)); timers.delete(el);
+        }
+      });
+    }, { threshold: [0, 0.5] });
+    document.querySelectorAll('#mainGallery .gimg, #mobTrack .mob-gal__slide').forEach((el) => io.observe(el));
+
+    // Zoom: the site has no zoom control, so this is the browser's own pinch-zoom
+    // while a photo is on screen (phones). Once per photo per page view.
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let wasZoomed = false;
+    vv.addEventListener('resize', () => {
+      try {
+        const z = vv.scale > 1.15;
+        if (z && !wasZoomed && current) {
+          const i = idxOf(current);
+          if (!zoomed[i]) { zoomed[i] = 1; ev('gallery_zoom', { product: productHandle, props: { index: i } }); }
+        }
+        wasZoomed = z;
+      } catch (_) {}
+    });
+  })();
+
+  // Colour swatches that are links to a sibling colour's own product page.
+  document.querySelectorAll('a.swatch--link').forEach((a) => {
+    a.addEventListener('click', () => ev('swatch_select', { product: productHandle, props: { colour: a.getAttribute('aria-label') || '', nav: true } }));
   });
 
   // ── Feature story slideshow (auto-advancing, with prev/next/pause) ──
@@ -927,10 +1031,12 @@ const faq = faqFor(product, marketConfig);
   (function () {
     document.querySelectorAll('.rel-card').forEach((card) => {
       const name = card.dataset.name || '';
+      const handle = card.dataset.handle || '';
 
       card.addEventListener('click', () => {
         if (window.mkTrack) window.mkTrack('related_product_click', { product: name });
-        if (window.mkLead) window.mkLead({ event: 'related_product_click', item: name, from: productTitle });
+        if (window.mkLeadOnly) window.mkLeadOnly({ event: 'related_product_click', item: name, from: productTitle });
+        ev('related_product_click', { product: handle, props: { title: name, from: productHandle } });
       });
 
       const add = card.querySelector('.rel-card__add');
@@ -956,7 +1062,12 @@ const faq = faqFor(product, marketConfig);
           if (!res.ok) throw new Error('add failed');
           const cart = await res.json();
           if (window.mkTrack) window.mkTrack('add_to_cart', { product: name });
-          if (window.mkLead) window.mkLead({ event: 'add_to_cart', item: name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+          if (window.mkLeadOnly) window.mkLeadOnly({ event: 'add_to_cart', item: name, cart: window.cartSnapshot && window.cartSnapshot(cart) });
+          try {
+            const line = (cart.lines || []).find((l) => l.merchandiseId === variantId);
+            ev('add_to_cart', { product: handle, value: line ? line.price : undefined, currency,
+              props: { title: name, where: 'related', from: productHandle, cart_total: cart.total, cart_qty: cart.totalQuantity } });
+          } catch (_) {}
           try {
             if (typeof gtag === 'function') {
               const items = [{ item_id: variantId, item_name: name, quantity: 1 }];

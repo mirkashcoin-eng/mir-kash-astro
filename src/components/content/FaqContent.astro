@@ -271,9 +271,21 @@ const ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, cat: g.cat, te
       cat = btn.getAttribute('data-cat');
       apply();
     });
+    // Event log: what people look for, and how many answers they got (0 = a gap).
+    // Sent once typing pauses, so a query is one event, not one per keystroke.
+    var qTimer = 0, qSent = '';
+    function logSearch() {
+      try {
+        if (q.length < 2 || q === qSent || !window.mkEvent) return;
+        qSent = q;
+        var n = items.filter(function (el) { return !el.hidden; }).length;
+        window.mkEvent('search', { props: { q: q.slice(0, 80), results: n, where: 'faq' } });
+      } catch (_) {}
+    }
     if (search) search.addEventListener('input', function () {
       q = (search.value || '').trim().toLowerCase();
       apply();
+      clearTimeout(qTimer); qTimer = setTimeout(logSearch, 1200);
     });
   })();
 </script>

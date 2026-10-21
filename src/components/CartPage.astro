@@ -104,8 +104,24 @@ const exitLines = lines.length
 <SiteFooter />
 {exitLines.length > 0 && <CartExitPanel lines={exitLines} checkoutHref={checkoutHref} />}
 
-<script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })) }}>
+<script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })), cartLines: Object.fromEntries(lines.map((l) => [l.id, { handle: l.handle, title: l.title, price: l.price, qty: l.quantity }])), cartQty: count }}>
   const main = document.querySelector('.cart-page');
+
+  // Event log (window.mkEvent, BaseLayout). Never allowed to break the cart.
+  function ev(name, d) { try { if (window.mkEvent) window.mkEvent(name, d); } catch (_) {} }
+  // cart_view once per arrival — not again for the reload that follows a quantity
+  // change or removal on this page (those send their own event).
+  try {
+    let reloaded = false;
+    try { reloaded = sessionStorage.getItem('mk_cart_reload') === '1'; sessionStorage.removeItem('mk_cart_reload'); } catch (_) {}
+    if (!reloaded) ev('cart_view', { value: cartTotal, currency, props: { qty: cartQty, lines: Object.keys(cartLines).length } });
+  } catch (_) {}
+  function lineEvent(name, lineId, props, value) {
+    const l = cartLines[lineId] || {};
+    ev(name, { product: l.handle, value, currency, props: Object.assign({ title: l.title, where: 'cart' }, props) });
+    try { sessionStorage.setItem('mk_cart_reload', '1'); } catch (_) {}
+    try { if (window.mkFlush) window.mkFlush(); } catch (_) {}
+  }
 
   // Global market never lands on this site's own /checkout — clicking "Carry Home"
   // navigates straight to Shopify's hosted checkout, so this is the only place on
@@ -153,11 +169,16 @@ const exitLines = lines.length
       busy(true);
       if (act === 'remove') {
         await mutate('/api/cart/remove', { lineId });
+        const l = cartLines[lineId] || {};
+        lineEvent('remove_from_cart', lineId, { qty: l.qty }, l.price && l.qty ? l.price * l.qty : undefined);
       } else if (act === 'inc' || act === 'dec') {
         const valEl = btn.closest('.qty-control').querySelector('.qty-control__val');
         const current = parseInt(valEl.textContent, 10) || 1;
         const next = act === 'inc' ? current + 1 : current - 1;
         await mutate('/api/cart/update', { lineId, quantity: next });
+        // Down to zero is a removal, whichever button did it.
+        if (next <= 0) lineEvent('remove_from_cart', lineId, { qty: current, via: 'qty' }, (cartLines[lineId] || {}).price);
+        else lineEvent('cart_qty_change', lineId, { from: current, to: next }, (cartLines[lineId] || {}).price);
       } else {
         return;
       }
@@ -188,6 +209,11 @@ const exitLines = lines.length
         body: JSON.stringify({ store, code, countryCode }),
       });
       const data = await res.json();
+      // A coupon tried (not removed), and whether the store accepted it.
+      if (!removing && (data.ok === false || res.ok)) {
+        ev('coupon_apply', { value: data.ok === false ? undefined : data.discount, currency,
+          props: { code: code.toUpperCase().slice(0, 40), valid: data.ok !== false && !!data.code, where: 'cart' } });
+      }
       if (data.ok === false) { err.textContent = data.error || 'Invalid code.'; err.hidden = false; couponBtn.disabled = false; couponBtn.textContent = 'Apply'; return; }
       if (!res.ok) throw new Error();
       // Applied/Remove state keys off the CODE, row visibility off the AMOUNT — a

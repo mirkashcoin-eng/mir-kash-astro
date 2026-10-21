@@ -434,6 +434,145 @@ const orgJsonLd = {
         if (window.mkLead) window.mkLead({ event: 'page_view', page: location.pathname });
       } catch (_) { window.mkTrack('visit'); }
     </script>
+
+    <!-- Background signals for the event log: contact taps, Core Web Vitals and script
+         errors. Nothing here changes what the visitor sees. -->
+    <script is:inline>
+      (function () {
+        function ev(name, d) { try { if (window.mkEvent) window.mkEvent(name, d); } catch (_) {} }
+
+        // mkLead without its event-log mirror, for pages that send a richer mkEvent
+        // (handle, value) for the same action themselves — so it isn't counted twice.
+        window.mkLeadOnly = function (data) {
+          var keep = window.mkEvent;
+          try { window.mkEvent = null; if (window.mkLead) window.mkLead(data); } catch (_) {}
+          window.mkEvent = keep;
+        };
+
+        // ── Contact taps: WhatsApp, email or phone links (same test as Meta Contact) ──
+        document.addEventListener('click', function (e) {
+          try {
+            var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+            if (!a) return;
+            var h = a.getAttribute('href') || '';
+            var ch = /^https?:\/\/(wa\.me|api\.whatsapp\.com)\//i.test(h) ? 'whatsapp'
+              : /^mailto:/i.test(h) ? 'email'
+              : /^tel:/i.test(h) ? 'phone' : '';
+            if (ch) ev('contact_click', { props: { channel: ch } });
+          } catch (_) {}
+        }, true);
+
+        // ── Script errors: window errors + unhandled promise rejections, max 3/page ──
+        var errs = 0;
+        function scrub(s) {
+          // Error text can echo what was typed; keep emails and phone-like numbers out.
+          return String(s || '').replace(/[^\s@]+@[^\s@]+/g, '[email]').replace(/\+?\d[\d\s-]{6,}\d/g, '[num]').slice(0, 200);
+        }
+        function srcPath(u) {
+          try {
+            if (!u) return '';
+            var x = new URL(u, location.href);
+            return (x.host === location.host ? '' : x.host) + x.pathname;
+          } catch (_) { return ''; }
+        }
+        function jsError(kind, msg, src, line) {
+          if (errs >= 3 || !msg) return;
+          errs++;
+          var p = { kind: kind, message: scrub(msg), source: srcPath(src).slice(0, 200) };
+          if (line) p.line = line;
+          ev('js_error', { props: p });
+        }
+        addEventListener('error', function (e) {
+          try {
+            // Cross-origin scripts report only "Script error." with no detail; it can't be acted on.
+            if (!e || (e.message === 'Script error.' && !e.filename)) return;
+            jsError('error', e.message, e.filename, e.lineno);
+          } catch (_) {}
+        });
+        addEventListener('unhandledrejection', function (e) {
+          try {
+            var r = e && e.reason;
+            jsError('rejection', r && r.message ? r.message : String(r), '', 0);
+          } catch (_) {}
+        });
+
+        // ── Core Web Vitals: LCP, CLS, INP — measured with PerformanceObserver, sent
+        //    once per page view when it's hidden. Ratings use Google's thresholds. ──
+        if (!('PerformanceObserver' in window)) return;
+        var types = PerformanceObserver.supportedEntryTypes || [];
+        function has(t) { return types.indexOf(t) !== -1; }
+        function observe(type, cb, opts) {
+          try {
+            var po = new PerformanceObserver(function (l) { try { l.getEntries().forEach(cb); } catch (_) {} });
+            var o = { type: type, buffered: true };
+            for (var k in opts || {}) o[k] = opts[k];
+            po.observe(o);
+            return po;
+          } catch (_) { return null; }
+        }
+        // A page opened in a background tab has no meaningful LCP.
+        var firstHidden = document.visibilityState === 'hidden' ? 0 : Infinity;
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'hidden' && firstHidden === Infinity) firstHidden = performance.now();
+        }, true);
+
+        // LCP: the last candidate before the first input (later ones don't count).
+        var lcp = -1, lcpDone = false;
+        if (has('largest-contentful-paint')) {
+          observe('largest-contentful-paint', function (en) {
+            if (!lcpDone && en.startTime < firstHidden) lcp = en.startTime;
+          });
+          ['keydown', 'pointerdown'].forEach(function (t) {
+            addEventListener(t, function () { lcpDone = true; }, { once: true, capture: true });
+          });
+        }
+
+        // CLS: largest session window (shifts < 1 s apart, window ≤ 5 s), ignoring
+        // shifts right after user input.
+        var cls = has('layout-shift') ? 0 : -1, winVal = 0, winFirst = 0, winLast = 0;
+        if (cls === 0) {
+          observe('layout-shift', function (en) {
+            if (en.hadRecentInput) return;
+            if (winVal && en.startTime - winLast < 1000 && en.startTime - winFirst < 5000) { winVal += en.value; winLast = en.startTime; }
+            else { winVal = en.value; winFirst = winLast = en.startTime; }
+            if (winVal > cls) cls = winVal;
+          });
+        }
+
+        // INP: worst interaction latency (≈ the 98th percentile once there are 50+).
+        var inter = {}, interCount = 0;
+        function noteInteraction(en) {
+          if (!en.interactionId) return;
+          if (!(en.interactionId in inter)) interCount++;
+          if (!inter[en.interactionId] || en.duration > inter[en.interactionId]) inter[en.interactionId] = en.duration;
+        }
+        if (has('event')) observe('event', noteInteraction, { durationThreshold: 40 });
+        if (has('first-input')) observe('first-input', noteInteraction);
+        function inp() {
+          var d = [];
+          for (var k in inter) d.push(inter[k]);
+          if (!d.length) return -1;
+          d.sort(function (a, b) { return b - a; });
+          return d[Math.min(d.length - 1, Math.floor(interCount / 50))];
+        }
+
+        function rate(v, good, poor) { return v <= good ? 'good' : v <= poor ? 'needs-improvement' : 'poor'; }
+        var sent = false;
+        function send() {
+          try {
+            if (sent) return;
+            sent = true;
+            if (lcp >= 0) ev('web_vital', { value: Math.round(lcp), props: { metric: 'LCP', rating: rate(lcp, 2500, 4000) } });
+            if (cls >= 0) ev('web_vital', { value: Math.round(cls * 1000) / 1000, props: { metric: 'CLS', rating: rate(cls, 0.1, 0.25) } });
+            var i = inp();
+            if (i >= 0) ev('web_vital', { value: Math.round(i), props: { metric: 'INP', rating: rate(i, 200, 500) } });
+            if (window.mkFlush) window.mkFlush();
+          } catch (_) {}
+        }
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') send(); });
+        addEventListener('pagehide', send);
+      })();
+    </script>
   </head>
   <body data-market={market}>
     <!-- Google Tag Manager (noscript) -->
