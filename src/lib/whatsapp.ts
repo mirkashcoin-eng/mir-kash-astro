@@ -1,5 +1,6 @@
-// WhatsApp sending via the Meta Cloud API. Business-initiated messages are pre-approved
-// templates (sendTemplate); free text (sendText) is only for a founder's reply from the
+// WhatsApp sending via the Meta Cloud API. Order messages (confirmed / shipped / cancelled /
+// refund) are NOT sent from here — the Supabase service does that (whatsapp/). Business-
+// initiated messages are pre-approved templates (sendTemplate); free text (sendText) is only for a founder's reply from the
 // inbox at /admin/whatsapp, inside the customer's 24h window. Every template send is also
 // logged to the WhatsApp Supabase store (messages_out, source='site') so the inbox shows
 // it. Isolated + best-effort: never throws, so a messaging failure can never affect an
@@ -151,31 +152,6 @@ function metaError(json: unknown, status: number): string {
 async function logOut(row: WaOutRow): Promise<void> {
   try {
     if (waStoreConfigured()) await insertOut(row);
-  } catch { /* best-effort */ }
-}
-
-// Fire the "order confirmed" WhatsApp for a just-completed order, immediately at
-// checkout. Best-effort and de-duplicated via the `confirm:{orderName}` lock. Safe to
-// call from the payment path: returns straight away if not opted in / not configured,
-// and never throws. NOTE: the coworker's Supabase service also has an orders/create
-// path; if that ever starts delivering confirmations too, remove this to avoid doubles.
-export async function notifyOrderConfirmed(o: {
-  orderName: string | null;
-  customerName: string | null;
-  phone: string | null;
-  total: { amount: string; currencyCode: string } | null;
-  waOptin: boolean;
-}): Promise<void> {
-  if (!o.waOptin || !o.orderName || !o.phone || !whatsappConfigured()) return;
-  const name = (o.customerName || 'there').trim().split(/\s+/)[0] || 'there';
-  let amt = '';
-  if (o.total) {
-    const n = Math.round(Number(o.total.amount) || 0);
-    try { amt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: o.total.currencyCode || 'INR', maximumFractionDigits: 0 }).format(n); }
-    catch { amt = `${o.total.currencyCode || 'INR'} ${n}`; }
-  }
-  try {
-    await once(`confirm:${o.orderName}`, () => sendTemplate(o.phone!, 'order_confirmed', [name, o.orderName!, amt]));
   } catch { /* best-effort */ }
 }
 
