@@ -68,6 +68,18 @@ export async function sendTemplate(
   }
 }
 
+// Free-text message (a founder's reply from /admin/whatsapp). Meta only delivers free
+// text inside the 24h customer-service window — the caller checks that first. Sends
+// from `phoneNumberId` (the number the customer wrote to), else WHATSAPP_PHONE_NUMBER_ID.
+// Never throws. STUB — implemented in ticket WA-3.
+export async function sendText(
+  _toPhone: string,
+  _text: string,
+  _phoneNumberId?: string | null,
+): Promise<{ ok: boolean; messageId: string | null; phoneNumberId: string | null; request: unknown; response: unknown; error: string | null }> {
+  return { ok: false, messageId: null, phoneNumberId: null, request: null, response: null, error: 'not implemented' };
+}
+
 // Fire the "order confirmed" WhatsApp for a just-completed order, immediately at
 // checkout. Best-effort and de-duplicated via the `confirm:{orderName}` lock. Safe to
 // call from the payment path: returns straight away if not opted in / not configured,
