@@ -6,7 +6,6 @@ import type { AstroCookies } from 'astro';
 import type { Money } from '~/types/shopify';
 import { completeDraftOrder } from '~/lib/shopify/admin';
 import { clearCart, clearBuyNowCart, clearClickId } from '~/lib/cart-session';
-import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { recordRedemption } from '~/lib/coupons';
 
 const API_VERSION = '2023-08-01';
@@ -248,15 +247,8 @@ export async function finalizeOrder(orderId: string, cookies?: AstroCookies): Pr
         amount: order.discount ? Number(order.discount.amount.amount) || 0 : 0,
       });
     }
-    // Instant WhatsApp order confirmation (opted-in only). Best-effort; never affects
-    // the payment result. De-duped via the confirm:{orderName} lock.
-    await notifyOrderConfirmed({
-      orderName: order.orderName ?? order.name,
-      customerName: order.customerName,
-      phone: order.phone,
-      total: order.totalPrice,
-      waOptin: order.waOptin,
-    });
+    // The order WhatsApp (confirmed / shipped / ...) is sent by the Supabase service from
+    // Shopify's orders/create webhook (whatsapp/) — not from here, or customers get two.
     if (cookies) {
       // Clear only the cart this order used, so a buy-now never empties the main bag.
       if (cf.cartKind === 'buynow') clearBuyNowCart(cookies, 'india');

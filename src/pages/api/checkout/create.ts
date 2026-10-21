@@ -2,7 +2,6 @@ import type { APIRoute } from 'astro';
 import { resolveCheckoutCartId, clearCart, clearBuyNowCart, getClickId, clearClickId } from '~/lib/cart-session';
 import { getCart, applyDiscount } from '~/lib/shopify/cart';
 import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from '~/lib/shopify/admin';
-import { notifyOrderConfirmed } from '~/lib/whatsapp';
 import { createCashfreeOrder } from '~/lib/cashfree';
 import { INDIA_MARKET } from '~/lib/markets';
 import { couponLimitBlock, couponBlockMessage, recordRedemption } from '~/lib/coupons';
@@ -213,14 +212,7 @@ export const POST: APIRoute = async (ctx) => {
         amount: cart.discountAmount,
       });
     }
-    // Instant WhatsApp order confirmation (opted-in only). Best-effort; never blocks COD.
-    await notifyOrderConfirmed({
-      orderName: completed.orderName ?? completed.name,
-      customerName: completed.customerName,
-      phone: completed.phone,
-      total: completed.totalPrice,
-      waOptin: completed.waOptin,
-    });
+    // The COD WhatsApp confirmation is sent by the Supabase service (orders/create webhook).
     return new Response(
       JSON.stringify({
         cod: true,
