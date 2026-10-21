@@ -347,3 +347,115 @@ body.ad-role-full .ad-nav__item--founders { display: flex; }
 .ad-daily__legacy { background: var(--soft); }
 .ad-daily th[scope="row"] { text-transform: none; letter-spacing: 0; font-size: 12px; }
 .ad-daily .ad-d { display: block; margin: 2px 0 0; font-size: 11px; }
+
+/* ── Calm layer ──────────────────────────────────────────────────────────────
+   Same data, quieter page: bigger type, more space, fewer borders and colours,
+   sentence-case labels instead of small capitals, and a plain, even-width-digit
+   font for tables and figures (Brooklyn stays for text, DM Serif for headings and
+   the big numbers). Colour is kept for what changed (blue up / orange down) and for
+   things that need attention. Only overrides below; nothing above is removed. */
+.ad {
+  --data: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --mut: #5f5a53;                                   /* darker grey: 6.4:1 on white */
+  font-size: 16px; line-height: 1.6;
+}
+.ad-small { font-size: 14px; }
+.ad-note, .ad-oppnote { font-size: 14.5px; }
+
+/* Figures read best in a plain face with digits of equal width. */
+.ad-table, .ad-daily, .ad-dtable, .ad-hbar__val, .ad-axis, .ad-glabel, .ad-xlabel,
+.ad-kpi__delta, .ad-d, .ad-tot, .ad-pager, .ad-kpi__basis, .ad-kpi__note, .ad-kpi__d, .ad-stack i {
+  font-family: var(--data); font-variant-numeric: tabular-nums;
+}
+
+/* Space */
+.ad-main { padding: 44px clamp(20px, 4vw, 64px) 96px; gap: 44px; }
+.ad-view, .ad-stack-y { gap: 36px; }
+.ad-block { gap: 18px; }
+.ad-two, .ad-inbox, .ad-kpis { gap: 24px; }
+.ad-panel__h, .ad-chart-h { padding: 24px 28px 14px; }
+.ad-panel__body { padding: 6px 28px 28px; }
+.ad-chartcard .ad-hbars, .ad-chartcard .ad-chartwrap { padding: 0 28px; }
+.ad-kpi { padding: 26px 28px; flex-basis: 200px; }
+.ad-irow { padding: 18px 28px; }
+.ad-table th { padding: 14px 20px; }
+.ad-table td { padding: 17px 20px; }
+.ad-table--api th[scope="row"] { padding: 17px 20px; font-size: 15px; }
+.ad-pager { padding: 18px 20px; }
+.ad-nav { padding: 32px 18px; }
+.ad-nav__item { padding: 11px 14px; min-height: 44px; font-size: 16px; }
+.ad-nav__grp { margin: 28px 14px 8px; }
+.ad-funnel, .ad-hbars { gap: 18px; }
+
+/* Type */
+.ad-h1 { font-size: clamp(34px, 3.6vw, 46px); }
+.ad-head__sub { font-size: 16px; margin-top: 8px; }
+.ad-h2 { font-size: 28px; }
+.ad-panel__t { font-size: 18px; }
+.ad-chart-sub { font-size: 13.5px; }
+.ad-kpi__v, .ad-kpi__n { font-size: 46px; margin: 10px 0 6px; }
+.ad-kpi__delta { font-size: 14.5px; }
+.ad-kpi__basis, .ad-kpi__note, .ad-kpi__d { font-size: 14px; }
+.ad-hbar__name, .ad-hbar__val { font-size: 15px; }
+.ad-table td { font-size: 15.5px; }
+.ad-table .sub, .ad-dtable .sub { font-size: 13.5px; }
+.ad-tl__what { font-size: 15px; } .ad-tl__when { font-size: 14px; } .ad-tl__d { font-size: 13.5px; }
+.ad-dtitle { font-size: 32px; }
+.ad-dfacts, .ad-drow, .ad-dtable td, .ad-tot { font-size: 15px; }
+.ad-dfacts dt { font-size: 13.5px; }
+.ad-input, .ad-finput { font-size: 15.5px; }
+.ad-btn, .ad-dbtn { font-size: 15px; min-height: 44px; padding: 9px 20px; }
+.ad-seg__b, .ad-chipbtn { font-size: 15px; min-height: 42px; padding: 7px 18px; }
+.ad-health { font-size: 14.5px; }
+.ad-check, .ad-bottoggle, .ad-nav__toggle { font-size: 14.5px; }
+.ad-axis, .ad-glabel, .ad-xlabel { font-size: 12.5px; }
+.ad-daily th, .ad-daily td { font-size: 13px; padding: 10px 8px; }
+
+/* Labels: sentence case, not small capitals */
+.ad-kpi__k, .ad-h4, .ad-dh3, .ad-nav__grp, .ad-flabel, .ad-table th, .ad-pill, .ad-link, .ad-rowview, .ad-nav__out, .ad-eyebrow {
+  text-transform: none; letter-spacing: 0; font-weight: 600;
+}
+.ad-kpi__k { font-size: 15px; color: var(--mut); font-weight: 500; }
+.ad-table th { font-size: 14px; color: var(--mut); font-weight: 500; }
+.ad-h4, .ad-dh3, .ad-flabel { font-size: 14.5px; font-weight: 500; }
+.ad-nav__grp { font-size: 14px; font-weight: 500; }
+.ad-nav__sub { letter-spacing: .08em; }
+.ad-pill { font-size: 13px; padding: 4px 12px; }
+.ad-nav__out, .ad-rowview, .ad-link { font-size: 14px; }
+
+/* Fewer lines: cards sit on the page by contrast, not outlines */
+.ad-panel, .ad-kpi, .ad-state, .ad-dact, .ad-gate__card { border-color: transparent; box-shadow: 0 1px 2px rgba(44,26,14,.05), 0 8px 24px rgba(44,26,14,.04); }
+.ad-state { box-shadow: none; border: 1px dashed var(--rule); }
+.ad-nav { border-right-color: transparent; box-shadow: 1px 0 0 var(--rule2); }
+.ad-table th { border-bottom-color: transparent; }
+.ad-table td, .ad-irow, .ad-pager, .ad-dsect, .ad-dtable td { border-color: #f3efe9; }
+.ad-seg__b, .ad-chipbtn, .ad-chip, .ad-health, .ad-input, .ad-finput, .ad-btn--ghost, .ad-dbtn { border-color: transparent; background: #f1ece4; }
+.ad-seg__b:hover, .ad-chipbtn:hover { background: #e9e2d7; border-color: transparent; }
+.ad-seg__b.on, .ad-chipbtn.on { background: var(--accent); color: #fff; }
+.ad-input, .ad-finput { background: #fff; border-color: var(--rule); }
+.ad-btn--ghost:hover, .ad-dbtn:hover { background: #e9e2d7; border-color: transparent; }
+.ad-demo { border: none; background: #f1ece4; color: var(--ink); }
+
+/* Fewer colours: status is said in words first, colour only on what needs a look */
+.ad-health--healthy { border-color: transparent; color: var(--mut); background: #f1ece4; }
+.ad-health--degraded, .ad-health--down { background: #fbeee4; border-color: transparent; }
+.ad-chip--blue, .ad-pill--good { border-color: transparent; background: #eef3fa; }
+.ad-chip--orange, .ad-pill--wait, .ad-pill--cancel { border-color: transparent; background: #fbeee4; }
+.ad-pill--done { background: transparent; }
+.ad-bar > i, .ad-hbar__fill { background: var(--accent); }
+.ad-bar--b > i, .ad-fill--good { background: var(--accent); }
+.ad-fill--warn { background: var(--orange); }
+.ad-bar, .ad-hbar__track { background: #f3efe9; }
+
+@media (max-width: 860px) {
+  .ad-main { padding: 28px 18px 72px; gap: 32px; }
+  .ad-view, .ad-stack-y { gap: 28px; }
+  .ad-panel__h, .ad-chart-h { padding: 20px 20px 12px; } .ad-panel__body { padding: 4px 20px 22px; }
+  .ad-kpi { padding: 22px 22px; }
+  .ad-kpi__v, .ad-kpi__n { font-size: 38px; }
+  .ad-irow { padding: 16px 20px; }
+}
+.ad-people-head { margin: 4px 0 12px; }
+.ad-shell { grid-template-columns: 272px minmax(0, 1fr); }
+.ad-head__ctl { flex: 1 1 auto; }
+@media (max-width: 860px) { .ad-shell { grid-template-columns: minmax(0, 1fr); } }

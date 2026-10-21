@@ -10,12 +10,12 @@ import { empty } from './charts';
 import { DEFAULT_OUTCOMES, STAGE_LABEL, istDate, istWhen, outcomeLabel, productName } from './mapping';
 
 const CHIPS: { key: string; label: string }[] = [
-  { key: 'all', label: 'Everyone' }, { key: 'returning', label: 'Returning' }, { key: 'viewed', label: 'Viewed' },
+  { key: 'all', label: 'Everyone' }, { key: 'returning', label: 'Returning' }, { key: 'viewed', label: 'Looked' },
   { key: 'cart', label: 'Cart' }, { key: 'checkout', label: 'Checkout' }, { key: 'phone', label: 'Gave phone' },
-  { key: 'payment', label: 'Payment' }, { key: 'ordered', label: 'Ordered' },
+  { key: 'payment', label: 'At payment' }, { key: 'ordered', label: 'Ordered' },
 ];
 const SORTS: { key: PeopleSort; label: string }[] = [
-  { key: 'last_seen', label: 'Last seen' }, { key: 'score', label: 'Lead score' }, { key: 'cart', label: 'Cart value' },
+  { key: 'last_seen', label: 'Last seen' }, { key: 'score', label: 'Likely to buy' }, { key: 'cart', label: 'Cart value' },
   { key: 'value', label: 'Money spent' }, { key: 'visits', label: 'Visits' }, { key: 'first_seen', label: 'First seen' },
 ];
 

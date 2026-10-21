@@ -18,16 +18,16 @@ const $ = (id: string) => document.getElementById(id) as HTMLElement;
 interface ViewDef { title: string; sub: string; range: boolean; group: 'act' | 'understand' | 'ops'; }
 const VIEWS: Record<string, ViewDef> = {
   today: { title: 'Today', sub: '', range: true, group: 'act' },
-  overview: { title: 'Overview', sub: 'How the shop is doing, compared with the period before.', range: true, group: 'understand' },
-  acquisition: { title: 'Acquisition', sub: 'Which channels and campaigns bring buyers, not just visitors.', range: true, group: 'understand' },
-  products: { title: 'Products', sub: 'Which bags get attention, and which of them sell.', range: true, group: 'understand' },
+  overview: { title: 'The shop at a glance', sub: 'How the shop is doing, compared with the period before.', range: true, group: 'understand' },
+  acquisition: { title: 'Where buyers come from', sub: 'Which channels and campaigns bring buyers, not just visitors.', range: true, group: 'understand' },
+  products: { title: 'Bags', sub: 'Which bags get attention, and which of them sell.', range: true, group: 'understand' },
   checkout: { title: 'Checkout', sub: 'Where checkout loses people and money.', range: true, group: 'understand' },
-  audience: { title: 'Audience', sub: 'Who visits, who buys, and what they use.', range: true, group: 'understand' },
-  retention: { title: 'Retention', sub: 'Whether people come back and buy again.', range: true, group: 'understand' },
+  audience: { title: 'Who visits', sub: 'Who visits, who buys, and what they use.', range: true, group: 'understand' },
+  retention: { title: 'Coming back', sub: 'Whether people come back and buy again.', range: true, group: 'understand' },
   people: { title: 'People', sub: 'Everyone, no cap. Open anyone for their full journey.', range: true, group: 'understand' },
-  daily: { title: 'Daily funnel', sub: 'One month at a time. Each column is a day (IST); each row counts the people who reached that step.', range: false, group: 'understand' },
+  daily: { title: 'Day by day', sub: 'One month at a time. Each column is a day; each row counts the people who reached that step.', range: false, group: 'understand' },
   orders: { title: 'Orders & revenue', sub: '', range: false, group: 'ops' },
-  fulfilment: { title: 'Fulfilment & payments', sub: '', range: false, group: 'ops' },
+  fulfilment: { title: 'Shipping & payments', sub: '', range: false, group: 'ops' },
   demos: { title: 'Try at Home bookings', sub: '', range: false, group: 'ops' },
   viewings: { title: 'Private Viewing bookings', sub: '', range: false, group: 'ops' },
   affiliates: { title: 'Affiliates', sub: 'Give a creator their own link. Any India order that starts from it is credited to them.', range: false, group: 'ops' },
@@ -106,7 +106,7 @@ function paint(view: string) {
     $('todayKpiTitle').textContent = 'The shop, ' + rangeLabel();
     $('inboxCount').textContent = '';
     renderInbox(el('inboxBody'), openPerson, (n) => {
-      $('inboxCount').textContent = n ? n + (n === 1 ? ' thing' : ' things') + ' · each one tap' : '';
+      $('inboxCount').textContent = n ? n + (n === 1 ? ' thing' : ' things') + ' · each is one tap' : '';
     });
     views.renderOverview(el('todayOverview'), q, { all: false });
   } else if (view === 'overview') views.renderOverview(el('overviewBody'), q, { all: true });
