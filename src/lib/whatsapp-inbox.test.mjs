@@ -16,17 +16,23 @@ const ISO = new Date(Number(TS) * 1000).toISOString();
 
 // ── TEMPLATE_TEXT matches its sources word for word ─────────────────────────────
 const md = readFileSync(new URL('../../whatsapp/templates/TEMPLATES.md', import.meta.url), 'utf8');
-for (const name of ['order_confirmed', 'cod_confirmation', 'order_shipped', 'order_cancelled', 'refund_processed']) {
-  const m = md.match(new RegExp('`' + name + '`[^\\n]*\\n```\\n([\\s\\S]*?)\\n```'));
-  assert.ok(m, `${name} block in TEMPLATES.md`);
+// The four the Supabase service sends that are filed by wa-setup.ts (order_shipped_v2 is
+// TEMPLATES.md's order_shipped, which has the tracking link).
+const fromMd = { cod_confirmation: 'cod_confirmation', order_shipped_v2: 'order_shipped', order_cancelled: 'order_cancelled', refund_processed: 'refund_processed' };
+for (const [name, heading] of Object.entries(fromMd)) {
+  const m = md.match(new RegExp('`' + heading + '`[^\\n]*\\n```\\n([\\s\\S]*?)\\n```'));
+  assert.ok(m, `${heading} block in TEMPLATES.md`);
   assert.equal(TEMPLATE_TEXT[name], m[1], name);
 }
-const setup = readFileSync(new URL('../pages/api/admin/wa-setup.ts', import.meta.url), 'utf8');
-const cart = setup.match(/name: 'cart_reminder'[\s\S]*?text: '([^']+)'/);
-assert.ok(cart);
-assert.equal(TEMPLATE_TEXT.cart_reminder, cart[1]);
+// Every template wa-setup.ts files must read the same in the inbox as it was filed.
+const setupFile = readFileSync(new URL('../pages/api/admin/wa-setup.ts', import.meta.url), 'utf8');
+const setup = setupFile.slice(0, setupFile.indexOf('export const GET')); // just the TEMPLATES list
+const filed = [...setup.matchAll(/name: '(\w+)'[\s\S]*?text:\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g)];
+assert.deepEqual(filed.map((f) => f[1]).sort(),
+  ['cart_reminder', 'cod_confirmation', 'order_cancelled', 'order_confirmed', 'order_shipped', 'order_shipped_v2', 'refund_processed']);
+for (const [, name, lit] of filed) assert.equal(TEMPLATE_TEXT[name], new Function('return ' + lit)(), name);
 assert.equal(TEMPLATE_TEXT.hello_world, 'Hello World');
-assert.equal(Object.keys(TEMPLATE_TEXT).length, 7);
+assert.equal(Object.keys(TEMPLATE_TEXT).length, 8);
 
 // ── parseWebhook: a realistic multi-entry payload ───────────────────────────────
 const payload = {
@@ -175,10 +181,12 @@ for (const bad of [null, undefined, {}, { template: {} }, { template: { componen
 
 const render = (name, params) => renderTemplate(name, templateParams(req(name, params)));
 assert.equal(render('order_confirmed', ['Priya', '1001', '₹4,990']),
-  "Hi Priya, your Mir Kash order is confirmed.\nOrder #1001 — ₹4,990\n\nWe're getting it ready with care. You'll hear from us again the moment it ships.");
+  "Hi Priya, thanks for your order 1001 with Mir Kash 💛 We've received it (total ₹4,990) and will pack it with care. We'll message you when it ships.");
+assert.equal(render('order_shipped', ['Priya', '1001']),
+  'Hi Priya, your Mir Kash order 1001 has shipped and is on its way. Thank you for choosing us 💛');
 assert.equal(render('cod_confirmation', ['Priya', '1001', '₹4,990']),
   "Hi Priya, we've received your Cash-on-Delivery order #1001 (₹4,990).\n\nTo confirm, reply YES. If you didn't place this order, reply NO.");
-assert.equal(render('order_shipped', ['Priya', '1001', 'https://mirkash.in/orders/track']),
+assert.equal(render('order_shipped_v2', ['Priya', '1001', 'https://mirkash.in/orders/track']),
   'Good news, Priya — your order is on its way.\nOrder #1001 has shipped and should arrive within 5–7 business days.\n\n'
   + 'Track it here: https://mirkash.in/orders/track\n\nThank you for shopping with Mir Kash.');
 assert.equal(render('order_cancelled', ['Priya', '1001', 'cancelled at your request', '5–7']),
@@ -190,7 +198,7 @@ assert.equal(render('cart_reminder', ['Priya']),
   'Hi Priya, you left something beautiful in your bag at Mir Kash. Complete your order here: https://mirkash.com/shop');
 assert.equal(renderTemplate('hello_world', []), 'Hello World');
 // A missing param leaves its {{n}} in place; a "$&" in a param is inserted literally.
-assert.equal(renderTemplate('order_confirmed', ['Priya']).split('\n')[1], 'Order #{{2}} — {{3}}');
+assert.equal(renderTemplate('order_cancelled', ['Priya']).split('\n')[1], 'Reason: {{3}}');
 assert.equal(renderTemplate('cart_reminder', ['$& $1']).slice(0, 9), 'Hi $& $1,');
 // Unknown, null and empty names.
 assert.equal(renderTemplate('welcome_back', ['Priya', '1001']), 'Template: welcome_back · Priya, 1001');
@@ -225,7 +233,8 @@ assert.equal(t({ send_status: 'failed', delivered_at: ISO, read_at: ISO }), 'fai
 assert.equal(previewOf('template', null, 'cart_reminder', req('cart_reminder', ['Priya'])),
   'Hi Priya, you left something beautiful in your bag at Mir Kash. Complete your order here: https://mirkash.com/shop');
 assert.equal(previewOf('template', null, 'order_confirmed', req('order_confirmed', ['Priya', '1001', '₹4,990'])),
-  "Hi Priya, your Mir Kash order is confirmed. Order #1001 — ₹4,990 We're getting it ready with care. You'll hear from us again the moment it ships.".slice(0, 119).trimEnd() + '…');
+  "Hi Priya, thanks for your order 1001 with Mir Kash 💛 We've received it (total ₹4,990) and will pack it with care. We'll message you when it ships."
+  .split(/(?:)/u).slice(0, 119).join('').trimEnd() + '…');
 assert.equal(previewOf('template', null, 'mystery', null), 'Template: mystery');
 assert.equal(previewOf('text', '  Hello\n\nthere\t  you ', null, null), 'Hello there you');
 assert.equal(previewOf('text', null, null, null), '');

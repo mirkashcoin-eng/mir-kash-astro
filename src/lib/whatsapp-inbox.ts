@@ -6,22 +6,19 @@ import type { ParsedWebhook, WaContactRow, WaInboundRow, WaKind, WaStatusRow, Wa
 
 export const WINDOW_MS = 24 * 3600e3;
 
-// Body text of every template we send, {{n}} placeholders intact.
-// The five order templates are copied from whatsapp/templates/TEMPLATES.md (what the
-// Supabase service sends). wa-setup.ts files an older, differently worded
-// order_confirmed for the site; we show the TEMPLATES.md wording because the Supabase
-// service sends most of the messages. cart_reminder comes from wa-setup.ts.
+// Body text of every template we send, {{n}} placeholders intact — as approved in the
+// website's WhatsApp account (wa-setup.ts files them). order_confirmed and order_shipped
+// are the original wordings (filed Aug 2026); order_shipped_v2 and the other order templates are
+// from whatsapp/templates/TEMPLATES.md (what the Supabase service sends).
 export const TEMPLATE_TEXT: Record<string, string> = {
   order_confirmed:
-    'Hi {{1}}, your Mir Kash order is confirmed.\n'
-    + 'Order #{{2}} — {{3}}\n'
-    + '\n'
-    + "We're getting it ready with care. You'll hear from us again the moment it ships.",
+    "Hi {{1}}, thanks for your order {{2}} with Mir Kash 💛 We've received it (total {{3}}) and will pack it with care. We'll message you when it ships.",
   cod_confirmation:
     "Hi {{1}}, we've received your Cash-on-Delivery order #{{2}} ({{3}}).\n"
     + '\n'
     + "To confirm, reply YES. If you didn't place this order, reply NO.",
-  order_shipped:
+  order_shipped: 'Hi {{1}}, your Mir Kash order {{2}} has shipped and is on its way. Thank you for choosing us 💛',
+  order_shipped_v2:
     'Good news, {{1}} — your order is on its way.\n'
     + 'Order #{{2}} has shipped and should arrive within 5–7 business days.\n'
     + '\n'

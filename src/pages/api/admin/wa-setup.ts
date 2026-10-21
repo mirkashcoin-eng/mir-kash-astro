@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;
 
-// One-shot: creates the 3 WhatsApp message templates on the account via Meta's Graph
+// One-shot: creates the WhatsApp message templates on the account via Meta's Graph
 // API, so they don't have to be built by hand in WhatsApp Manager. Submitting a template
 // still sends it to Meta for approval — this just files them. Idempotent-ish: re-running
 // returns "already exists" for ones that are already there.
@@ -28,6 +28,40 @@ const TEMPLATES = [
       type: 'BODY',
       text: 'Hi {{1}}, your Mir Kash order {{2}} has shipped and is on its way. Thank you for choosing us 💛',
       example: { body_text: [['Priya', '#1042']] },
+    }],
+  },
+  // The Supabase order-message service (whatsapp/) sends these four. order_shipped_v2 carries
+  // a tracking link as {{3}} (the original order_shipped above has only two variables).
+  {
+    name: 'order_shipped_v2', language: 'en', category: 'UTILITY',
+    components: [{
+      type: 'BODY',
+      text: "Good news, {{1}} — your order is on its way.\nOrder #{{2}} has shipped and should arrive within 5–7 business days.\n\nTrack it here: {{3}}\n\nThank you for shopping with Mir Kash.",
+      example: { body_text: [['Priya', '1001', 'https://mirkash.in/orders/track']] },
+    }],
+  },
+  {
+    name: 'cod_confirmation', language: 'en', category: 'UTILITY',
+    components: [{
+      type: 'BODY',
+      text: "Hi {{1}}, we've received your Cash-on-Delivery order #{{2}} ({{3}}).\n\nTo confirm, reply YES. If you didn't place this order, reply NO.",
+      example: { body_text: [['Priya', '1001', '₹4,990']] },
+    }],
+  },
+  {
+    name: 'order_cancelled', language: 'en', category: 'UTILITY',
+    components: [{
+      type: 'BODY',
+      text: 'Hi {{1}}, order #{{2}} has been cancelled.\nReason: {{3}}\n\nIf you paid online, your refund will reflect within {{4}} business days.',
+      example: { body_text: [['Priya', '1001', 'cancelled at your request', '5–7']] },
+    }],
+  },
+  {
+    name: 'refund_processed', language: 'en', category: 'UTILITY',
+    components: [{
+      type: 'BODY',
+      text: 'Hi {{1}}, your refund for order #{{2}} of {{3}} has been processed.\n\nIt should reflect in your account within {{4}} business days.',
+      example: { body_text: [['Priya', '1001', '₹4,990', '5–7']] },
     }],
   },
   {
