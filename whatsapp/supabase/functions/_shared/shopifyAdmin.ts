@@ -1,5 +1,6 @@
-// Minimal Shopify Admin lookup — used ONLY by the refund path, because the
-// refunds/create webhook doesn't include the customer phone or order number.
+// Minimal Shopify Admin lookups — the refund path (lookupOrder), because the
+// refunds/create webhook doesn't include the customer phone or order number, and the
+// abandoned-cart reminder (listOpenDrafts).
 // Auth = client-credentials grant (Client ID + Secret → short-lived token), same
 // as the website's admin client. Returns null if the SHOPIFY_IN_ADMIN_* secrets
 // aren't set, so the other 4 message types work without them.
@@ -82,6 +83,56 @@ export async function lookupOrder(orderId: string | number): Promise<OrderLookup
       orderNum: String(o.name ?? "").replace(/^#/, "") || String(orderId),
       firstName,
     };
+  } catch {
+    return null;
+  }
+}
+
+export interface OpenDraft {
+  id: string;
+  name: string;
+  createdAt: string;
+  tags: string[];
+  phone: string | null;
+  firstName: string;
+}
+
+/**
+ * Open (unpaid) checkout drafts that opted in to WhatsApp — the abandoned-cart candidates.
+ * Same search the website's dashboard uses (status:open, tag web-otp), narrowed to wa-optin.
+ * Returns null when the Admin secrets aren't set or Shopify errors, so the caller can tell
+ * "nothing abandoned" from "couldn't look".
+ */
+export async function listOpenDrafts(): Promise<OpenDraft[] | null> {
+  const domain = adminDomain();
+  const token = await getToken();
+  if (!domain || !token) return null;
+  const query = `{
+    draftOrders(first: 50, query: "status:open AND tag:web-otp AND tag:wa-optin", sortKey: UPDATED_AT, reverse: true) {
+      edges { node {
+        id name createdAt tags
+        shippingAddress { firstName phone }
+        customer { firstName }
+      } }
+    }
+  }`;
+  try {
+    const res = await fetch(`https://${domain}/admin/api/${API_VERSION}/graphql.json`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
+      body: JSON.stringify({ query }),
+    });
+    const json = await res.json().catch(() => ({}));
+    const edges = json?.data?.draftOrders?.edges;
+    if (!res.ok || !Array.isArray(edges)) return null;
+    return edges.map(({ node }: any) => ({
+      id: String(node.id),
+      name: String(node.name ?? ""),
+      createdAt: String(node.createdAt),
+      tags: Array.isArray(node.tags) ? node.tags.map((t: unknown) => String(t).toLowerCase()) : [],
+      phone: normalizePhone(node.shippingAddress?.phone),
+      firstName: (node.shippingAddress?.firstName || node.customer?.firstName || "there").toString().trim() || "there",
+    }));
   } catch {
     return null;
   }

@@ -8,10 +8,6 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/whatsapp",
-      "schedule": "0 4 * * *"
-    },
-    {
       "path": "/api/cron/ga-sync",
       "schedule": "30 20 * * *"
     },
