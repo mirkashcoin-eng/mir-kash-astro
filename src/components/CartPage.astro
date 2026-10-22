@@ -3,6 +3,7 @@ import LeafIcon from './LeafIcon.astro';
 import { getCart } from '~/lib/shopify/cart';
 import { getCartId } from '~/lib/cart-session';
 import { shopifyImage } from '~/lib/shopifyImage';
+import { contentId } from '~/lib/content-id';
 import { formatMoney } from '~/lib/markets';
 import SiteFooter from './SiteFooter.astro';
 import CartExitPanel from './CartExitPanel.astro';
@@ -104,7 +105,7 @@ const exitLines = lines.length
 <SiteFooter />
 {exitLines.length > 0 && <CartExitPanel lines={exitLines} checkoutHref={checkoutHref} />}
 
-<script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })), cartLines: Object.fromEntries(lines.map((l) => [l.id, { handle: l.handle, title: l.title, price: l.price, qty: l.quantity }])), cartQty: count }}>
+<script define:vars={{ store: market, currency, countryCode: marketConfig.countryCode, cartTotal: cart?.total ?? 0, cartItems: lines.map((l) => ({ item_id: l.id, content_id: contentId(l.merchandiseId), item_name: l.title, price: l.price, quantity: l.quantity })), cartLines: Object.fromEntries(lines.map((l) => [l.id, { handle: l.handle, title: l.title, price: l.price, qty: l.quantity }])), cartQty: count }}>
   const main = document.querySelector('.cart-page');
 
   // Event log (window.mkEvent, BaseLayout). Never allowed to break the cart.
@@ -139,7 +140,7 @@ const exitLines = lines.length
         if (typeof fbq === 'function') {
           fbq('track', 'InitiateCheckout', {
             currency, value: cartTotal, content_type: 'product',
-            contents: cartItems.map((i) => ({ id: i.item_id, quantity: i.quantity })),
+            contents: cartItems.map((i) => ({ id: i.content_id, quantity: i.quantity })),
           });
         }
       } catch (e) { console.error('fbq InitiateCheckout failed:', e); }

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createDemoBooking } from '~/lib/shopify/admin';
-import { sendMetaEvent } from '~/lib/meta-capi';
+import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
@@ -107,7 +107,7 @@ export const POST: APIRoute = async (ctx) => {
       customData: {
         content_name: 'Try at Home',
         content_type: 'product',
-        content_ids: bags.map((b) => b.variantId),
+        content_ids: bags.map((b) => contentId(b.variantId)),
         num_items: bags.length,
         ...(abVariant ? { ab_variant: abVariant } : {}),
       },

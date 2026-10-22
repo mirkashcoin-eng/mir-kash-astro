@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createCart, addLines, updateBuyerIdentity } from '~/lib/shopify/cart';
 import { resolveStore, getCartId, persistCart } from '~/lib/cart-session';
-import { sendMetaEvent } from '~/lib/meta-capi';
+import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
@@ -63,7 +63,7 @@ export const POST: APIRoute = async (ctx) => {
         currency: cart.currency,
         value: added ? added.price * quantity : undefined,
         content_type: 'product',
-        contents: [{ id: merchandiseId, quantity }],
+        contents: [{ id: contentId(merchandiseId), quantity }],
       },
     });
   }

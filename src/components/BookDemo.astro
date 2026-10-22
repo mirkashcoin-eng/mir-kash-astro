@@ -496,6 +496,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 </style>
 
 <script>
+  import { contentId } from '~/lib/content-id';
   import {
     TRY_AT_HOME_STEPS as STEPS, stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
     type WizardStep, type GateContext,
@@ -909,7 +910,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
           if (typeof window.fbq === 'function') {
             window.fbq('track', 'Schedule', {
               content_name: 'Try at Home', content_type: 'product',
-              content_ids: bagList.map((b) => b.variantId), num_items: bagList.length,
+              content_ids: bagList.map((b) => contentId(b.variantId)), num_items: bagList.length,
               ...(abTag ? { ab_variant: abTag } : {}),
             }, { eventID: fbEventId });
           }

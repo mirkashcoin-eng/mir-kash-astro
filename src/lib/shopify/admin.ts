@@ -3,7 +3,7 @@
 // decrements inventory). Never import this from client-side code; it carries the
 // Admin token. See [[mir-kash-project]] India custom checkout plan.
 import type { Money } from '~/types/shopify';
-import { sendMetaEvent } from '~/lib/meta-capi';
+import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
 
 const ADMIN_API_VERSION = '2025-01';
@@ -116,7 +116,7 @@ export interface DraftOrderResult {
   totalPrice: Money;
   orderName: string | null; // set once completed
   orderId: string | null; // real Order GID, set once completed
-  items: Array<{ title: string; quantity: number; image: string | null; price: Money | null }>;
+  items: Array<{ title: string; quantity: number; image: string | null; price: Money | null; variantId: string | null }>;
   phone: string | null;        // for the instant WhatsApp order confirmation
   email: string | null;        // buyer identity for the coupon redemption ledger
   waOptin: boolean;            // customer ticked "order updates on WhatsApp"
@@ -143,6 +143,7 @@ interface RawDraftOrder {
     title: string; quantity: number;
     image: { url: string } | null;
     originalUnitPriceSet: { shopMoney: Money } | null;
+    variant: { id: string } | null;
   } }> };
 }
 
@@ -160,6 +161,7 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
       quantity: e.node.quantity,
       image: e.node.image?.url ?? null,
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
+      variantId: e.node.variant?.id ?? null,
     })),
     phone: d.phone ?? null,
     email: d.email ?? null,
@@ -187,6 +189,7 @@ const DRAFT_FIELDS = /* GraphQL */ `
     title quantity
     image { url }
     originalUnitPriceSet { shopMoney { amount currencyCode } }
+    variant { id }
   } } }
 `;
 
@@ -397,7 +400,8 @@ export async function completeDraftOrder(id: string, paymentPending = false): Pr
         value: Number(result.totalPrice.amount) || 0,
         order_id: result.orderName,
         content_type: 'product',
-        contents: result.items.map((i) => ({ id: i.title, quantity: i.quantity })),
+        // Catalog ids, so Meta can tie the sale to the products (title only if a line has no variant).
+        contents: result.items.map((i) => ({ id: i.variantId ? contentId(i.variantId) : i.title, quantity: i.quantity })),
       },
     });
   }

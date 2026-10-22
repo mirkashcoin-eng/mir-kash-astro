@@ -4,6 +4,7 @@ import SiteFooter from '~/components/SiteFooter.astro';
 import ReceiptPrinter from '~/components/ReceiptPrinter.astro';
 import { finalizeOrder, type FinalizeStatus } from '~/lib/cashfree';
 import { getDraftOrder } from '~/lib/shopify/admin';
+import { contentId } from '~/lib/content-id';
 
 export const prerender = false;
 
@@ -83,6 +84,8 @@ const copy = isCod
 // Both paths (Cashfree-finalized and COD) now come from the same Shopify shape.
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const summaryItems = items.map((i) => ({
+  // Meta catalog id (numeric variant id), so the browser Purchase matches the catalog like the server one.
+  contentId: i.variantId ? contentId(i.variantId) : i.title,
   title: i.title,
   quantity: i.quantity,
   price: i.price ? Number(i.price.amount) : null,
@@ -154,7 +157,7 @@ const summaryItems = items.map((i) => ({
   {displayStatus === 'paid' && displayOrder && (
     <script
       is:inline
-      define:vars={{ txnId: displayOrder, value: amount, currency, items: summaryItems.map((i) => ({ item_name: i.title, price: i.price, quantity: i.quantity })) }}
+      define:vars={{ txnId: displayOrder, value: amount, currency, items: summaryItems.map((i) => ({ item_name: i.title, price: i.price, quantity: i.quantity })), fbContents: summaryItems.map((i) => ({ id: i.contentId, quantity: i.quantity })) }}
     >
       // Purchase conversion for GA4 + Google Ads. Guarded by the order id in
       // sessionStorage so a refresh (or the back button) can't book the sale twice.
@@ -185,7 +188,7 @@ const summaryItems = items.map((i) => ({
           sessionStorage.setItem(fbSeen, '1');
           var fbPayload = {
             currency: currency, content_type: 'product',
-            contents: items.map(function (i) { return { id: i.item_name, quantity: i.quantity }; }),
+            contents: fbContents,
           };
           if (value > 0) fbPayload.value = value;
           // eventID matches the server-side Conversions API event_id (orderName, sent
