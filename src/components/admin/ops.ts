@@ -19,7 +19,7 @@ export function initOps() {
     var SEARCH = '';
     // Internal / test numbers — kept out of every count and table unless "Show test
     // records" is ticked. Matches the last-10-digits key the People collection uses.
-    var HIDDEN_TELS = ['7738784781', '8306883773'];
+    var HIDDEN_TELS = ['7738784781', '8306883773', '9892487704', '9136878037'];
     var SHOW_HIDDEN = false;
     var tel10 = function (x) { return String(x == null ? '' : x).replace(/[^0-9]/g, '').slice(-10); };
     var isHiddenTel = function (x) { return HIDDEN_TELS.indexOf(tel10(x)) > -1; };
@@ -549,8 +549,9 @@ export function initOps() {
       ORDERS = data.orders || [];
       ABANDONED = data.abandoned || [];
       FUNNEL_DAILY = data.funnelDaily || {};
-      DEMOS = data.demos || [];
-      VIEWINGS = data.viewings || [];
+      // Test numbers stay out of the bookings lists (and their counts) unless "Show test records" is on.
+      DEMOS = (data.demos || []).filter(function (d) { return SHOW_HIDDEN || !isHiddenTel(d.phone); });
+      VIEWINGS = (data.viewings || []).filter(function (v) { return SHOW_HIDDEN || !isHiddenTel(v.phone); });
       PEOPLE = data.people || [];
       AFFILIATES = data.affiliates || [];
       SUBSCRIBERS = ('subscribers' in data) ? data.subscribers : [];
