@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import {
   MARKET_COOKIE,
+  INDIA_MARKET,
   getMarketByPath,
   getMarketByCookie,
   getMarketByCountry,
@@ -114,8 +115,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  // If the URL already carries a locale, respect it (no redirect).
-  if (parseLocaleFromPath(pathname)) return next();
+  // If the URL already carries a locale, respect it — except for a visitor in India with
+  // no saved choice. Google lists /en-se, /en-sg etc. product URLs, and an Indian searcher
+  // who clicks one used to stay on that country's page (foreign currency, global checkout).
+  // A manual market choice (cookie) still wins, so picking another country keeps working.
+  if (parseLocaleFromPath(pathname)) {
+    if (!cookies.get(MARKET_COOKIE)?.value && readCountry(request) === 'IN') {
+      return redirect(getAlternateUrl(pathname, INDIA_MARKET) + url.search, 302);
+    }
+    return next();
+  }
 
   // We're at the root (India context). A manual choice wins.
   // url.search is carried through both redirects below: dropping it silently killed
