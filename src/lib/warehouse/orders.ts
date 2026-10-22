@@ -126,7 +126,7 @@ const ORDER_COLS = [
   'order_id', 'store', 'name', 'created_at', 'cancelled_at', 'person_id', 'phone', 'email', 'currency', 'total',
   'total_inr', 'shop_currency', 'shop_total', 'discount_codes', 'payment_method', 'billing_name', 'shipping_name',
   'shipping_city', 'shipping_country', 'likely_gift', 'items', 'financial_status', 'fulfillment_status', 'is_test',
-  'updated_at',
+  'click_id', 'updated_at',
 ];
 const RETURN_COLS = ['return_id', 'order_id', 'person_id', 'created_at', 'reason', 'items', 'source', 'status'];
 
@@ -191,6 +191,7 @@ const ORDERS = /* GraphQL */ `
     orders(first: ${PAGE}, after: $after, query: $q, sortKey: UPDATED_AT) {
       edges { node {
         id name createdAt updatedAt cancelledAt test tags note email phone
+        customAttributes { key value }
         paymentGatewayNames discountCodes displayFinancialStatus displayFulfillmentStatus
         totalPriceSet { shopMoney { amount currencyCode } presentmentMoney { amount currencyCode } }
         customer { displayName phone email }

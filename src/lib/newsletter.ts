@@ -6,6 +6,7 @@
 // scope on the India Admin app — `shopifyOk` records whether that worked.
 // Degrades to null / false when FIREBASE_SERVICE_ACCOUNT isn't set.
 import { adminDb } from './firebaseAdmin';
+import { mirrorSubscriber } from './warehouse/affiliates';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 export interface Subscriber {
@@ -46,6 +47,7 @@ export async function recordSubscriber(
       if (opts.market) patch.market = opts.market;
     }
     await ref.set(patch, { merge: true });
+    await mirrorSubscriber(key, opts);   // second copy, in Neon
     return true;
   } catch (e) {
     console.error('[newsletter] recordSubscriber failed:', e);
