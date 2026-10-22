@@ -41,3 +41,10 @@ const sha = (v) => crypto.createHash('sha256').update(v).digest('hex');
 }
 
 console.log('meta-capi: all checks passed');
+
+// Catalog ids: events send the numeric variant id, which is how the Meta catalog keys its items.
+{
+  const { contentId } = await import('./content-id.ts');
+  assert.equal(contentId('gid://shopify/ProductVariant/67593334915287'), '67593334915287');
+  assert.equal(contentId('67593334915287'), '67593334915287');
+}

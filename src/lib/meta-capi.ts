@@ -11,6 +11,8 @@ import crypto from 'node:crypto';
 const PIXEL_ID = '1169633797586706'; // same id as the browser pixel in BaseLayout.astro — public by design
 const API_VERSION = 'v26.0';
 
+export { contentId } from './content-id.ts';
+
 const token = () => (typeof process !== 'undefined' ? process.env.META_CAPI_TOKEN : undefined);
 export const metaCapiConfigured = (): boolean => !!token();
 
