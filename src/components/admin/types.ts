@@ -95,6 +95,8 @@ export interface ScorePartView { key: string; label: string; detail: string; poi
 export interface ScoreView { score: number | null; notALead: string | null; parts: ScorePartView[]; subtotal: number; fade: { factor: number; note: string } | null; }
 export interface TimelineStep { at: string; text: string; sub?: string; kind: 'visit' | 'event' | 'order' | 'booking'; }
 export interface HandledAction { at: string; by: string; outcome: string; note: string | null; kind: string; }
+export interface BrowsedPage { path: string; views: number; lastAt: string | null; engagedSec: number; maxScroll: number }
+export interface BrowsedBag { handle: string; views: number; soldOutViews: number; cartAdds: number; lastAt: string | null; engagedSec: number }
 export interface PersonDetail {
   id: string;
   row: PersonRow | null;          // null: new since the People copy was built
@@ -108,6 +110,7 @@ export interface PersonDetail {
   handled: HandledAction[];
   score: ScoreView | null;        // null: new since the People copy was built
   timeline: TimelineStep[];       // newest first
+  browsed: { pages: BrowsedPage[]; bags: BrowsedBag[] };
 }
 export interface RefreshState { status: 'running' | 'done' | 'failed'; asOf: string | null; }
 

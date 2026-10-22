@@ -277,6 +277,10 @@ export function mapPersonDetail(d: Raw, now = Date.now()): PersonDetail {
     handled,
     score: mapScore(d?.score_breakdown),
     timeline: buildTimeline(arr(d?.timeline), now),
+    browsed: {
+      pages: arr(d?.browsing?.pages).map((x: Raw) => ({ path: str(x.path), views: num(x.views), lastAt: x.last_at ?? null, engagedSec: num(x.engaged_s), maxScroll: num(x.max_scroll) })),
+      bags: arr(d?.browsing?.products).map((x: Raw) => ({ handle: str(x.handle), views: num(x.views), soldOutViews: num(x.sold_out_views), cartAdds: num(x.cart_adds), lastAt: x.last_at ?? null, engagedSec: num(x.engaged_s) })),
+    },
   };
 }
 

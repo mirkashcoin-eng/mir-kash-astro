@@ -3,6 +3,7 @@ import { requestIsAdmin } from '~/lib/adminAuth';
 import { q } from '~/lib/db';
 import { leadReason, scoreBreakdown, scoreSql } from '~/lib/leadscore';
 import { waNumber } from '~/lib/whatsapp';
+import { browsing } from '~/lib/browsing';
 
 export const prerender = false;
 
@@ -308,6 +309,7 @@ async function detail(id: string): Promise<Response> {
     visitors: visitors.map((v: Row) => ({ ...v, first_seen: iso(v.first_seen), last_seen: iso(v.last_seen) })),
     actions: actions.map((a: Row) => ({ ...a, done_at: iso(a.done_at) })),
     counts: { visits: starts.length, events: events.length, orders: orders.length, bookings: bookings.length },
+    browsing: browsing(events as any),
     timeline: items.map(({ order: _o, ...rest }) => rest),
   });
 }

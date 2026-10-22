@@ -70,6 +70,37 @@ function scorePanel(sc: ScoreView | null): string {
     '<tr class="ad-score__t"><td>Score</td><td class="r amt">' + (sc.score ?? '·') + ' <span class="ad-mut">of 100</span></td></tr></tbody></table></div>';
 }
 
+// "What they looked at": bags (views, cart adds, time) and the other pages visited.
+const PAGE_NAMES: Record<string, string> = {
+  '/': 'Home', '/try-at-home': 'Try at Home', '/private-viewing': 'Private Viewing', '/cart': 'Cart',
+  '/checkout': 'Checkout', '/account': 'Account', '/search': 'Search', '/about': 'About',
+};
+const pageName = (path: string): string => PAGE_NAMES[path] ||
+  path.split('/').filter(Boolean).map((seg) => seg.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())).join(' › ');
+const spent = (sec: number): string => (!sec ? '—' : sec < 60 ? sec + 's' : Math.floor(sec / 60) + 'm ' + String(sec % 60).padStart(2, '0') + 's');
+
+function browsedPanel(p: PersonDetail): string {
+  const { bags, pages } = p.browsed;
+  const others = pages.filter((x) => !x.path.startsWith('/products/'));
+  if (!bags.length && !others.length) return '';
+  const bagRows = bags.map((b) => {
+    const tags = [
+      b.views ? 'viewed ' + b.views + '×' : '',
+      b.soldOutViews ? 'sold out ' + b.soldOutViews + '×' : '',
+      b.cartAdds ? '<strong>added to cart</strong>' : '',
+    ].filter(Boolean).join(' · ');
+    return '<tr><td>' + esc(productName(b.handle)) + '<div class="ad-mut ad-small">' + tags + (b.lastAt ? ' · last ' + esc(istWhen(b.lastAt)) : '') + '</div></td>' +
+      '<td class="r amt">' + spent(b.engagedSec) + '</td></tr>';
+  }).join('');
+  const pageRows = others.map((x) =>
+    '<tr><td>' + esc(pageName(x.path)) + '<div class="ad-mut ad-small">' + x.views + (x.views === 1 ? ' visit' : ' visits') +
+    (x.maxScroll ? ' · scrolled ' + Math.round(x.maxScroll) + '%' : '') + (x.lastAt ? ' · last ' + esc(istWhen(x.lastAt)) : '') + '</div></td>' +
+    '<td class="r amt">' + spent(x.engagedSec) + '</td></tr>').join('');
+  const table = (title: string, rows: string) => rows
+    ? '<div class="ad-dsect"><h3 class="ad-dh3">' + title + '</h3><table class="ad-dtable"><tbody>' + rows + '</tbody></table></div>' : '';
+  return table('Bags looked at <span class="ad-mut">· time on page</span>', bagRows) + table('Other pages visited <span class="ad-mut">· time on page</span>', pageRows);
+}
+
 export function renderPeople(el: HTMLElement, q: Query, openPerson: (id: string) => void) {
   const pq = peopleState.pq;
   const stage = pq.stage || 'all';
@@ -132,7 +163,7 @@ export function personDrawer(p: PersonDetail, outcomes: string[] = DEFAULT_OUTCO
   const facts: [string, string][] = [];
   if (r) {
     facts.push(['First came from', r.source], ['Last came from', r.lastSource], ['Device', r.device], ['Time on site', minutes(r.timeOnSiteMin) + ' total']);
-    if (r.products.length) facts.push(['Bags looked at', r.products.map(productName).join(', ')]);
+    if (r.products.length && !p.browsed.bags.length) facts.push(['Bags looked at', r.products.map(productName).join(', ')]);
     if (r.cartValue) facts.push(['Latest cart', inr(r.cartValue, r.cartCurrency || 'INR')]);
     if (r.orders) facts.push(['Orders', r.orders + (r.orders > 1 ? ' · repeat buyer' : '') + (r.ltv ? ' · ' + inr(r.ltv) : '')]);
     if (r.daysToFirstPurchase != null) facts.push(['Time to first order', r.daysToFirstPurchase < 1 ? 'Same day' : Math.round(r.daysToFirstPurchase) + ' days']);
@@ -152,6 +183,7 @@ export function personDrawer(p: PersonDetail, outcomes: string[] = DEFAULT_OUTCO
     [p.phone, p.email].filter(Boolean).map((c) => '<p class="ad-dmeta">' + esc(c) + '</p>').join('') + '</div>' +
     (acts.length || handle ? '<div class="ad-dactions">' + acts.join('') + handle + '</div><p class="ad-irow__msg ad-small" role="status" data-drawer-msg></p>' : '') +
     (facts.length ? '<dl class="ad-dfacts">' + facts.map((f) => '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>').join('') + '</dl>' : '') +
+    browsedPanel(p) +
     scorePanel(p.score) +
     handled +
     '<div class="ad-dsect"><h3 class="ad-dh3">Journey · newest first</h3>' +

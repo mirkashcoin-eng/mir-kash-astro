@@ -311,6 +311,17 @@ export function demoPersonRaw(id: string): any | null {
     visitors: [],
     actions: [],
     counts: { visits: 3, events: 9, orders: summary.orders, bookings: 0 },
+    browsing: {
+      pages: [
+        { path: '/', views: 3, last_at: hAgo(2), engaged_s: 74, max_scroll: 60 },
+        { path: '/try-at-home', views: 1, last_at: hAgo(26), engaged_s: 95, max_scroll: 100 },
+        { path: '/collections/totes', views: 2, last_at: hAgo(30), engaged_s: 41, max_scroll: 80 },
+      ],
+      products: [
+        { handle: 'tote-ink', views: 2, sold_out_views: 0, cart_adds: 1, last_at: hAgo(2), engaged_s: 128 },
+        { handle: 'tote-rust', views: 3, sold_out_views: 1, cart_adds: 0, last_at: hAgo(30), engaged_s: 57 },
+      ],
+    },
     timeline: [
       v(1, 300, 'instagram', { campaign: 'reel-1', landing: '/products/tote' }),
       e('page_view', 300, { page_view_id: 'a' }), e('product_view', 299.9, { product: 'tote-rust' }), e('product_view', 299.8, { product: 'tote-ink' }),

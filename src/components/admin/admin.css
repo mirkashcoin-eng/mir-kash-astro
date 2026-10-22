@@ -136,7 +136,7 @@ body.ad-role-full .ad-nav__item--founders { display: flex; }
 .ad-panel__body { padding: 4px 20px 20px; }
 .ad-panel__flush { padding: 0; }
 .ad-panel--flush { padding-bottom: 4px; }
-.ad-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ad-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; } /* relative: the .ad-sr labels inside tables are absolute; without a positioned scroller they escape it and widen the whole page on a phone */
 .ad-chartcard { padding-bottom: 20px; }
 .ad-chartcard .ad-hbars, .ad-chartcard .ad-chartwrap { padding: 0 20px; }
 .ad-chart-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 16px 20px 12px; }
