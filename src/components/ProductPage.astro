@@ -289,6 +289,9 @@ const shipLines = shippingList.length ? shippingList : FALLBACK_SHIPPING;
 const returnsRef = shipLines.at(-1)?.match(/^(.*?\.\s+)?([^.]*?)Returns page([^.]*\.?)$/);
 if (returnsRef) shipLines.splice(-1, 1, ...(returnsRef[1] ? [returnsRef[1].trim()] : []));
 const hasWarranty = !product.tags.includes('no-warranty');
+// Accessories (charms) are too small to be worth a Try at Home visit or a Private Viewing, so they never get the booking pop-up.
+const ACCESSORY_TYPES = ['charms'];
+const isAccessory = ACCESSORY_TYPES.includes((product.productType ?? '').trim().toLowerCase());
 type Accordion = { key: string; title: string; vegan?: boolean; lines?: string[]; text?: string; sub?: { title: string; lines: string[] }; link?: { href: string; before: string; label: string; after: string } };
 const accordions: Accordion[] = [
   // Details, size and care in one dropdown (decided 29 Sep): details → dimensions → a "Care" sub-list.
@@ -624,7 +627,7 @@ const faq = faqFor(product, marketConfig);
   <button class="mob-bar__atc mob-bar__add" id="mobAtcBtn">Add to Cart</button>
   <button class="mob-bar__atc mob-bar__buy" id="mobBuyBtn">Buy Now</button>
 </div>
-<ViewingPrompt page="product" handle={product.handle} title={product.title} image={images[firstVisible]?.full} />
+{!isAccessory && <ViewingPrompt page="product" handle={product.handle} title={product.title} image={images[firstVisible]?.full} />}
 
 <SiteFooter hideWarranty={!hasWarranty} />
 
