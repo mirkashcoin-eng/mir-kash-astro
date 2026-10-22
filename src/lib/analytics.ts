@@ -75,32 +75,30 @@ export interface PromptStats {
 }
 
 // Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
-export async function getPromptStats(days = 30): Promise<PromptStats | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    const zero = (): PromptCounts => ({ shown: 0, dismiss: 0, click: 0 });
-    const out: PromptStats = {
-      days, all: zero(),
-      byPage: { home: zero(), shop: zero(), product: zero() },
-      byOffer: { tryhome: zero(), viewing: zero() },
+export function promptFromDocs(docs: DayDoc[], days: number): PromptStats {
+  const zero = (): PromptCounts => ({ shown: 0, dismiss: 0, click: 0 });
+  const out: PromptStats = {
+    days, all: zero(),
+    byPage: { home: zero(), shop: zero(), product: zero() },
+    byOffer: { tryhome: zero(), viewing: zero() },
+  };
+  for (const { data: v } of docs) {
+    const add = (c: PromptCounts, suffix: string) => {
+      c.shown += Number(v[`vp_shown${suffix}`] || 0);
+      c.dismiss += Number(v[`vp_dismiss${suffix}`] || 0);
+      c.click += Number(v[`vp_click${suffix}`] || 0);
     };
-    snap.forEach((doc) => {
-      const v = doc.data() as Record<string, number>;
-      const add = (c: PromptCounts, suffix: string) => {
-        c.shown += Number(v[`vp_shown${suffix}`] || 0);
-        c.dismiss += Number(v[`vp_dismiss${suffix}`] || 0);
-        c.click += Number(v[`vp_click${suffix}`] || 0);
-      };
-      add(out.all, '');
-      for (const p of PROMPT_PAGES) add(out.byPage[p], `_${p}`);
-      for (const o of PROMPT_OFFERS) add(out.byOffer[o], `_${o}`);
-    });
-    return out;
-  } catch {
-    return null;
+    add(out.all, '');
+    for (const p of PROMPT_PAGES) add(out.byPage[p], `_${p}`);
+    for (const o of PROMPT_OFFERS) add(out.byOffer[o], `_${o}`);
   }
+  return out;
+}
+
+// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
+export async function getPromptStats(days = 30): Promise<PromptStats | null> {
+  const docs = await recentDayDocs(days);
+  return docs ? promptFromDocs(docs, days) : null;
 }
 
 // Cart "Before you go" panel counters, in the same daily doc. Per event: a total plus an
@@ -134,25 +132,23 @@ export interface CartExitStats {
 }
 
 // Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
-export async function getCartExitStats(days = 30): Promise<CartExitStats | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    const zero = (): CartExitCounts =>
-      Object.fromEntries(CART_EXIT_EVENTS.map((e) => [e, 0])) as CartExitCounts;
-    const out: CartExitStats = { days, counts: zero(), byOffer: { tryhome: zero(), viewing: zero() } };
-    snap.forEach((doc) => {
-      const v = doc.data() as Record<string, number>;
-      for (const e of CART_EXIT_EVENTS) {
-        out.counts[e] += Number(v[e] || 0);
-        for (const o of CART_EXIT_OFFERS) out.byOffer[o][e] += Number(v[`${e}_${o}`] || 0);
-      }
-    });
-    return out;
-  } catch {
-    return null;
+export function cartExitFromDocs(docs: DayDoc[], days: number): CartExitStats {
+  const zero = (): CartExitCounts =>
+    Object.fromEntries(CART_EXIT_EVENTS.map((e) => [e, 0])) as CartExitCounts;
+  const out: CartExitStats = { days, counts: zero(), byOffer: { tryhome: zero(), viewing: zero() } };
+  for (const { data: v } of docs) {
+    for (const e of CART_EXIT_EVENTS) {
+      out.counts[e] += Number(v[e] || 0);
+      for (const o of CART_EXIT_OFFERS) out.byOffer[o][e] += Number(v[`${e}_${o}`] || 0);
+    }
   }
+  return out;
+}
+
+// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
+export async function getCartExitStats(days = 30): Promise<CartExitStats | null> {
+  const docs = await recentDayDocs(days);
+  return docs ? cartExitFromDocs(docs, days) : null;
 }
 
 // Try at Home page funnel, in the same daily doc: how many reached each step, so /admin
@@ -160,6 +156,24 @@ export async function getCartExitStats(days = 30): Promise<CartExitStats | null>
 // day (see BookDemo.astro), so these read as daily unique visitors, not page loads.
 // Each count also has an `_ad` twin for visitors who arrived from a Meta ad. `total` is
 // untouched so the shop funnel is unaffected.
+
+// One day's counters, as the Firestore daily doc held them: flat numeric fields such as
+// th_view, th_view_ad, th_view_abA, vp_shown_home. The Neon-backed panels (see
+// lib/warehouse/panels.ts) build the same shape, so both sources share the sums below.
+export interface DayDoc { id: string; data: Record<string, number> }
+
+// The newest `days` daily docs from Firestore; null when it is unreachable or over quota.
+async function recentDayDocs(days: number): Promise<DayDoc[] | null> {
+  const db = adminDb();
+  if (!db) return null;
+  try {
+    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
+    return snap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, number> }));
+  } catch {
+    return null;
+  }
+}
+
 export const TRY_AT_HOME_EVENTS = ['th_view', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
 export type TryAtHomeEvent = (typeof TRY_AT_HOME_EVENTS)[number];
 
@@ -188,60 +202,56 @@ export interface TryAtHomeStats {
 
 // Summed over the last `days` daily docs, plus each day on its own. null if
 // unavailable, so /admin can degrade.
-export async function getTryAtHomeStats(days = 30): Promise<TryAtHomeStats | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    const zero = (): TryAtHomeCounts =>
-      Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
-    const out: TryAtHomeStats = { days, all: zero(), ad: zero(), daily: [] };
-    snap.forEach((doc) => {
-      const v = doc.data() as Record<string, number>;
-      const day = zero();
-      for (const e of TRY_AT_HOME_EVENTS) {
-        day[e] = Number(v[e] || 0);
-        out.all[e] += day[e];
-        out.ad[e] += Number(v[`${e}_ad`] || 0);
-      }
-      if (day.th_view) out.daily.push({ day: String(v.day || doc.id), all: day });
-    });
-    return out;
-  } catch {
-    return null;
+export function tryAtHomeFromDocs(docs: DayDoc[], days: number): TryAtHomeStats {
+  const zero = (): TryAtHomeCounts =>
+    Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
+  const out: TryAtHomeStats = { days, all: zero(), ad: zero(), daily: [] };
+  for (const { id, data: v } of docs) {
+    const day = zero();
+    for (const e of TRY_AT_HOME_EVENTS) {
+      day[e] = Number(v[e] || 0);
+      out.all[e] += day[e];
+      out.ad[e] += Number(v[`${e}_ad`] || 0);
+    }
+    if (day.th_view) out.daily.push({ day: String((v as { day?: unknown }).day || id), all: day });
   }
+  return out;
+}
+
+// Summed over the last `days` daily docs, plus each day on its own. null if
+// unavailable, so /admin can degrade.
+export async function getTryAtHomeStats(days = 30): Promise<TryAtHomeStats | null> {
+  const docs = await recentDayDocs(days);
+  return docs ? tryAtHomeFromDocs(docs, days) : null;
 }
 
 // Phone banner test totals per version since it started (the first day either version
 // was counted), from the `_abA` / `_abB` twins above. Reads up to `days` daily docs.
 export interface BannerTestCounts { A: TryAtHomeCounts; B: TryAtHomeCounts; firstDay: string | null; days: number }
 
-export async function getBannerTestCounts(days = 120): Promise<BannerTestCounts | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    const zero = (): TryAtHomeCounts =>
-      Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
-    const out: BannerTestCounts = { A: zero(), B: zero(), firstDay: null, days: 0 };
-    snap.forEach((doc) => {
-      const v = doc.data() as Record<string, number>;
-      if (!v.th_view_abA && !v.th_view_abB) return;
-      for (const e of TRY_AT_HOME_EVENTS) {
-        out.A[e] += Number(v[`${e}_abA`] || 0);
-        out.B[e] += Number(v[`${e}_abB`] || 0);
-      }
-      const day = String(v.day || doc.id);
-      if (!out.firstDay || day < out.firstDay) out.firstDay = day;
-    });
-    if (out.firstDay) {
-      const today = dayKey();
-      out.days = Math.round((Date.parse(today) - Date.parse(out.firstDay)) / 864e5) + 1;
+export function bannerFromDocs(docs: DayDoc[], days: number): BannerTestCounts {
+  const zero = (): TryAtHomeCounts =>
+    Object.fromEntries(TRY_AT_HOME_EVENTS.map((e) => [e, 0])) as TryAtHomeCounts;
+  const out: BannerTestCounts = { A: zero(), B: zero(), firstDay: null, days: 0 };
+  for (const { id, data: v } of docs) {
+    if (!v.th_view_abA && !v.th_view_abB) continue;
+    for (const e of TRY_AT_HOME_EVENTS) {
+      out.A[e] += Number(v[`${e}_abA`] || 0);
+      out.B[e] += Number(v[`${e}_abB`] || 0);
     }
-    return out;
-  } catch {
-    return null;
+    const day = String((v as { day?: unknown }).day || id);
+    if (!out.firstDay || day < out.firstDay) out.firstDay = day;
   }
+  if (out.firstDay) {
+    const today = dayKey();
+    out.days = Math.round((Date.parse(today) - Date.parse(out.firstDay)) / 864e5) + 1;
+  }
+  return out;
+}
+
+export async function getBannerTestCounts(days = 120): Promise<BannerTestCounts | null> {
+  const docs = await recentDayDocs(days);
+  return docs ? bannerFromDocs(docs, days) : null;
 }
 
 export interface ProductStat {

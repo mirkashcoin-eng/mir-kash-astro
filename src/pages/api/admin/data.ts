@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
 import { getDemoBookings, getPrivateViewingBookings, getAbandonedCheckouts, getAbandonedDrafts, getRecentOrders, type AbandonedCheckout } from '~/lib/shopify/admin';
 import { getBannerTestCounts, getCartExitStats, getFunnel, getProductStats, getPromptStats, getTryAtHomeStats } from '~/lib/analytics';
+import { getTryAtHomePanels } from '~/lib/warehouse/panels';
 import { verdict, MIN_DAYS, MIN_PER_ARM } from '~/lib/ab-test';
 import { getPeople, personKey, type BookingProgress, type Person } from '~/lib/leads';
 import { getAffiliateSummary } from '~/lib/clicks';
@@ -46,7 +47,7 @@ function daysBetween(from: string | null, to: string | null): number | null {
 export const GET: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
-  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, prompt, cartExit, tryAtHome, bannerCounts] = await Promise.all([
+  const [demos, viewings, nativeAbandoned, draftAbandoned, orders, funnel, people, products, subscribers, funnelDaily, panels] = await Promise.all([
     getDemoBookings(),
     getPrivateViewingBookings(),
     getAbandonedCheckouts(), // Global store — Shopify-hosted checkout
@@ -57,11 +58,12 @@ export const GET: APIRoute = async ({ request }) => {
     getProductStats(20),     // most-viewed products
     getSubscribers(1000),    // newsletter signups (Firestore)
     getFunnelDaily(240),     // immutable per-day funnel counts (Daily funnel grid)
-    getPromptStats(30),      // booking-prompt shown / closed / went ahead
-    getCartExitStats(30),    // cart "Before you go" panel: reasons and what they did next
-    getTryAtHomeStats(30),   // Try at Home page: how many reached each step
-    getBannerTestCounts(),   // phone banner A/B test, per version since it started
+    getTryAtHomePanels(),    // Try at Home counters from Neon (legacy copy + event log)
   ]);
+  // Neon first; Firestore only if the database is unreachable (it runs out of daily quota).
+  const [prompt, cartExit, tryAtHome, bannerCounts] = panels
+    ? [panels.prompt, panels.cartExit, panels.tryAtHome, panels.bannerCounts]
+    : await Promise.all([getPromptStats(30), getCartExitStats(30), getTryAtHomeStats(30), getBannerTestCounts()]);
   const abandoned = [...draftAbandoned, ...nativeAbandoned].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
