@@ -20,7 +20,7 @@ const json = (obj: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' },
   });
 
-const STAGES = ['visited', 'viewed', 'cart', 'checkout', 'phone', 'address', 'payment', 'ordered'] as const;
+const STAGES = ['visited', 'viewed', 'cart', 'phone', 'address', 'payment', 'ordered'] as const;
 const SORTS: Record<string, string> = {
   last_seen: 'last_seen',
   first_seen: 'first_seen',

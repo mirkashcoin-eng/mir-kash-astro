@@ -73,6 +73,13 @@ try {
   await event(`${P}va2`, `${P}sa3`, 'checkout_start', 19.9);
   await event(`${P}va2`, `${P}sa3`, 'phone', 19.8);
 
+  // A2 — opened checkout but left no number: still at "cart" (checkout is not a stage of its own).
+  await visitor(`${P}vc1`, { person: null, first: ago(5) });
+  await session(`${P}sc1`, `${P}vc1`, 5);
+  await event(`${P}vc1`, `${P}sc1`, 'page_view', 5, { pv: uuid() });
+  await event(`${P}vc1`, `${P}sc1`, 'add_to_cart', 4.9, { props: { cart_total: 7000 } });
+  await event(`${P}vc1`, `${P}sc1`, 'checkout_start', 4.8);
+
   // B — bought after carting: stage ordered, not a lead.
   await person(`${P}b`, { phone: '+919000000002', first: ago(1) });
   await visitor(`${P}vb`, { person: `${P}b`, first: ago(24 * 10) });
@@ -129,8 +136,13 @@ try {
 
   // Inclusion rule: every person; anonymous only beyond a single page view.
   assert.deepEqual(rows.map((r) => r.id).sort(), [
-    `${P}a`, `${P}b`, `${P}c`, `${P}d`, `${P}e`, `v:${P}v2`, `v:${P}v3`, `v:${P}v4`, `v:${P}v6`,
+    `${P}a`, `${P}b`, `${P}c`, `${P}d`, `${P}e`, `v:${P}v2`, `v:${P}v3`, `v:${P}v4`, `v:${P}v6`, `v:${P}vc1`,
   ].sort());
+
+  // Opened checkout without leaving a number: at "cart", not a stage of its own.
+  assert.equal(by[`v:${P}vc1`].stage, 'cart');
+  assert.equal(by[`v:${P}vc1`].checkout_reached, true);   // the lead score still credits it
+  assert.ok(!rows.some((r) => r.stage === 'checkout'));
 
   // A: two devices, three visits → one returning person with the whole history.
   const a = by[`${P}a`];

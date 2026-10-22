@@ -10,10 +10,10 @@ const num = (v: unknown): number => { const n = Number(v); return Number.isFinit
 const numOrNull = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const str = (v: unknown): string => (v == null ? '' : String(v));
 
-const STAGES: Stage[] = ['visited', 'viewed', 'cart', 'checkout', 'phone', 'address', 'payment', 'ordered'];
+const STAGES: Stage[] = ['visited', 'viewed', 'cart', 'phone', 'address', 'payment', 'ordered'];
 export const STAGE_LABEL: Record<Stage, string> = {
-  visited: 'Visited', viewed: 'Viewed', cart: 'Cart', checkout: 'Checkout', phone: 'Gave phone',
-  address: 'Address', payment: 'Payment', ordered: 'Ordered',
+  visited: 'Visited', viewed: 'Viewed product', cart: 'Added to cart', phone: 'Added phone number',
+  address: 'Added address', payment: 'Attempted payment', ordered: 'Ordered',
 };
 
 // ── Words ────────────────────────────────────────────────────────────────────

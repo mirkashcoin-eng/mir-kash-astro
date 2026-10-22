@@ -37,23 +37,17 @@ export const TERMS: Record<string, string> = {
   'Device': 'Phone, desktop or tablet, taken from the browser each visitor used.',
   'Do people come back?': 'Each row is a week of first-time visitors. The columns show how many came back, or bought, in the weeks after.',
   'Traffic by country': 'Visitors by country.',
-  // People: the eight steps (each person sits at the furthest one we saw them reach)
+  // People: the seven steps. A person sits at the furthest one we saw them reach, and once
+  // they leave a phone number every earlier visit on their other devices joins them.
   'step:visited': 'Came to the site but did not open a bag.',
   'step:viewed': 'Looked at one or more bags, but never added one to the cart.',
-  'step:cart': 'Put a bag in the cart, but has not opened checkout or left a number.',
-  'step:checkout': 'Opened checkout, but did not leave a phone number.',
-  'step:phone': 'Left a phone number, so you can contact them. Counted here even if they never opened checkout.',
-  'step:address': 'Entered a delivery address.',
-  'step:payment': 'Reached the payment step, or tried to pay, but has no completed order.',
+  'step:cart': 'Put a bag in the cart, but has not left a phone number yet. Includes people who opened checkout and left.',
+  'step:phone': 'Left a phone number. From here on the person is known by that number, with all their earlier visits attached.',
+  'step:address': 'Entered a delivery address but has not tried to pay.',
+  'step:payment': 'Tried to pay, or reached the payment step, but has no completed order.',
   'step:ordered': 'Has a completed order.',
   'Why this score': 'The score out of 100 is the sum of these lines. Each line gives points for one thing the person did. If they were last here a long time ago the total is reduced.',
   // People filters
   'Everyone': 'Every person, whatever they did.',
   'Returning': 'People who have visited more than once.',
-  'Viewed': 'People who looked at a bag but did not add one to the cart.',
-  'Cart': 'People with a bag in their cart who have not started to pay.',
-  'At checkout': 'People who opened checkout.',
-  'Gave phone': 'People who typed in a phone number, so you can contact them.',
-  'Payment': 'People who reached the payment step.',
-  'Ordered': 'People with an order.',
 };

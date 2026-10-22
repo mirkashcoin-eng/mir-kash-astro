@@ -41,7 +41,7 @@ export interface InboxGroup { key: InboxKind; title: string; items: InboxItem[];
 export interface InboxData { total: number; asOf: string | null; hotThreshold: number | null; groups: InboxGroup[]; }
 
 // ── People (from GET /api/admin/people) ──────────────────────────────────────
-export type Stage = 'visited' | 'viewed' | 'cart' | 'checkout' | 'phone' | 'address' | 'payment' | 'ordered';
+export type Stage = 'visited' | 'viewed' | 'cart' | 'phone' | 'address' | 'payment' | 'ordered';
 export type PeopleSort = 'last_seen' | 'first_seen' | 'score' | 'value' | 'cart' | 'visits';
 export interface PeopleQuery {
   q?: string;

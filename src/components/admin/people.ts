@@ -9,10 +9,12 @@ import { doneMenu, wireDone } from './inbox';
 import { empty, term } from './charts';
 import { DEFAULT_OUTCOMES, STAGE_LABEL, istDate, istWhen, outcomeLabel, productName } from './mapping';
 
+// The funnel, in order. Everyone and Returning come first because they are not steps.
 const CHIPS: { key: string; label: string }[] = [
-  { key: 'all', label: 'Everyone' }, { key: 'returning', label: 'Returning' }, { key: 'viewed', label: 'Viewed' },
-  { key: 'cart', label: 'Cart' }, { key: 'checkout', label: 'Checkout' }, { key: 'phone', label: 'Gave phone' },
-  { key: 'payment', label: 'Payment' }, { key: 'ordered', label: 'Ordered' },
+  { key: 'all', label: 'Everyone' }, { key: 'returning', label: 'Returning' },
+  { key: 'visited', label: 'Visited' }, { key: 'viewed', label: 'Viewed product' }, { key: 'cart', label: 'Added to cart' },
+  { key: 'phone', label: 'Added phone number' }, { key: 'address', label: 'Added address' },
+  { key: 'payment', label: 'Attempted payment' }, { key: 'ordered', label: 'Ordered' },
 ];
 const SORTS: { key: PeopleSort; label: string }[] = [
   { key: 'last_seen', label: 'Last seen' }, { key: 'score', label: 'Lead score' }, { key: 'cart', label: 'Cart value' },
@@ -47,7 +49,7 @@ function row(r: PersonRow): string {
 
 // The eight steps in the order the stage is decided (see 004_people.sql). A person is
 // counted once, at the furthest step we saw them reach, so the numbers add up.
-const STEPS: Stage[] = ['visited', 'viewed', 'cart', 'checkout', 'phone', 'address', 'payment', 'ordered'];
+const STEPS: Stage[] = ['visited', 'viewed', 'cart', 'phone', 'address', 'payment', 'ordered'];
 function stepStrip(d: PeopleList, current: string): string {
   return '<div class="ad-panel ad-steps" role="group" aria-label="How far people got"><ol class="ad-steps__list">' + STEPS.map((s) =>
     '<li class="ad-step' + (current === s ? ' on' : '') + '"><span class="ad-step__n">' + num(d.stages?.[s] ?? 0) + '</span>' +
@@ -79,7 +81,7 @@ export function renderPeople(el: HTMLElement, q: Query, openPerson: (id: string)
     '<label class="ad-sr" for="pCity">City</label><input class="ad-input" id="pCity" type="text" placeholder="City" value="' + esc(pq.city || '') + '" autocomplete="off">' +
     '<label class="ad-sr" for="pSort">Sort by</label><select class="ad-input" id="pSort">' + SORTS.map((s) => '<option value="' + s.key + '"' + ((pq.sort || 'last_seen') === s.key ? ' selected' : '') + '>Sort: ' + s.label + '</option>').join('') + '</select>' +
     '<button class="ad-btn" type="submit">Search</button></form>' +
-    '<div class="ad-chips" role="group" aria-label="Stage">' + CHIPS.map((c) => '<span class="ad-chipwrap"><button type="button" class="ad-chipbtn' + (stage === c.key ? ' on' : '') + '" aria-pressed="' + (stage === c.key) + '" data-stage="' + c.key + '">' + c.label + '</button>' + term(c.key === 'checkout' ? 'At checkout' : c.label) + '</span>').join('') + '</div>' +
+    '<div class="ad-chips" role="group" aria-label="Stage">' + CHIPS.map((c) => '<span class="ad-chipwrap"><button type="button" class="ad-chipbtn' + (stage === c.key ? ' on' : '') + '" aria-pressed="' + (stage === c.key) + '" data-stage="' + c.key + '">' + c.label + '</button>' + term(c.key === 'all' || c.key === 'returning' ? c.label : 'step:' + c.key) + '</span>').join('') + '</div>' +
     '<div id="pBody">' + LOADING + '</div>';
   const body = el.querySelector('#pBody') as HTMLElement;
   const reload = () => renderPeople(el, q, openPerson);

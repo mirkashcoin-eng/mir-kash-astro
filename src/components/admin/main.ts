@@ -25,7 +25,7 @@ const VIEWS: Record<string, ViewDef> = {
   checkout: { title: 'Checkout', sub: 'Where checkout loses people and money.', range: true, group: 'understand' },
   audience: { title: 'Audience', sub: 'Who visits, who buys, and what they use.', range: true, group: 'understand' },
   retention: { title: 'Retention', sub: 'Whether people come back and buy again.', range: true, group: 'understand' },
-  people: { title: 'People', sub: 'Each person is shown at the furthest step we saw them reach. The score (0–100) is how likely they are to buy if you contact them today. Open anyone to see the points behind it.', range: true, group: 'understand' },
+  people: { title: 'People', sub: 'Each person is shown at the furthest step we saw them reach. The score (0–100) is how likely they are to buy if you contact them today. Open anyone to see the points behind it. Once someone leaves a phone number, their visits on every device are joined and they are shown by that number (and by name once we have it).', range: true, group: 'understand' },
   daily: { title: 'Daily funnel', sub: 'One month at a time. Each column is a day (IST); each row counts the people who reached that step.', range: false, group: 'understand' },
   orders: { title: 'Orders & revenue', sub: '', range: false, group: 'ops' },
   fulfilment: { title: 'Fulfilment & payments', sub: '', range: false, group: 'ops' },

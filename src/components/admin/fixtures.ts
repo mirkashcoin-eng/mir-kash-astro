@@ -289,7 +289,7 @@ export function demoPeopleRaw(pq: PeopleQuery): any {
     const s = pq.q.toLowerCase();
     rows = rows.filter((r) => [r.name, r.phone, r.city, r.first_touch.source, r.first_touch.campaign].join(' ').toLowerCase().includes(s));
   }
-  const stages: Record<string, number> = { visited: 0, viewed: 0, cart: 0, checkout: 0, phone: 0, address: 0, payment: 0, ordered: 0 };
+  const stages: Record<string, number> = { visited: 0, viewed: 0, cart: 0, phone: 0, address: 0, payment: 0, ordered: 0 };
   for (const r of DEMO_PEOPLE) stages[r.stage]++;
   return { as_of: new Date().toISOString(), page: 1, size: 50, pages: 1, count: rows.length, returning: rows.filter((r) => r.returning).length, total: DEMO_PEOPLE.length, stages, rows };
 }

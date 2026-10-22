@@ -35,7 +35,7 @@ export async function mount<T>(el: HTMLElement, p: Promise<Result<T>>, paint: (d
 // People-list filters behind the numbers that have one.
 const DRILL: Record<string, PeopleQuery> = {
   visitors: { stage: 'all' }, returningVisitors: { stage: 'returning' }, orders: { stage: 'ordered' },
-  viewedProduct: { stage: 'viewed' }, addedToCart: { stage: 'cart' }, startedCheckout: { stage: 'checkout' },
+  viewedProduct: { stage: 'viewed' }, addedToCart: { stage: 'cart' },
   startedPayment: { stage: 'payment' }, ordered: { stage: 'ordered' },
 };
 const card = (m: Metric | undefined, q: Query, note?: string) => (m ? kpiCard(m, { compare: q.compare, drill: DRILL[m.key], note }) : '');
