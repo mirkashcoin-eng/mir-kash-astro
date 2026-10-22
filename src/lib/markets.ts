@@ -122,6 +122,17 @@ export function listMarkets(): MarketConfig[] {
   return MARKETS;
 }
 
+// Markets search engines may index. Every market stays shoppable (geo-redirect, switcher,
+// local currency), but the long tail are near-identical English pages differing only by
+// currency, and letting Google index all of them put /en-se and /en-sg results in front of
+// Indian searchers. Everything not listed here gets noindex and is left out of hreflang.
+const INDEXED_COUNTRIES = new Set([
+  'IN', 'SG', 'HK', 'US', 'GB', 'AE', 'AU',
+  'FR', 'DE', 'IT', 'ES', 'NL', 'CH',
+]);
+export const isIndexedMarket = (m: MarketConfig) => INDEXED_COUNTRIES.has(m.countryCode);
+export const listIndexedMarkets = (): MarketConfig[] => MARKETS.filter(isIndexedMarket);
+
 // ── Lookups ───────────────────────────────────────────────────────────────────
 export function getMarketBySlug(slug: string): MarketConfig | undefined {
   return MARKETS.find((m) => m.localeSlug === slug);
