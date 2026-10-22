@@ -85,7 +85,14 @@ export interface PersonRow {
   whatsapp: string | null;
   isTest: boolean;
 }
-export interface PeopleList { count: number; total: number; returning: number; page: number; pages: number; size: number; asOf: string | null; rows: PersonRow[]; }
+export interface PeopleList {
+  count: number; total: number; returning: number; page: number; pages: number; size: number; asOf: string | null; rows: PersonRow[];
+  /** People at each step (the furthest one reached), under the current filters but not the step itself. */
+  stages: Record<Stage, number>;
+}
+export interface ScorePartView { key: string; label: string; detail: string; points: number; max: number; }
+/** The points behind one person's score, from scoreBreakdown() in src/lib/leadscore.ts. */
+export interface ScoreView { score: number | null; notALead: string | null; parts: ScorePartView[]; subtotal: number; fade: { factor: number; note: string } | null; }
 export interface TimelineStep { at: string; text: string; sub?: string; kind: 'visit' | 'event' | 'order' | 'booking'; }
 export interface HandledAction { at: string; by: string; outcome: string; note: string | null; kind: string; }
 export interface PersonDetail {
@@ -99,6 +106,7 @@ export interface PersonDetail {
   firstSeen: string | null;
   counts: { visits: number; events: number; orders: number; bookings: number };
   handled: HandledAction[];
+  score: ScoreView | null;        // null: new since the People copy was built
   timeline: TimelineStep[];       // newest first
 }
 export interface RefreshState { status: 'running' | 'done' | 'failed'; asOf: string | null; }

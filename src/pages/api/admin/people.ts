@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
 import { q } from '~/lib/db';
-import { leadReason, scoreSql } from '~/lib/leadscore';
+import { leadReason, scoreBreakdown, scoreSql } from '~/lib/leadscore';
 import { waNumber } from '~/lib/whatsapp';
 
 export const prerender = false;
@@ -130,6 +130,7 @@ async function list(sp: URLSearchParams): Promise<Response> {
 
   // Filters: the N.
   const f: string[] = [];
+  let stageCond = '';
   const qs = (sp.get('q') || '').trim().toLowerCase().slice(0, 100);
   if (qs) {
     // Phones are stored as +91XXXXXXXXXX; a typed number is matched on its digits
@@ -142,7 +143,7 @@ async function list(sp: URLSearchParams): Promise<Response> {
   const stage = sp.get('stage');
   if (stage) {
     if (!(STAGES as readonly string[]).includes(stage)) return json({ error: 'Unknown stage' }, 400);
-    f.push(`stage = ${p(stage)}`);
+    stageCond = `stage = '${stage}'`;   // safe: checked against STAGES above
   }
   if (sp.get('returning') === '1') f.push('is_returning');
   const kind = sp.get('kind');
@@ -185,23 +186,30 @@ async function list(sp: URLSearchParams): Promise<Response> {
   // Score is computed per row (cheap arithmetic); only rows that pass the base
   // exclusions are scored.
   const scored = `SELECT m.*, ${scoreSql('m')} AS score FROM mv_people m${base.length ? ` WHERE ${base.join(' AND ')}` : ''}`;
-  const where = f.length ? f.join(' AND ') : 'true';
+  const where = [...f, ...(stageCond ? [stageCond] : [])].join(' AND ') || 'true';
+  // The step strip: how many people sit at each step under every filter EXCEPT the step
+  // itself, so picking a step doesn't zero out the others.
+  const whereAnyStage = f.length ? f.join(' AND ') : 'true';
 
-  const [totals, rows] = await Promise.all([
+  const [totals, rows, stageRows] = await Promise.all([
     q<{ count: string; returning: string; total: string }>(
       `SELECT count(*) FILTER (WHERE ${where}) AS count,
               count(*) FILTER (WHERE ${where} AND is_returning) AS returning,
               count(*) AS total
        FROM (${scored}) s`, params),
     q(`SELECT * FROM (${scored}) s WHERE ${where} ORDER BY ${order} LIMIT ${size} OFFSET ${(page - 1) * size}`, params),
+    q<{ stage: string; n: string }>(`SELECT stage, count(*) AS n FROM (${scored}) s WHERE ${whereAnyStage} GROUP BY stage`, params),
   ]);
-  if (!totals || !rows) return json({ error: 'Query failed' }, 500);
+  if (!totals || !rows || !stageRows) return json({ error: 'Query failed' }, 500);
+  const stages: Record<string, number> = Object.fromEntries(STAGES.map((s) => [s, 0]));
+  for (const r of stageRows) stages[r.stage] = n(r.n);
 
   const count = n(totals[0]?.count);
   return json({
     as_of: asOf,
     page, size, pages: Math.max(1, Math.ceil(count / size)),
     count,                               // N: people matching the filters
+    stages,                              // people at each step (furthest one reached), under the same filters but not the step itself
     returning: n(totals[0]?.returning),  // …of whom returning
     total: n(totals[0]?.total),          // M: everyone (bots/test excluded unless asked)
     sort: sortKey, dir: dir.toLowerCase(),
@@ -291,6 +299,7 @@ async function detail(id: string): Promise<Response> {
     as_of: asOf,
     id,
     summary: summary[0] ? shape(summary[0]) : null,   // null: new since the list was built, or a one-page visitor
+    score_breakdown: summary[0] ? scoreBreakdown(summary[0] as any) : null,   // the points behind `summary.score`
     person: pr ? {
       person_id: pr.person_id, name: pr.name, phone: pr.phone, email: pr.email, address1: pr.address1,
       city: pr.city, province: pr.province, pin: pr.pin, first_seen: iso(pr.first_seen), is_test: pr.is_test,

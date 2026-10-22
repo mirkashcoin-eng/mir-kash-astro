@@ -11,6 +11,7 @@ import type {
 } from './types';
 import type { AcqOpts } from './data';
 import { addDays, daysBetween } from './format';
+import { scoreBreakdown } from '~/lib/leadscore';
 
 const meta = <S extends SectionMeta['section']>(section: S, from: string, to: string, notes: string[] = []) => {
   const days = daysBetween(from, to) + 1;
@@ -288,7 +289,9 @@ export function demoPeopleRaw(pq: PeopleQuery): any {
     const s = pq.q.toLowerCase();
     rows = rows.filter((r) => [r.name, r.phone, r.city, r.first_touch.source, r.first_touch.campaign].join(' ').toLowerCase().includes(s));
   }
-  return { as_of: new Date().toISOString(), page: 1, size: 50, pages: 1, count: rows.length, returning: rows.filter((r) => r.returning).length, total: DEMO_PEOPLE.length, rows };
+  const stages: Record<string, number> = { visited: 0, viewed: 0, cart: 0, checkout: 0, phone: 0, address: 0, payment: 0, ordered: 0 };
+  for (const r of DEMO_PEOPLE) stages[r.stage]++;
+  return { as_of: new Date().toISOString(), page: 1, size: 50, pages: 1, count: rows.length, returning: rows.filter((r) => r.returning).length, total: DEMO_PEOPLE.length, stages, rows };
 }
 
 export function demoPersonRaw(id: string): any | null {
@@ -298,6 +301,12 @@ export function demoPersonRaw(id: string): any | null {
   const e = (name: string, h: number, extra: any = {}) => ({ type: 'event', ts: hAgo(h), name, ...extra });
   return {
     as_of: new Date().toISOString(), id, summary,
+    score_breakdown: scoreBreakdown({
+      cart_value: summary.cart_value, cart_currency: 'INR', last_seen: summary.last_seen, visits: summary.visits,
+      engaged_ms: summary.engaged_ms, products_viewed: (summary.products || []).length || (summary.visits > 1 ? 2 : 1),
+      phone_given: Boolean(summary.phone), phone_at: summary.last_seen, booking_started: false, checkout_reached: summary.stage === 'payment' || summary.stage === 'cart',
+      last_cart_at: summary.cart_value ? summary.last_seen : null, last_order_at: null, orders: summary.orders, is_bot: false, is_test: false,
+    }),
     person: summary.kind === 'person' ? { person_id: id, name: summary.name, phone: summary.phone, email: null, address1: null, city: summary.city, province: null, pin: null, first_seen: summary.first_seen, whatsapp: summary.whatsapp } : null,
     visitors: [],
     actions: [],

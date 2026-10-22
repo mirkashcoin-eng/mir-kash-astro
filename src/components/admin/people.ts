@@ -2,7 +2,7 @@
 // timeline (GET ?id=). "Mark handled" posts to /api/admin/inbox as a hot_lead.
 import * as data from './data';
 import type { Query } from './data';
-import type { PeopleQuery, PeopleSort, PersonDetail, PersonRow, Stage } from './types';
+import type { PeopleList, PeopleQuery, PeopleSort, PersonDetail, PersonRow, ScoreView, Stage } from './types';
 import { esc, inr, num } from './format';
 import { mount, LOADING } from './views';
 import { doneMenu, wireDone } from './inbox';
@@ -45,6 +45,29 @@ function row(r: PersonRow): string {
     '<td class="r">' + (r.orders ? '<span class="ad-mut">Bought</span>' : r.score != null ? '<strong title="' + esc(r.reason) + '">' + r.score + '</strong>' : '·') + '</td></tr>';
 }
 
+// The eight steps in the order the stage is decided (see 004_people.sql). A person is
+// counted once, at the furthest step we saw them reach, so the numbers add up.
+const STEPS: Stage[] = ['visited', 'viewed', 'cart', 'checkout', 'phone', 'address', 'payment', 'ordered'];
+function stepStrip(d: PeopleList, current: string): string {
+  return '<div class="ad-panel ad-steps" role="group" aria-label="How far people got"><ol class="ad-steps__list">' + STEPS.map((s) =>
+    '<li class="ad-step' + (current === s ? ' on' : '') + '"><span class="ad-step__n">' + num(d.stages?.[s] ?? 0) + '</span>' +
+    '<span class="ad-step__l">' + esc(STAGE_LABEL[s]) + term('step:' + s) + '</span></li>').join('') + '</ol>' +
+    '<p class="ad-note">Each person is counted once, at the furthest step we saw them reach. Use the buttons above to see who is at a step.</p></div>';
+}
+
+// "Why this score": the lines that add up to the number.
+function scorePanel(sc: ScoreView | null): string {
+  if (!sc) return '';
+  const head = '<h3 class="ad-dh3">Why this score' + term('Why this score') + '</h3>';
+  if (sc.notALead) return '<div class="ad-dsect">' + head + '<p class="ad-note">No score: ' + esc(sc.notALead.toLowerCase()) + '.</p></div>';
+  const rows = sc.parts.map((x) =>
+    '<tr><td>' + esc(x.label) + '<div class="ad-mut ad-small">' + esc(x.detail) + '</div></td>' +
+    '<td class="r amt">' + x.points + ' <span class="ad-mut">of ' + x.max + '</span></td></tr>').join('');
+  const fade = sc.fade ? '<tr><td>' + esc(sc.fade.note) + '</td><td class="r amt">× ' + sc.fade.factor + '</td></tr>' : '';
+  return '<div class="ad-dsect">' + head + '<table class="ad-dtable ad-score"><tbody>' + rows + fade +
+    '<tr class="ad-score__t"><td>Score</td><td class="r amt">' + (sc.score ?? '·') + ' <span class="ad-mut">of 100</span></td></tr></tbody></table></div>';
+}
+
 export function renderPeople(el: HTMLElement, q: Query, openPerson: (id: string) => void) {
   const pq = peopleState.pq;
   const stage = pq.stage || 'all';
@@ -75,7 +98,7 @@ export function renderPeople(el: HTMLElement, q: Query, openPerson: (id: string)
     reload();
   }));
   mount(body, data.getPeople(q, pq), (d) => {
-    const head = '<div class="ad-people-head ad-mut">' + num(d.count) + ' of ' + num(d.total) + ' · ' + num(d.returning) + ' returning · active in the selected range' +
+    const head = stepStrip(d, stage) + '<div class="ad-people-head ad-mut">' + num(d.count) + ' of ' + num(d.total) + ' · ' + num(d.returning) + ' returning · active in the selected range' +
       (d.asOf ? ' · list as of ' + esc(istWhen(d.asOf).replace(/^(Today|Yesterday)/, (s) => s.toLowerCase())) : '') + '</div>';
     if (!d.rows.length) return head + '<div class="ad-panel">' + empty(d.total === 0 ? 'No one here yet' : 'No one matches that', 'Try a wider date range or fewer filters. People appear as they browse, add bags or enter a phone number.') + '</div>';
     const from = (d.page - 1) * d.size + 1, to = from + d.rows.length - 1;
@@ -127,6 +150,7 @@ export function personDrawer(p: PersonDetail, outcomes: string[] = DEFAULT_OUTCO
     [p.phone, p.email].filter(Boolean).map((c) => '<p class="ad-dmeta">' + esc(c) + '</p>').join('') + '</div>' +
     (acts.length || handle ? '<div class="ad-dactions">' + acts.join('') + handle + '</div><p class="ad-irow__msg ad-small" role="status" data-drawer-msg></p>' : '') +
     (facts.length ? '<dl class="ad-dfacts">' + facts.map((f) => '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>').join('') + '</dl>' : '') +
+    scorePanel(p.score) +
     handled +
     '<div class="ad-dsect"><h3 class="ad-dh3">Journey · newest first</h3>' +
     (p.timeline.length ? '<ol class="ad-tl">' + p.timeline.map((s) => '<li class="ad-tl__i ad-tl__i--' + s.kind + '"><span class="ad-tl__when">' + esc(s.at) + '</span><span class="ad-tl__what">' + esc(s.text) + '</span>' + (s.sub ? '<span class="ad-tl__d">' + esc(s.sub) + '</span>' : '') + '</li>').join('') + '</ol>' : '<p class="ad-note">No journey recorded yet.</p>') + '</div>';

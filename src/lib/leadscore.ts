@@ -113,6 +113,64 @@ export function leadScore(p: LeadInput, now: Date | number = Date.now()): number
   return Math.round(pts);
 }
 
+// ── The score, itemised ──────────────────────────────────────────────────────
+
+export interface ScorePart {
+  key: string;
+  label: string;     // what was looked at
+  detail: string;    // what this person did, in words
+  points: number;    // earned
+  max: number;       // the most this line can give
+}
+export interface ScoreBreakdown {
+  score: number | null;        // same number leadScore() returns
+  notALead: string | null;     // why there is no score, when there isn't
+  parts: ScorePart[];          // one line per signal, in the order of the table in the header comment
+  subtotal: number;            // sum of the parts, before fading
+  fade: { factor: number; note: string } | null;
+}
+
+const top = (b: Array<[number, number]>) => Math.max(...b.map(([, p]) => p));
+
+// Every line of the score with the points this person earned, so the screen can show
+// the sum. Built from the same bands as leadScore(), and the test checks they agree.
+export function scoreBreakdown(p: LeadInput, now: Date | number = Date.now()): ScoreBreakdown {
+  const no = notALead(p);
+  const nowMs = typeof now === 'number' ? now : now.getTime();
+  const seen = time(p.last_seen);
+  const days = seen == null ? null : (nowMs - seen) / 864e5;
+  const cart = cartInr(p);
+  const visits = num(p.visits);
+  const mins = num(p.engaged_ms) / 60000;
+  const bags = num(p.products_viewed);
+
+  let recency = 0;
+  if (days != null) for (const [within, r] of RECENCY_BANDS) if (days < within) { recency = r; break; }
+
+  const parts: ScorePart[] = [
+    { key: 'cart', label: 'Bag in the cart', max: top(CART_BANDS), points: atLeast(cart, CART_BANDS),
+      detail: cart > 0 ? `${inrShort(cart)} in the latest cart` : 'Nothing in a cart' },
+    { key: 'recency', label: 'How recently they were here', max: top(RECENCY_BANDS), points: recency,
+      detail: seen == null ? 'Not known' : `Last seen ${whenIst(p.last_seen, nowMs)}` },
+    { key: 'phone', label: 'Gave a phone number', max: PHONE_POINTS, points: p.phone_given ? PHONE_POINTS : 0,
+      detail: p.phone_given ? 'Yes, so you can contact them' : 'No' },
+    { key: 'visits', label: 'Number of visits', max: top(VISIT_BANDS), points: atLeast(visits, VISIT_BANDS),
+      detail: visits >= 2 ? `${ordinal(visits)} visit` : 'First visit' },
+    { key: 'time', label: 'Time spent on the site', max: top(ENGAGED_MIN_BANDS), points: atLeast(mins, ENGAGED_MIN_BANDS),
+      detail: mins >= 1 ? `${Math.round(mins)} min in total` : 'Under a minute' },
+    { key: 'booking', label: 'Started a booking', max: BOOKING_POINTS, points: p.booking_started ? BOOKING_POINTS : 0,
+      detail: p.booking_started ? `Started ${FLOW[p.booking_flow || ''] || 'a booking'}` : 'No' },
+    { key: 'bags', label: 'Bags looked at', max: top(PRODUCT_BANDS), points: atLeast(bags, PRODUCT_BANDS),
+      detail: bags === 1 ? '1 bag' : `${bags} bags` },
+    { key: 'checkout', label: 'Opened checkout', max: CHECKOUT_POINTS, points: p.checkout_reached ? CHECKOUT_POINTS : 0,
+      detail: p.checkout_reached ? 'Yes' : 'No' },
+  ];
+  const subtotal = parts.reduce((s, x) => s + x.points, 0);
+  let fade: ScoreBreakdown['fade'] = null;
+  if (days != null) for (const [over, m] of FADE) if (days > over) { fade = { factor: m, note: `Last seen over ${over} days ago, so the total is ${m === 0.5 ? 'halved' : 'quartered'}` }; break; }
+  return { score: no ? null : leadScore(p, nowMs), notALead: no, parts, subtotal, fade };
+}
+
 // ── The one-line reason ──────────────────────────────────────────────────────
 
 // ₹950 · ₹8.5k · ₹18k · ₹1.2L

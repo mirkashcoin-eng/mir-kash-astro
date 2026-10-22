@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   leadScore, leadReason, notALead, inrShort, ordinal, whenIst, scoreSql, cartInr,
   CART_BANDS, RECENCY_BANDS, VISIT_BANDS, ENGAGED_MIN_BANDS, PRODUCT_BANDS,
-  PHONE_POINTS, BOOKING_POINTS, CHECKOUT_POINTS, HOT_THRESHOLD,
+  PHONE_POINTS, BOOKING_POINTS, CHECKOUT_POINTS, HOT_THRESHOLD, scoreBreakdown,
 } from './leadscore.ts';
 
 // 21 Oct 2026, 15:00 IST
@@ -89,5 +89,31 @@ for (const s of ['p.cart_value', 'p.last_seen', 'p.phone_given', 'p.is_bot', 'p.
   assert.ok(sql.includes(s), s);
 }
 assert.ok(!/;/.test(sql));
+
+// The itemised breakdown always adds up to the score, and fading shows as its own line.
+const samples = [
+  lead({}), maxed,
+  lead({ cart_value: 18400, last_seen: ago(2), visits: 3, engaged_ms: 11 * 60e3, products_viewed: 2, phone_given: true, phone_at: ago(20), last_cart_at: ago(2) }),
+  lead({ cart_value: 9000, last_seen: ago(24 * 40), visits: 2, products_viewed: 1 }),       // faded (halved)
+  lead({ cart_value: 9000, last_seen: ago(24 * 100), checkout_reached: true }),             // faded (quartered)
+  lead({ booking_started: true, booking_flow: 'try_at_home', last_seen: ago(30) }),
+  lead({ is_bot: true }), lead({ is_test: true }),
+  lead({ orders: 1, last_cart_at: ago(30), last_order_at: ago(20), cart_value: 5000, last_seen: ago(20) }),
+];
+for (const x of samples) {
+  const b = scoreBreakdown(x, NOW);
+  assert.equal(b.score, leadScore(x, NOW));
+  assert.equal(b.parts.length, 8);
+  for (const part of b.parts) assert.ok(part.points >= 0 && part.points <= part.max, part.key);
+  assert.equal(b.parts.reduce((t, q) => t + q.max, 0), 100);
+  if (b.score != null) assert.equal(Math.round(b.subtotal * (b.fade ? b.fade.factor : 1)), b.score);
+}
+assert.equal(scoreBreakdown(lead({ is_bot: true }), NOW).notALead, 'Bot');
+assert.equal(scoreBreakdown(samples[3], NOW).fade.factor, 0.5);
+assert.equal(scoreBreakdown(samples[4], NOW).fade.factor, 0.25);
+assert.equal(scoreBreakdown(samples[1], NOW).fade, null);
+const itemised = scoreBreakdown(samples[2], NOW);
+assert.deepEqual(itemised.parts.map((x) => x.points), [24, 20, 10, 8, 10, 0, 4, 0]);
+assert.equal(itemised.parts[0].detail, '₹18k in the latest cart');
 
 console.log('leadscore: all checks passed');

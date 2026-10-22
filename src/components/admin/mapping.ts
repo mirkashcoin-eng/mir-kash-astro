@@ -2,7 +2,7 @@
 // types.ts. No fetching, no DOM — data.ts calls these, and they can be run in Node.
 //
 // Shapes come from src/pages/api/admin/people.ts and src/pages/api/admin/inbox.ts.
-import type { HandledAction, InboxData, InboxGroup, InboxItem, InboxKind, PeopleList, PersonDetail, PersonRow, Stage, TimelineStep } from './types';
+import type { HandledAction, InboxData, InboxGroup, InboxItem, InboxKind, PeopleList, PersonDetail, PersonRow, ScoreView, Stage, TimelineStep } from './types';
 
 type Raw = Record<string, any>;
 const arr = <T = Raw>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -123,6 +123,7 @@ export function mapPeopleList(d: Raw): PeopleList {
     page: num(d?.page) || 1, pages: num(d?.pages) || 1, size: num(d?.size) || 50,
     asOf: d?.as_of ?? null,
     rows: arr(d?.rows).map(mapPersonRow),
+    stages: Object.fromEntries((STAGES as string[]).map((s) => [s, num(d?.stages?.[s])])) as Record<Stage, number>,
   };
 }
 
@@ -247,6 +248,15 @@ export function buildTimeline(items: Raw[], now = Date.now()): TimelineStep[] {
   return out.reverse();
 }
 
+function mapScore(b: Raw | null | undefined): ScoreView | null {
+  if (!b || !Array.isArray(b.parts)) return null;
+  return {
+    score: numOrNull(b.score), notALead: b.notALead ?? null, subtotal: num(b.subtotal),
+    fade: b.fade ? { factor: num(b.fade.factor), note: str(b.fade.note) } : null,
+    parts: b.parts.map((x: Raw) => ({ key: str(x.key), label: str(x.label), detail: str(x.detail), points: num(x.points), max: num(x.max) })),
+  };
+}
+
 export function mapPersonDetail(d: Raw, now = Date.now()): PersonDetail {
   const row = d?.summary ? mapPersonRow(d.summary) : null;
   const pr: Raw | null = d?.person || null;
@@ -265,6 +275,7 @@ export function mapPersonDetail(d: Raw, now = Date.now()): PersonDetail {
     firstSeen: row?.firstSeen ?? pr?.first_seen ?? null,
     counts: { visits: num(d?.counts?.visits), events: num(d?.counts?.events), orders: num(d?.counts?.orders), bookings: num(d?.counts?.bookings) },
     handled,
+    score: mapScore(d?.score_breakdown),
     timeline: buildTimeline(arr(d?.timeline), now),
   };
 }

@@ -468,3 +468,18 @@ body.ad-role-full .ad-nav__item--founders { display: flex; }
 .ad-chipwrap { display: inline-flex; align-items: center; gap: 4px; }
 .ad-i { width: 17px; height: 17px; font-size: 11px; background: transparent; }
 .ad-i:hover, .ad-i:focus-visible { background: #fff; color: var(--ink); border-color: var(--ink); }
+
+/* People: how far people got */
+.ad-steps { padding: 22px 24px 8px; }
+.ad-steps__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px 4px; }
+.ad-step { position: relative; padding: 4px 8px 10px 14px; border-left: 2px solid var(--rule2); min-width: 0; }
+.ad-step.on { border-left-color: var(--accent); }
+.ad-step__n { display: block; font-family: var(--serif); font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.ad-step__l { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--mut); font-size: 13px; }
+.ad-step.on .ad-step__l { color: var(--ink); font-weight: 600; }
+.ad-steps .ad-note { margin: 6px 0 12px; }
+.ad-people-head { margin-top: 14px; }
+/* Why this score */
+.ad-score { width: 100%; }
+.ad-score td { padding: 8px 0; }
+.ad-score__t td { border-top: 1px solid var(--rule); border-bottom: none; font-weight: 600; padding-top: 12px; }
