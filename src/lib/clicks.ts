@@ -7,6 +7,7 @@
 // Admin SDK only (service account); never readable from the browser.
 import { adminDb } from './firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { mirrorAffiliate, mirrorClick } from './warehouse/affiliates';
 
 // Slugs live in a URL path, so keep them boring: lowercase, digits, hyphens.
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -31,6 +32,7 @@ export async function createAffiliate(
   const ref = db.collection('affiliates').doc(slug);
   if ((await ref.get()).exists) return 'taken';
   await ref.set({ slug, label: label || null, createdAt: FieldValue.serverTimestamp() });
+  await mirrorAffiliate(slug, label || null);   // second copy, in Neon
   return 'ok';
 }
 
@@ -61,6 +63,7 @@ export async function recordClick(slug: string, landingPath: string): Promise<st
       landingPath,
       createdAt: FieldValue.serverTimestamp(),
     });
+    await mirrorClick(clickId, slug, landingPath);   // second copy, in Neon
     return clickId;
   } catch {
     return null;

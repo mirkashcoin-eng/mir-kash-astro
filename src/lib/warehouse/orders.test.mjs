@@ -179,4 +179,9 @@ assert.equal(rateOn(series, '2026-09-28'), 95.98);
 assert.equal(rateOn(series, '2026-09-01'), 95.82);  // before the series → earliest
 assert.equal(rateOn({}, '2026-09-28'), null);
 
+// An order that came through an affiliate link carries its click id; others don't.
+assert.equal(orderRow('india', india, noFx).click_id, null);
+assert.equal(orderRow('india', { ...india, customAttributes: [{ key: 'other', value: 'x' }, { key: 'click_id', value: ' 3f2b8c1e-aaaa ' }] }, noFx).click_id, '3f2b8c1e-aaaa');
+assert.equal(orderRow('india', { ...india, customAttributes: [{ key: 'click_id', value: '' }] }, noFx).click_id, null);
+
 console.log('orders.test: all passed');

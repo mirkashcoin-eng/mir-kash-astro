@@ -20,6 +20,7 @@ export interface OrderNode {
   note: string | null;
   email: string | null;
   phone: string | null;
+  customAttributes?: Array<{ key: string; value: string }>;   // `click_id` ties the order to an affiliate click
   paymentGatewayNames: string[];
   discountCodes: string[];
   displayFinancialStatus: string | null;
@@ -81,6 +82,7 @@ export interface OrderRow {
   financial_status: string | null;
   fulfillment_status: string | null;
   is_test: boolean;
+  click_id: string | null;
   updated_at: string;
 }
 
@@ -212,6 +214,7 @@ export function orderRow(store: Store, o: OrderNode, fx: (currency: string, day:
     financial_status: o.displayFinancialStatus,
     fulfillment_status: o.displayFulfillmentStatus,
     is_test: !!o.test,
+    click_id: clean(o.customAttributes?.find((a) => a.key === 'click_id')?.value),
     updated_at: o.updatedAt,
   };
 }
