@@ -541,6 +541,11 @@ const TAGS_ADD = /* GraphQL */ `
     tagsAdd(id: $id, tags: $tags) { userErrors { message } }
   }
 `;
+const TAGS_REMOVE = /* GraphQL */ `
+  mutation TagsRemove($id: ID!, $tags: [String!]!) {
+    tagsRemove(id: $id, tags: $tags) { userErrors { message } }
+  }
+`;
 const ORDER_NOTE = /* GraphQL */ `query OrderNote($id: ID!) { order(id: $id) { note } }`;
 const ORDER_UPDATE = /* GraphQL */ `
   mutation OrderUpdate($input: OrderInput!) {
@@ -810,6 +815,8 @@ export interface DemoBooking {
   status: DemoStatus;
   confirmedDate: string; // ISO yyyy-mm-dd once confirmed
   confirmedTime: string; // HH:MM (24h) once confirmed
+  /** "<date> <time>" the visit was moved from, set by a reschedule; '' if never moved. */
+  rescheduledFrom: string;
   adminUrl: string | null;
 }
 
@@ -870,6 +877,7 @@ export async function getDemoBookings(): Promise<DemoBooking[]> {
       status: demoStatus(node.tags ?? [], attr('demo_status')),
       confirmedDate: attr('demo_confirmed_date'),
       confirmedTime: attr('demo_confirmed_time'),
+      rescheduledFrom: attr('demo_rescheduled_from'),
       adminUrl: domain ? `https://${domain}/admin/draft_orders/${node.id.split('/').pop() ?? ''}` : null,
     };
   });
@@ -992,6 +1000,37 @@ async function patchBookingDraft(id: string, patch: Record<string, string>, addT
 export function confirmDemo(id: string, date: string, time: string): Promise<boolean> {
   return patchBookingDraft(id, { demo_status: 'confirmed', demo_confirmed_date: date, demo_confirmed_time: time }, ['demo-confirmed']);
 }
+// Moves a Try at Home to a new date/time. Allowed in any state: founders can always
+// change a visit, including one already confirmed or marked complete (which reopens
+// it, so a visit ticked complete by mistake can be put back). Keeps where it was
+// moved from, so the drawer can say so and the customer message can say "rescheduled".
+export async function rescheduleDemo(id: string, date: string, time: string): Promise<boolean> {
+  const cur = await runAdminQuery<{ draftOrder: { tags: string[]; customAttributes: Array<{ key: string; value: string }> } | null }>(DEMO_RESCHEDULE_GET, { id });
+  const d = cur?.draftOrder;
+  if (!d) return false;
+  const attr = (k: string) => d.customAttributes.find((a) => a.key === k)?.value ?? '';
+  const prevDate = attr('demo_confirmed_date') || attr('demo_date');
+  const prevTime = attr('demo_confirmed_time') || attr('demo_slot');
+  const ok = await patchBookingDraft(
+    id,
+    {
+      demo_status: 'confirmed',
+      demo_confirmed_date: date,
+      demo_confirmed_time: time,
+      demo_rescheduled_from: [prevDate, prevTime].filter(Boolean).join(' '),
+    },
+    ['demo-confirmed'],
+  );
+  // demoStatus() lets the demo-completed tag win over the attribute, so reopening a
+  // completed visit means dropping the tag too.
+  if (ok && d.tags.includes('demo-completed')) await runAdminQuery(TAGS_REMOVE, { id, tags: ['demo-completed'] });
+  return ok;
+}
+const DEMO_RESCHEDULE_GET = /* GraphQL */ `
+  query DemoRescheduleGet($id: ID!) {
+    draftOrder(id: $id) { tags customAttributes { key value } }
+  }
+`;
 const DEMO_FOR_META = /* GraphQL */ `
   query DemoForMeta($id: ID!) {
     draftOrder(id: $id) {

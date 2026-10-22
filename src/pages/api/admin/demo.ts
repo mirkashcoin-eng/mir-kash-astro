@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { requestIsAdmin } from '~/lib/adminAuth';
-import { confirmDemo, completeDemo } from '~/lib/shopify/admin';
+import { confirmDemo, completeDemo, rescheduleDemo } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
@@ -10,8 +10,8 @@ const json = (obj: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' },
   });
 
-// Founders-only: update a home-demo booking's status (confirm with a date/time, or
-// mark completed). Same auth as /api/admin/data.
+// Founders-only: update a home-demo booking's status (confirm with a date/time,
+// reschedule at any stage, or mark completed). Same auth as /api/admin/data.
 export const POST: APIRoute = async ({ request }) => {
   if (!(await requestIsAdmin(request))) return json({ error: 'Not authorised' }, 401);
 
@@ -29,6 +29,16 @@ export const POST: APIRoute = async ({ request }) => {
     return ok
       ? json({ ok: true, status: 'confirmed', confirmedDate: date, confirmedTime: time })
       : json({ error: 'Could not confirm the booking' }, 502);
+  }
+
+  if (body.action === 'reschedule') {
+    const date = (body.date || '').trim();
+    const time = (body.time || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return json({ error: 'Date and time are required' }, 400);
+    const ok = await rescheduleDemo(id, date, time);
+    return ok
+      ? json({ ok: true, status: 'confirmed', confirmedDate: date, confirmedTime: time })
+      : json({ error: 'Could not reschedule the booking' }, 502);
   }
 
   if (body.action === 'complete') {

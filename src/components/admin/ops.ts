@@ -715,14 +715,26 @@ export function initOps() {
       var name = (r.customer || 'there').split(' ')[0];
       var d = fmtISO(r.confirmedDate), t = fmt12(r.confirmedTime);
       var whenTxt = (d || r.date || '') + (t ? ' at ' + t : (r.slot ? ' (' + r.slot + ')' : ''));
-      var subject = 'Your Mir Kash Try at Home is confirmed';
-      var body = 'Hi ' + name + ',\n\nYour Mir Kash Try at Home is confirmed for ' + whenTxt + '.\n\n' +
+      var moved = !!r.rescheduledFrom;
+      var verb = moved ? 'has been rescheduled to' : 'is confirmed for';
+      var subject = moved ? 'Your Mir Kash Try at Home has been rescheduled' : 'Your Mir Kash Try at Home is confirmed';
+      var body = 'Hi ' + name + ',\n\nYour Mir Kash Try at Home ' + verb + ' ' + whenTxt + '.\n\n' +
         (r.address ? 'Address: ' + r.address + '\n' : '') +
         (r.bags ? "Bags we'll bring: " + r.bags + '\n' : '') +
         '\nWe look forward to meeting you. Just reply to this email or call us if anything changes.\n\nWarmly,\nMir Kash';
-      var wa = 'Hi ' + name + ', your Mir Kash Try at Home is confirmed for ' + whenTxt + '.' +
+      var wa = 'Hi ' + name + ', your Mir Kash Try at Home ' + verb + ' ' + whenTxt + '.' +
         (r.address ? ' Address: ' + r.address + '.' : '') + ' See you then! — Mir Kash';
       return { subject: subject, body: body, wa: wa };
+    }
+    // Reschedule is open in every state after the request is confirmed, so a visit can
+    // always be moved (and a completed one reopened). Pre-filled with the current time.
+    function rescheduleForm(r, reopens) {
+      return '<div class="ad-dsect"><h3 class="ad-dh3">Reschedule</h3>' +
+        (r.rescheduledFrom ? '<p class="ad-reqnote">Moved from ' + esc(r.rescheduledFrom) + '</p>' : '') +
+        '<div class="ad-form"><label class="ad-flabel">New date<input class="ad-finput" type="date" id="demoNewDate" value="' + esc(r.confirmedDate || '') + '"></label>' +
+        '<label class="ad-flabel">New time<input class="ad-finput" type="time" id="demoNewTime" value="' + esc(r.confirmedTime || '') + '"></label></div>' +
+        '<button class="ad-dbtn ad-dbtn--wide" id="demoReschedule" type="button">' + (reopens ? 'Reschedule and reopen' : 'Reschedule') + '</button>' +
+        '<p class="ad-actmsg" id="demoMsg2"></p></div>';
     }
     function buildDemoDrawer(r) {
       var status = r.status || 'requested';
@@ -746,15 +758,15 @@ export function initOps() {
         actionSect =
           '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Confirmed for</h3>' +
           '<p class="ad-confirmed">' + esc(fmtISO(r.confirmedDate)) + ' · ' + esc(fmt12(r.confirmedTime)) + '</p>' +
-          '<p class="ad-note ad-notifynote">Send the customer their confirmation:</p>' +
+          '<p class="ad-note ad-notifynote">' + (r.rescheduledFrom ? 'Send the customer the new time:' : 'Send the customer their confirmation:') + '</p>' +
           '<div class="ad-dactions">' + notify + '</div>' +
           '<button class="ad-dbtn ad-dbtn--wide" id="demoComplete" type="button">Mark Try at Home complete</button>' +
-          '<p class="ad-actmsg" id="demoMsg"></p></div>';
+          '<p class="ad-actmsg" id="demoMsg"></p></div>' + rescheduleForm(r, false);
       } else {
         actionSect =
           '<div class="ad-dsect ad-dact"><h3 class="ad-dh3">Try at Home completed</h3>' +
           '<p class="ad-confirmed">' + (r.confirmedDate ? esc(fmtISO(r.confirmedDate)) + (r.confirmedTime ? ' · ' + esc(fmt12(r.confirmedTime)) : '') : 'Marked complete') + '</p>' +
-          (notify ? '<div class="ad-dactions">' + notify + '</div>' : '') + '</div>';
+          (notify ? '<div class="ad-dactions">' + notify + '</div>' : '') + '</div>' + rescheduleForm(r, true);
       }
 
       var footer = [];
@@ -776,7 +788,7 @@ export function initOps() {
         '<div class="ad-dsect"><h3 class="ad-dh3">Address</h3><p class="ad-daddr">' + (r.address ? esc(r.address) : '<span class="ad-dv">—</span>') + '</p></div>' +
         (footer.length ? '<div class="ad-dactions">' + footer.join('') + '</div>' : '');
     }
-    function demoMsg(t) { var el = $('demoMsg'); if (el) el.textContent = t || ''; }
+    function demoMsg(t) { ['demoMsg', 'demoMsg2'].forEach(function (id) { var el = $(id); if (el) el.textContent = t || ''; }); }
     async function doDemoAction(idx, payload, btn) {
       var r = DEMOS[idx]; if (!r) return;
       demoMsg('Saving…'); if (btn) btn.disabled = true;
@@ -788,6 +800,10 @@ export function initOps() {
         var res = await resp.json().catch(function () { return null; });
         if (!resp.ok || !res || !res.ok) { demoMsg((res && res.error) || 'Could not save — try again.'); if (btn) btn.disabled = false; return; }
         if (payload.action === 'confirm') { r.status = 'confirmed'; r.confirmedDate = res.confirmedDate; r.confirmedTime = res.confirmedTime; }
+        else if (payload.action === 'reschedule') {
+          r.rescheduledFrom = [r.confirmedDate || r.date, r.confirmedTime || r.slot].filter(Boolean).join(' ');
+          r.status = 'confirmed'; r.confirmedDate = res.confirmedDate; r.confirmedTime = res.confirmedTime;
+        }
         else if (payload.action === 'complete') { r.status = 'completed'; }
         $('allDemos').innerHTML = demosTable(DEMOS);
         openDrawer('demo', idx);
@@ -803,6 +819,13 @@ export function initOps() {
       });
       var k = $('demoComplete');
       if (k) k.addEventListener('click', function () { doDemoAction(idx, { action: 'complete' }, k); });
+      var rs = $('demoReschedule');
+      if (rs) rs.addEventListener('click', function () {
+        var date = ($('demoNewDate') || {}).value || '';
+        var time = ($('demoNewTime') || {}).value || '';
+        if (!date || !time) { demoMsg('Pick a new date and time first.'); return; }
+        doDemoAction(idx, { action: 'reschedule', date: date, time: time }, rs);
+      });
     }
 
     // ── Private Viewing detail + confirm/complete ─────────────────────────────
