@@ -2,6 +2,7 @@
 import LeafIcon from './LeafIcon.astro';
 import type { CartView } from '~/types/shopify';
 import { shopifyImage } from '~/lib/shopifyImage';
+import { contentId } from '~/lib/content-id';
 import { STATES } from '~/lib/india-locations';
 import SiteFooter from './SiteFooter.astro';
 import { returnDaysFor, shippingFor, deliveryBy } from '~/lib/merchant-policy';
@@ -33,7 +34,7 @@ const thumbGradients = [
 ];
 ---
 
-<div class="sheet" data-buynow={isBuyNow ? '1' : '0'} data-total={cart.total} data-items={JSON.stringify(cart.lines.map((l) => ({ item_id: l.id, item_name: l.title, price: l.price, quantity: l.quantity })))}>
+<div class="sheet" data-buynow={isBuyNow ? '1' : '0'} data-total={cart.total} data-items={JSON.stringify(cart.lines.map((l) => ({ item_id: l.id, content_id: contentId(l.merchandiseId), item_name: l.title, price: l.price, quantity: l.quantity })))}>
 
   <header class="head">
     <a href="/" class="head-logo" aria-label="Mir Kash">
@@ -334,7 +335,7 @@ const thumbGradients = [
       const items = JSON.parse(sheet.dataset.items || '[]');
       fbqFn('track', 'InitiateCheckout', {
         currency: 'INR', value, content_type: 'product',
-        contents: items.map((i: any) => ({ id: i.item_id, quantity: i.quantity })),
+        contents: items.map((i: any) => ({ id: i.content_id, quantity: i.quantity })),
       });
     }
   } catch (e) { console.error('fbq InitiateCheckout failed:', e); }
@@ -709,7 +710,7 @@ const thumbGradients = [
         const items = JSON.parse(sheet.dataset.items || '[]');
         fbqFn('track', 'AddPaymentInfo', {
           currency: 'INR', value: Number(sheet.dataset.total) || 0, content_type: 'product',
-          contents: items.map((i: any) => ({ id: i.item_id, quantity: i.quantity })),
+          contents: items.map((i: any) => ({ id: i.content_id, quantity: i.quantity })),
           payment_method: isCod ? 'cod' : 'online',
         }, { eventID: fbEventId });
       }

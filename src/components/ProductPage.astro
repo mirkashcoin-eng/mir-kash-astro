@@ -676,7 +676,8 @@ const faq = faqFor(product, marketConfig);
     if (typeof fbq === 'function') {
       const opened = variants.find((v) => v.id === firstVariantId) || variants[0];
       fbq('track', 'ViewContent', {
-        content_ids: [firstVariantId], content_type: 'product', content_name: productTitle,
+        // content_ids are catalog ids: the variant's numeric id, as in ~/lib/content-id (inline script, so no import).
+        content_ids: [String(firstVariantId).split('/').pop()], content_type: 'product', content_name: productTitle,
         value: opened ? opened.amount : undefined, currency,
       }, { eventID: 'vc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
     }
@@ -800,7 +801,7 @@ const faq = faqFor(product, marketConfig);
       } catch (e) { console.error('gtag add_to_cart failed:', e); }
       try {
         if (typeof fbq === 'function') {
-          fbq('track', 'AddToCart', { content_ids: [state.variantId], content_type: 'product', content_name: productTitle, value: state.amount, currency }, { eventID: fbEventId });
+          fbq('track', 'AddToCart', { content_ids: [String(state.variantId).split('/').pop()], content_type: 'product', content_name: productTitle, value: state.amount, currency }, { eventID: fbEventId });
         }
       } catch (e) { console.error('fbq AddToCart failed:', e); }
       document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });
@@ -1077,7 +1078,7 @@ const faq = faqFor(product, marketConfig);
           } catch (e) { console.error('gtag add_to_cart failed:', e); }
           try {
             if (typeof fbq === 'function') {
-              fbq('track', 'AddToCart', { content_ids: [variantId], content_type: 'product', content_name: name, currency }, { eventID: fbEventId });
+              fbq('track', 'AddToCart', { content_ids: [String(variantId).split('/').pop()], content_type: 'product', content_name: name, currency }, { eventID: fbEventId });
             }
           } catch (e) { console.error('fbq AddToCart failed:', e); }
           document.querySelectorAll('.bag-count').forEach((el) => { el.textContent = String(cart.totalQuantity ?? 0); });

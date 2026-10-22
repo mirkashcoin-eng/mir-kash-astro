@@ -349,6 +349,7 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
 
 <script>
   import { mark } from '~/lib/viewing-prompt';
+  import { contentId } from '~/lib/content-id';
   import {
     stepIndex, nextStep, prevStep, canAdvance, resolveInitialStep,
     type WizardStep, type GateContext,
@@ -835,7 +836,7 @@ const receiptPlaceholderItems = Array.from({ length: 6 }, () => ({
         if (typeof window.fbq === 'function') {
           window.fbq('track', 'Schedule', {
             content_name: 'Private Viewing', content_type: 'product',
-            content_ids: bagsPayload.map((b) => b.variantId), num_items: bagsPayload.length,
+            content_ids: bagsPayload.map((b) => contentId(b.variantId)), num_items: bagsPayload.length,
           }, { eventID: fbEventId });
         }
       } catch (err) { console.error('fbq Schedule failed:', err); }

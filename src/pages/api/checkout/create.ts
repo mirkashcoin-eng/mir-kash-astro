@@ -5,7 +5,7 @@ import { createDraftOrder, completeDraftOrder, type ShippingAddressInput } from 
 import { createCashfreeOrder } from '~/lib/cashfree';
 import { INDIA_MARKET } from '~/lib/markets';
 import { couponLimitBlock, couponBlockMessage, recordRedemption } from '~/lib/coupons';
-import { sendMetaEvent } from '~/lib/meta-capi';
+import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
 
 export const prerender = false;
@@ -170,7 +170,7 @@ export const POST: APIRoute = async (ctx) => {
         currency: draft.totalPrice.currencyCode,
         value: amount,
         content_type: 'product',
-        contents: lines.map((l) => ({ id: l.variantId, quantity: l.quantity })),
+        contents: lines.map((l) => ({ id: contentId(l.variantId), quantity: l.quantity })),
         payment_method: isCod ? 'cod' : 'online',
       },
     });
