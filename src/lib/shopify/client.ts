@@ -2,7 +2,9 @@ import { createStorefrontApiClient, type StorefrontApiClient } from '@shopify/st
 import { STORE_CREDS } from '~/lib/markets';
 import type { Store } from '~/types/market';
 
-const API_VERSION = '2025-01';
+// Shopify supports each version for a year; the client warns once it falls out of that window.
+// Bump this every few months (versions are YYYY-01/04/07/10).
+const API_VERSION = '2026-10';
 
 const clientCache = new Map<string, StorefrontApiClient>();
 

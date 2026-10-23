@@ -452,6 +452,7 @@ const ORDERS_BY_EMAIL = /* GraphQL */ `
           title quantity
           image { url }
           originalUnitPriceSet { shopMoney { amount currencyCode } }
+          variant { id }
         } } }
         fulfillments(first: 1) {
           createdAt
@@ -478,6 +479,7 @@ interface RawOrder {
     title: string; quantity: number;
     image: { url: string } | null;
     originalUnitPriceSet: { shopMoney: Money } | null;
+    variant: { id: string } | null;
   } }> };
   fulfillments: Array<{
     createdAt: string | null;
@@ -506,8 +508,8 @@ export async function getOrdersByEmail(email: string): Promise<AccountOrder[]> {
       title: e.node.title,
       quantity: e.node.quantity,
       image: e.node.image?.url ?? null,
-      // variant id needs the read_products scope; null until that's added (disables reorder)
-      variantId: null,
+      // null when the variant was deleted; a line with no variant can't be reordered
+      variantId: e.node.variant?.id ?? null,
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
     })),
     returnRequested: (node.tags ?? []).includes('return-requested'),
