@@ -16,7 +16,7 @@ const JWKS = createRemoteJWKSet(
   new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
 );
 
-export async function verifyFirebaseUser(token: string): Promise<{ email: string } | null> {
+export async function verifyFirebaseUser(token: string): Promise<{ email: string; uid: string } | null> {
   // Public (non-secret) project id; fall back to the known value so a runtime env
   // hiccup on the server can't silently break order/account verification.
   const projectId = getEnv('PUBLIC_FIREBASE_PROJECT_ID') || 'mir-kash-web';
@@ -28,7 +28,7 @@ export async function verifyFirebaseUser(token: string): Promise<{ email: string
       clockTolerance: '120s', // tolerate device/server clock skew so valid tokens aren't rejected
     });
     const email = (payload as { email?: string; email_verified?: boolean }).email;
-    return email ? { email } : null;
+    return email && payload.sub ? { email, uid: payload.sub } : null;
   } catch {
     return null;
   }

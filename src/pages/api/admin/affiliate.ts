@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { requestRole } from '~/lib/adminAuth';
 import { createAffiliate, getAffiliateSummary, SLUG_RE } from '~/lib/clicks';
-import { getRecentOrders } from '~/lib/shopify/admin';
 
 export const prerender = false;
 
@@ -23,8 +22,7 @@ async function authorised(request: Request): Promise<boolean> {
 // dashboard view loads from here instead of /api/admin/data, which it can't reach.
 export const GET: APIRoute = async ({ request }) => {
   if (!(await authorised(request))) return json({ error: 'Not authorised' }, 401);
-  const orders = await getRecentOrders();
-  const affiliates = await getAffiliateSummary(orders);
+  const affiliates = await getAffiliateSummary();
   return json({ affiliates });
 };
 
@@ -42,6 +40,6 @@ export const POST: APIRoute = async ({ request }) => {
 
   const res = await createAffiliate(slug, (body.label || '').trim() || undefined);
   if (res === 'taken') return json({ error: `“${slug}” is already taken.` }, 409);
-  if (res === 'unavailable') return json({ error: 'Firestore service account not configured' }, 503);
+  if (res === 'unavailable') return json({ error: 'Database is not configured' }, 503);
   return json({ ok: true, slug });
 };

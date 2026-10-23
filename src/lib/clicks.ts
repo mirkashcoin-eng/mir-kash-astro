@@ -1,13 +1,13 @@
-// Affiliate links and the clicks they generate.
-//   `affiliates/{slug}` — one per creator; the slug is what appears in /go/{slug}.
-//   `clicks/{clickId}`  — one per visit through a /go link. The click id (not the
+// Affiliate links and the clicks they generate, in Neon (`affiliates`, `affiliate_clicks`;
+// see db/migrations/005_affiliates.sql).
+//   `affiliates`        — one per creator; the slug is what appears in /go/{slug}.
+//   `affiliate_clicks`  — one per visit through a /go link. The click id (not the
 //     slug) is what rides along to the Shopify order, so the public link never
 //     exposes which affiliate a given order belongs to, and a shared/edited URL
-//     can't forge attribution — only ids we minted exist in this collection.
-// Admin SDK only (service account); never readable from the browser.
-import { adminDb } from './firebaseAdmin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { mirrorAffiliate, mirrorClick } from './warehouse/affiliates';
+//     can't forge attribution — only ids we minted exist in this table.
+// Orders carry the click id as `orders.click_id` (set by the Shopify order sync), so
+// "what did each creator sell" is one join: the `v_affiliates` view.
+import { q } from './db';
 
 // Slugs live in a URL path, so keep them boring: lowercase, digits, hyphens.
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -18,91 +18,29 @@ export interface Affiliate {
   createdAt: string | null;
 }
 
-const iso = (t: unknown): string | null =>
-  t instanceof Timestamp ? t.toDate().toISOString() : null;
-
 // Create one. Returns 'taken' rather than overwriting an existing creator's link —
 // reusing a slug would silently reassign their traffic.
 export async function createAffiliate(
   slug: string,
   label?: string,
 ): Promise<'ok' | 'taken' | 'unavailable'> {
-  const db = adminDb();
-  if (!db) return 'unavailable';
-  const ref = db.collection('affiliates').doc(slug);
-  if ((await ref.get()).exists) return 'taken';
-  await ref.set({ slug, label: label || null, createdAt: FieldValue.serverTimestamp() });
-  await mirrorAffiliate(slug, label || null);   // second copy, in Neon
-  return 'ok';
+  const rows = await q(
+    'INSERT INTO affiliates (slug, label) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING slug',
+    [slug, label || null],
+  );
+  if (!rows) return 'unavailable';
+  return rows.length ? 'ok' : 'taken';
 }
 
-export async function getAffiliates(max = 200): Promise<Affiliate[] | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('affiliates').orderBy('createdAt', 'desc').limit(max).get();
-    return snap.docs.map((d) => {
-      const v = d.data() as Record<string, unknown>;
-      return { slug: d.id, label: (v.label as string) ?? null, createdAt: iso(v.createdAt) };
-    });
-  } catch {
-    return null;
-  }
-}
-
-// Log a click and hand back its id. Best-effort: if Firestore is unavailable we
+// Log a click and hand back its id. Best-effort: if the database is unavailable we
 // return null and the visitor is still redirected — a lost click beats a dead link.
 export async function recordClick(slug: string, landingPath: string): Promise<string | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const clickId = crypto.randomUUID();
-    await db.collection('clicks').doc(clickId).set({
-      clickId,
-      affiliateId: slug,
-      landingPath,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await mirrorClick(clickId, slug, landingPath);   // second copy, in Neon
-    return clickId;
-  } catch {
-    return null;
-  }
-}
-
-// clickId → affiliate slug, for the ids found on orders. Chunked because Firestore
-// caps `in` queries at 30 values.
-export async function affiliatesForClicks(clickIds: string[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const db = adminDb();
-  if (!db || !clickIds.length) return out;
-  try {
-    for (let i = 0; i < clickIds.length; i += 30) {
-      const chunk = clickIds.slice(i, i + 30);
-      const snap = await db.collection('clicks').where('clickId', 'in', chunk).get();
-      snap.forEach((d) => {
-        const v = d.data() as Record<string, unknown>;
-        if (v.affiliateId) out.set(d.id, String(v.affiliateId));
-      });
-    }
-  } catch { /* best-effort — unmatched clicks just report as unattributed */ }
-  return out;
-}
-
-// How many clicks each affiliate has driven, for the conversion-rate column.
-// A server-side count() aggregation per slug — billed ~1 read per 1,000 clicks —
-// rather than downloading the whole `clicks` collection, which grows forever.
-export async function clickCounts(slugs: string[]): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  const db = adminDb();
-  if (!db || !slugs.length) return out;
-  await Promise.all(slugs.map(async (slug) => {
-    try {
-      const snap = await db.collection('clicks').where('affiliateId', '==', slug).count().get();
-      out.set(slug, snap.data().count);
-    } catch { /* best-effort — this affiliate just shows 0 clicks */ }
-  }));
-  return out;
+  const clickId = crypto.randomUUID();
+  const rows = await q(
+    'INSERT INTO affiliate_clicks (click_id, affiliate, landing_path, created_at) VALUES ($1, $2, $3, now()) RETURNING click_id',
+    [clickId, slug, landingPath.slice(0, 300)],
+  );
+  return rows ? clickId : null;
 }
 
 export interface AffiliateRow extends Affiliate {
@@ -113,42 +51,25 @@ export interface AffiliateRow extends Affiliate {
   conversionRate: number; // orders ÷ clicks, as a percentage
 }
 
-// What each affiliate has actually driven. Orders come from Shopify (authoritative
-// for money); the click log only resolves which affiliate an order's click_id
-// belongs to. Every affiliate is listed, including ones with no sales yet.
-export async function getAffiliateSummary(
-  orders: Array<{ clickId: string | null; cancelled: boolean; total: { amount: string; currencyCode: string } | null }>,
-): Promise<AffiliateRow[] | null> {
-  const affiliates = await getAffiliates();
-  if (!affiliates) return null;
-
-  const live = orders.filter((o) => !o.cancelled && o.clickId);
-  const bySlug = await affiliatesForClicks(live.map((o) => o.clickId as string));
-  const counts = await clickCounts(affiliates.map((a) => a.slug));
-
-  const sales = new Map<string, { orders: number; revenue: number; currency: string }>();
-  for (const o of live) {
-    const slug = bySlug.get(o.clickId as string);
-    if (!slug) continue; // click id we didn't mint, or a purged click
-    const acc = sales.get(slug) ?? { orders: 0, revenue: 0, currency: 'INR' };
-    acc.orders += 1;
-    acc.revenue += Number(o.total?.amount || 0);
-    if (o.total?.currencyCode) acc.currency = o.total.currencyCode;
-    sales.set(slug, acc);
-  }
-
-  return affiliates
-    .map((a) => {
-      const s = sales.get(a.slug);
-      const clicks = counts.get(a.slug) || 0;
-      const ordered = s?.orders ?? 0;
+// What each affiliate has driven: clicks, live orders and revenue (INR, both stores
+// converted). Every affiliate is listed, including ones with no sales yet.
+export async function getAffiliateSummary(): Promise<AffiliateRow[] | null> {
+  const rows = await q<{ slug: string; label: string | null; created_at: Date | null; clicks: number; orders: number; revenue_inr: string }>(
+    'SELECT slug, label, created_at, clicks, orders, revenue_inr FROM v_affiliates',
+  );
+  if (!rows) return null;
+  return rows
+    .map((r) => {
+      const orders = Number(r.orders), clicks = Number(r.clicks);
       return {
-        ...a,
+        slug: r.slug,
+        label: r.label,
+        createdAt: r.created_at ? r.created_at.toISOString() : null,
         clicks,
-        orders: ordered,
-        revenue: s?.revenue ?? 0,
-        currency: s?.currency ?? 'INR',
-        conversionRate: clicks ? (ordered / clicks) * 100 : 0,
+        orders,
+        revenue: Number(r.revenue_inr),
+        currency: 'INR',
+        conversionRate: clicks ? (orders / clicks) * 100 : 0,
       };
     })
     .sort((a, b) => b.revenue - a.revenue || b.clicks - a.clicks);

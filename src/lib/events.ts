@@ -177,7 +177,7 @@ export function sourceMedium(t: Touch): { source: string; medium: string } {
 
 // ── Identity ─────────────────────────────────────────────────────────────────
 
-// Same rule as personKey() in leads.ts: last 10 digits, else nothing.
+// Same rule as the old leads.ts personKey (now retired): last 10 digits, else nothing.
 export function personKey(phone: unknown): string {
   const d = String(phone ?? '').replace(/[^0-9]/g, '');
   return d.length >= 10 ? d.slice(-10) : '';

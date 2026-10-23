@@ -204,7 +204,7 @@ const orgJsonLd = {
          every /admin number is computed from these. Contract: src/lib/events.ts.
          window.mkEvent(name, { product, value, currency, props }) records an action;
          window.mkIdentify({ phone, email, name, address1, city, province, pin }) links
-         this browser to a person. Runs alongside mkTrack/mkLead (Firestore) until cutover. -->
+         this browser to a person. Fed by mkTrack/mkLead. -->
     <script is:inline>
       (function () {
         var W = window;
@@ -329,20 +329,11 @@ const orgJsonLd = {
 
     <!-- First-party funnel (anonymous counts) + per-session lead capture. No cookies. -->
     <script is:inline define:vars={{ mkMarket: market, mkBot, mkRef, mkCountry }}>
-      // Anonymous funnel beacon — GET image (POST text/plain is blocked by Astro CSRF).
-      // Optional `opts.product` also bumps that product's view/cart counters.
+      // Funnel steps (visit, booking prompt, cart-exit and Try at Home steps) go to the
+      // event log only; the old /api/track counter beacon is retired.
       window.mkTrack = function (e, opts) {
-        try {
-          var q = '/api/track?e=' + encodeURIComponent(e) + '&t=' + Date.now();
-          if (opts && opts.product) q += '&product=' + encodeURIComponent(opts.product);
-          if (opts && opts.page) q += '&page=' + encodeURIComponent(opts.page);
-          if (opts && opts.offer) q += '&offer=' + encodeURIComponent(opts.offer);
-          if (opts && opts.src) q += '&src=' + encodeURIComponent(opts.src);
-          if (opts && opts.ab) q += '&ab=' + encodeURIComponent(opts.ab);
-          (new Image()).src = q;
-        } catch (_) {}
-        // Mirror to the event log. product_view / add_to_cart / related clicks come
-        // from mkLead (it carries the cart), so they're skipped here to avoid doubles.
+        // product_view / add_to_cart / related clicks come from mkLead (it carries the
+        // cart), so they're skipped here to avoid doubles.
         try {
           if (window.mkEvent && e !== 'visit' && e !== 'product_view' && e !== 'add_to_cart' && e !== 'related_product_click') {
             var props = {};
@@ -373,15 +364,8 @@ const orgJsonLd = {
         }
         window.mkSid = sid;
       } catch (_) {}
-      // Lead capture — JSON POST (bypasses CSRF). Merges into the session's lead doc.
+      // Lead capture: identity goes to the people table, the action to the event log.
       window.mkLead = function (data) {
-        try {
-          if (!window.mkSid) return;
-          fetch('/api/lead', {
-            method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.assign({ sessionId: window.mkSid, market: mkMarket }, data)),
-          });
-        } catch (_) {}
         // Mirror to the event log: identity goes to mkIdentify (people table), the
         // action to mkEvent with only non-personal fields as props.
         try {

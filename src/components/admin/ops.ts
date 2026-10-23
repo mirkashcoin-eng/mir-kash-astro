@@ -87,7 +87,7 @@ export function initOps() {
       }).join('') + '</tbody></table>';
     }
     function subscribersTable(subs) {
-      if (!subs) return '<p class="ad-note ad-pad">Newsletter signups aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p>';
+      if (!subs) return '<p class="ad-note ad-pad">Newsletter signups couldn’t be loaded — check the database connection (<code>DATABASE_URL</code>) in Vercel.</p>';
       if (!subs.length) return '<p class="ad-note ad-pad">No newsletter signups yet.</p>';
       return '<table class="ad-table"><thead><tr><th>Email</th><th>Signed up</th><th>Source</th><th>In Shopify?</th></tr></thead><tbody>' + subs.map(function (s) {
         return '<tr><td class="nm">' + esc(s.email) + '</td><td>' + when(s.createdAt) + '</td><td>' + esc(s.source || 'footer') + '</td><td>' + (s.shopifyOk ? '<span class="ad-pill ad-pill--good">Yes</span>' : '<span class="ad-pill ad-pill--wait">No</span>') + '</td></tr>';
@@ -251,7 +251,7 @@ export function initOps() {
     function renderAffiliates(rows) {
       var body = $('affBody'); if (!body) return;
       if (!rows) {
-        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Affiliates aren’t available yet — add the Firebase service account (<code>FIREBASE_SERVICE_ACCOUNT</code>) in Vercel to unlock this.</p></div>';
+        body.innerHTML = '<div class="ad-panel"><p class="ad-note ad-pad">Affiliates couldn’t be loaded — check the database connection (<code>DATABASE_URL</code>) in Vercel.</p></div>';
         return;
       }
       if (!rows.length) {

@@ -3,7 +3,7 @@
 // Run: node src/lib/acquisition.test.mjs
 import assert from 'node:assert/strict';
 
-// Mirrors sourceLabel() in leads.ts.
+// Mirrors sourceLabel() in src/components/admin/mapping.ts.
 function sourceLabel(v) {
   const utm = v.utmSource || '';
   if (utm) {

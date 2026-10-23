@@ -1,78 +1,9 @@
 import type { APIRoute } from 'astro';
-import { recordLead } from '~/lib/leads';
-import { botName } from '~/middleware';
 
 export const prerender = false;
 
-// Records a visitor's intent (added to cart / entered phone / entered address) against
-// their anonymous session id, for the founders' People view. JSON body (bypasses CSRF
-// checkOrigin).
-const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
-
-const EVENTS = ['visit', 'page_view', 'product_view', 'add_to_cart', 'phone', 'address', 'booking_step'] as const;
-const BOOKING_FLOWS = ['try_at_home', 'private_viewing'] as const;
-const BOOKING_STEPS = ['cover', 'datetime', 'bags', 'details'] as const;
-
-export const POST: APIRoute = async ({ request }) => {
-  let body: Record<string, unknown>;
-  try { body = await request.json(); } catch { return noContent(); }
-
-  const sessionId = String(body.sessionId || '').slice(0, 64);
-  const event = String(body.event || '') as (typeof EVENTS)[number];
-  if (!sessionId || !(EVENTS as readonly string[]).includes(event)) return noContent();
-
-  const str = (v: unknown, n = 120) => (v == null ? undefined : String(v).slice(0, n));
-  // Cart snapshot (add_to_cart): trust nothing from the browser — clamp shape and size.
-  const c = body.cart as Record<string, unknown> | undefined;
-  const cart = c && typeof c === 'object' ? {
-    total: Number(c.total) || 0,
-    currency: str(c.currency, 8) || 'INR',
-    quantity: Number(c.quantity) || 0,
-    lines: (Array.isArray(c.lines) ? c.lines : []).slice(0, 25).map((l: Record<string, unknown>) => ({
-      title: str(l?.title) || '',
-      variant: str(l?.variant) || null,
-      quantity: Number(l?.quantity) || 0,
-      price: Number(l?.price) || 0,
-    })),
-  } : undefined;
-
-  await recordLead({
-    sessionId,
-    event,
-    phone: str(body.phone, 20),
-    email: str(body.email),
-    name: str(body.name),
-    item: str(body.item),
-    market: str(body.market, 16),
-    uid: str(body.uid),
-    address1: str(body.address1, 200),
-    city: str(body.city, 80),
-    province: str(body.province, 80),
-    pin: str(body.pin, 10),
-    referrer: str(body.referrer, 300),
-    utmSource: str(body.utmSource, 60),
-    utmMedium: str(body.utmMedium, 60),
-    utmCampaign: str(body.utmCampaign, 80),
-    landing: str(body.landing, 200),
-    page: str(body.page, 200),
-    // The request's own user-agent decides this, not the posted body — a page
-    // shouldn't be able to disguise a crawler as a person.
-    bot: botName(request.headers.get('user-agent') ?? '') || str(body.bot, 40),
-    country: str(body.country, 4),
-    cart,
-    bookingFlow: (BOOKING_FLOWS as readonly string[]).includes(String(body.bookingFlow))
-      ? (body.bookingFlow as (typeof BOOKING_FLOWS)[number])
-      : undefined,
-    bookingStep: (BOOKING_STEPS as readonly string[]).includes(String(body.bookingStep))
-      ? (body.bookingStep as (typeof BOOKING_STEPS)[number])
-      : undefined,
-    bookingDate: str(body.bookingDate, 20),
-    bookingSlot: str(body.bookingSlot, 40),
-    bookingBagsCount: Number.isFinite(Number(body.bookingBagsCount)) ? Number(body.bookingBagsCount) : undefined,
-    // The pieces chosen, by name (product titles, never personal data). Clamped like the cart.
-    bookingBags: Array.isArray(body.bookingBags)
-      ? body.bookingBags.slice(0, 6).map((b: unknown) => String(b ?? '').slice(0, 100)).filter(Boolean)
-      : undefined,
-  });
-  return noContent();
-};
+// Retired. Visitor intent (cart, phone, address, booking steps) used to be written to Firestore
+// here; it now goes to the event log through /api/collect (mkEvent / mkIdentify in BaseLayout).
+// Kept as a no-op so pages cached before the cutover that still POST here get a clean 204.
+export const POST: APIRoute = () =>
+  new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });

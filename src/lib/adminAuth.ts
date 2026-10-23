@@ -1,6 +1,6 @@
 // Founders' dashboard access control. An email is a full admin if it's in the
 // ADMIN_EMAILS allowlist (comma-separated, redeploy-only — the fail-safe root
-// list). Anyone else's role comes from the Firestore-backed Team access list
+// list). Anyone else's role comes from the Neon-backed Team access list
 // (see adminRoles.ts), managed from the dashboard without a redeploy.
 // Fail-closed: no match anywhere → not an admin.
 function getEnv(key: string): string {

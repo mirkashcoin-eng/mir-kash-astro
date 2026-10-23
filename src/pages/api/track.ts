@@ -1,32 +1,12 @@
 import type { APIRoute } from 'astro';
-import { recordCartExitEvent, recordEvent, recordPromptEvent, recordTryAtHomeEvent } from '~/lib/analytics';
 
 export const prerender = false;
 
-// Anonymous funnel beacon. The browser sends the stage name (via navigator.sendBeacon)
-// and we increment a daily aggregate counter. No cookies, no body beyond the stage name,
-// no personal data. Only known stage names are accepted; anything else is ignored.
+// Retired. The anonymous daily counters this wrote to Firestore (visits, product views, booking
+// prompt, cart-exit and Try at Home steps) now come from the event log, which every page already
+// feeds through /api/collect. Kept as a no-op so pages cached before the cutover that still send
+// the beacon get a clean 204.
 const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-async function handle(request: Request, url: URL, bot: string): Promise<Response> {
-  let e = url.searchParams.get('e') || '';
-  if (!e) {
-    try { e = (await request.text()).trim(); } catch { /* ignore */ }
-  }
-  const product = (url.searchParams.get('product') || '').slice(0, 120);
-  if (e.startsWith('vp_')) {
-    // Booking-prompt impressions/outcomes. Crawlers run page scripts too; keep them out of the rates.
-    if (!bot) await recordPromptEvent(e, (url.searchParams.get('page') || '').slice(0, 12), (url.searchParams.get('offer') || '').slice(0, 12));
-  } else if (e.startsWith('cx_')) {
-    // Cart "Before you go" panel. Same crawler exclusion as the booking prompt.
-    if (!bot) await recordCartExitEvent(e.slice(0, 40), (url.searchParams.get('offer') || '').slice(0, 12));
-  } else if (e.startsWith('th_')) {
-    // Try at Home page steps. Same crawler exclusion; `src=ad` marks a Meta ad visitor and
-    // `ab` the phone banner test version (src/lib/ab-test.ts).
-    if (!bot) await recordTryAtHomeEvent(e.slice(0, 40), url.searchParams.get('src') === 'ad', url.searchParams.get('ab') || '');
-  } else if (e) await recordEvent(e.slice(0, 40), product || undefined);
-  return noContent();
-}
-
-export const POST: APIRoute = ({ request, url, locals }) => handle(request, url, locals.botName);
-export const GET: APIRoute = ({ request, url, locals }) => handle(request, url, locals.botName);
+export const POST: APIRoute = noContent;
+export const GET: APIRoute = noContent;

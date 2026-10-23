@@ -1,9 +1,7 @@
-// First-party, privacy-friendly visitor funnel. No cookies, no PII, no per-user
-// records — only anonymous daily aggregate COUNTS per stage, in Firestore
-// `analytics_daily/{YYYY-MM-DD}` (IST). Written by /api/track, read by /api/admin/data.
-// Uses the Admin SDK (service account), so the collection stays locked from the public.
-import { adminDb } from './firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
+// Shapes and sums for the Try at Home view's counter panels (booking prompt, cart "Before
+// you go", Try at Home page steps, phone banner test). The counts come from Neon — see
+// ./warehouse/panels.ts, which builds the daily docs these functions add up. Counter names
+// are the ones the old Firestore `analytics_daily` docs used (th_view, th_view_ad, vp_shown_home …).
 
 // The funnel stages, in order. `purchase` is sourced from Shopify orders (authoritative),
 // so it is not a tracked event here.
@@ -15,35 +13,6 @@ function dayKey(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
 }
 
-// Increment one stage's counter for today, plus that product's own counters when the
-// event names one. Best-effort — never throws.
-export async function recordEvent(name: string, product?: string): Promise<void> {
-  if (!(FUNNEL_EVENTS as readonly string[]).includes(name)) return;
-  const db = adminDb();
-  if (!db) return;
-  try {
-    const writes: Promise<unknown>[] = [
-      db.collection('analytics_daily').doc(dayKey()).set(
-        { [name]: FieldValue.increment(1), total: FieldValue.increment(1), day: dayKey() },
-        { merge: true },
-      ),
-    ];
-    // Per-product tally — powers "most viewed products" in /admin. Doc id is a slug of
-    // the title so it stays stable and safe as a Firestore key.
-    if (product && (name === 'product_view' || name === 'add_to_cart')) {
-      const id = product.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
-      if (id) {
-        writes.push(db.collection('product_stats').doc(id).set({
-          title: product,
-          [name === 'product_view' ? 'views' : 'cartAdds']: FieldValue.increment(1),
-          lastAt: FieldValue.serverTimestamp(),
-        }, { merge: true }));
-      }
-    }
-    await Promise.all(writes);
-  } catch { /* best-effort analytics; never surface */ }
-}
-
 // Booking-prompt (Try at Home / Private Viewing dialog) counters, in the same daily doc.
 // Per event: a total plus a split by page kind and by offer, e.g. vp_shown, vp_shown_home,
 // vp_shown_tryhome. They are impressions, not unique people: the prompt itself shows at most
@@ -52,19 +21,6 @@ export const PROMPT_EVENTS = ['vp_shown', 'vp_dismiss', 'vp_click'] as const;
 export type PromptEvent = (typeof PROMPT_EVENTS)[number];
 export const PROMPT_PAGES = ['home', 'shop', 'product'] as const;
 export const PROMPT_OFFERS = ['tryhome', 'viewing'] as const;
-
-export async function recordPromptEvent(name: string, page: string, offer: string): Promise<void> {
-  if (!(PROMPT_EVENTS as readonly string[]).includes(name)) return;
-  const db = adminDb();
-  if (!db) return;
-  const inc = () => FieldValue.increment(1);
-  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
-  if ((PROMPT_PAGES as readonly string[]).includes(page)) fields[`${name}_${page}`] = inc();
-  if ((PROMPT_OFFERS as readonly string[]).includes(offer)) fields[`${name}_${offer}`] = inc();
-  try {
-    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
-  } catch { /* best-effort analytics; never surface */ }
-}
 
 export interface PromptCounts { shown: number; dismiss: number; click: number }
 export interface PromptStats {
@@ -95,12 +51,6 @@ export function promptFromDocs(docs: DayDoc[], days: number): PromptStats {
   return out;
 }
 
-// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
-export async function getPromptStats(days = 30): Promise<PromptStats | null> {
-  const docs = await recentDayDocs(days);
-  return docs ? promptFromDocs(docs, days) : null;
-}
-
 // Cart "Before you go" panel counters, in the same daily doc. Per event: a total plus an
 // optional split by offer, e.g. cx_shown, cx_shown_tryhome. Impressions, not unique people.
 // `total` is untouched so the visitor funnel is unaffected.
@@ -111,18 +61,6 @@ export const CART_EXIT_EVENTS = [
 ] as const;
 export type CartExitEvent = (typeof CART_EXIT_EVENTS)[number];
 export const CART_EXIT_OFFERS = ['tryhome', 'viewing'] as const;
-
-export async function recordCartExitEvent(name: string, offer: string): Promise<void> {
-  if (!(CART_EXIT_EVENTS as readonly string[]).includes(name)) return;
-  const db = adminDb();
-  if (!db) return;
-  const inc = () => FieldValue.increment(1);
-  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
-  if ((CART_EXIT_OFFERS as readonly string[]).includes(offer)) fields[`${name}_${offer}`] = inc();
-  try {
-    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
-  } catch { /* best-effort analytics; never surface */ }
-}
 
 export type CartExitCounts = Record<CartExitEvent, number>;
 export interface CartExitStats {
@@ -145,12 +83,6 @@ export function cartExitFromDocs(docs: DayDoc[], days: number): CartExitStats {
   return out;
 }
 
-// Summed over the last `days` daily docs. null if unavailable, so /admin can degrade.
-export async function getCartExitStats(days = 30): Promise<CartExitStats | null> {
-  const docs = await recentDayDocs(days);
-  return docs ? cartExitFromDocs(docs, days) : null;
-}
-
 // Try at Home page funnel, in the same daily doc: how many reached each step, so /admin
 // can show where people drop off. The page sends each step at most once per browser per
 // day (see BookDemo.astro), so these read as daily unique visitors, not page loads.
@@ -162,34 +94,8 @@ export async function getCartExitStats(days = 30): Promise<CartExitStats | null>
 // lib/warehouse/panels.ts) build the same shape, so both sources share the sums below.
 export interface DayDoc { id: string; data: Record<string, number> }
 
-// The newest `days` daily docs from Firestore; null when it is unreachable or over quota.
-async function recentDayDocs(days: number): Promise<DayDoc[] | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    return snap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, number> }));
-  } catch {
-    return null;
-  }
-}
-
 export const TRY_AT_HOME_EVENTS = ['th_view', 'th_quickview', 'th_pick', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
 export type TryAtHomeEvent = (typeof TRY_AT_HOME_EVENTS)[number];
-
-export async function recordTryAtHomeEvent(name: string, fromAd: boolean, ab = ''): Promise<void> {
-  if (!(TRY_AT_HOME_EVENTS as readonly string[]).includes(name)) return;
-  const db = adminDb();
-  if (!db) return;
-  const inc = () => FieldValue.increment(1);
-  const fields: Record<string, unknown> = { [name]: inc(), day: dayKey() };
-  if (fromAd) fields[`${name}_ad`] = inc();
-  // Phone banner test: a per-version twin, e.g. th_view_abB.
-  if (ab === 'A' || ab === 'B') fields[`${name}_ab${ab}`] = inc();
-  try {
-    await db.collection('analytics_daily').doc(dayKey()).set(fields, { merge: true });
-  } catch { /* best-effort analytics; never surface */ }
-}
 
 export type TryAtHomeCounts = Record<TryAtHomeEvent, number>;
 export interface TryAtHomeStats {
@@ -218,13 +124,6 @@ export function tryAtHomeFromDocs(docs: DayDoc[], days: number): TryAtHomeStats 
   return out;
 }
 
-// Summed over the last `days` daily docs, plus each day on its own. null if
-// unavailable, so /admin can degrade.
-export async function getTryAtHomeStats(days = 30): Promise<TryAtHomeStats | null> {
-  const docs = await recentDayDocs(days);
-  return docs ? tryAtHomeFromDocs(docs, days) : null;
-}
-
 // Phone banner test totals per version since it started (the first day either version
 // was counted), from the `_abA` / `_abB` twins above. Reads up to `days` daily docs.
 export interface BannerTestCounts { A: TryAtHomeCounts; B: TryAtHomeCounts; firstDay: string | null; days: number }
@@ -247,63 +146,4 @@ export function bannerFromDocs(docs: DayDoc[], days: number): BannerTestCounts {
     out.days = Math.round((Date.parse(today) - Date.parse(out.firstDay)) / 864e5) + 1;
   }
   return out;
-}
-
-export async function getBannerTestCounts(days = 120): Promise<BannerTestCounts | null> {
-  const docs = await recentDayDocs(days);
-  return docs ? bannerFromDocs(docs, days) : null;
-}
-
-export interface ProductStat {
-  id: string;
-  title: string;
-  views: number;
-  cartAdds: number;
-}
-
-// Most-viewed products first. Returns null if unavailable, so /admin can degrade.
-export async function getProductStats(max = 20): Promise<ProductStat[] | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('product_stats').orderBy('views', 'desc').limit(max).get();
-    return snap.docs.map((d) => {
-      const v = d.data() as Record<string, unknown>;
-      return {
-        id: d.id,
-        title: (v.title as string) || d.id,
-        views: Number(v.views || 0),
-        cartAdds: Number(v.cartAdds || 0),
-      };
-    });
-  } catch {
-    return null;
-  }
-}
-
-export interface Funnel {
-  visit: number;
-  product_view: number;
-  add_to_cart: number;
-  checkout_start: number;
-  payment_start: number;
-  days: number;
-}
-
-// Summed stage counts across the last `days` daily docs. Returns null if unavailable
-// (service account not configured or the read fails) so the dashboard can degrade.
-export async function getFunnel(days = 30): Promise<Funnel | null> {
-  const db = adminDb();
-  if (!db) return null;
-  try {
-    const snap = await db.collection('analytics_daily').orderBy('day', 'desc').limit(days).get();
-    const sum: Record<FunnelEvent, number> = { visit: 0, product_view: 0, add_to_cart: 0, checkout_start: 0, payment_start: 0 };
-    snap.forEach((doc) => {
-      const v = doc.data() as Record<string, number>;
-      for (const k of FUNNEL_EVENTS) sum[k] += Number(v[k] || 0);
-    });
-    return { ...sum, days };
-  } catch {
-    return null;
-  }
 }

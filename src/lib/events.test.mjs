@@ -45,7 +45,7 @@ assert.equal(sm({ referrer: 'https://vogue.in/article' }), 'vogue.in/referral');
 assert.equal(sm({}), 'direct/none');
 assert.equal(sm({ referrer: 'not a url' }), 'direct/none');
 
-// Identity — same rule as leads.ts personKey, email fallback.
+// Identity — same rule as the original personKey, email fallback.
 assert.equal(personKey('+91 77387 84781'), '7738784781');
 assert.equal(personIdFor('+917738784781', 'a@b.co'), '7738784781');
 assert.equal(personIdFor('', 'Priya@Example.com'), 'e:priya@example.com');

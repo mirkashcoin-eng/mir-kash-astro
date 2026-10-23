@@ -7,18 +7,16 @@
 // of uses" / "limit one per customer" settings have no effect on India orders.
 //
 // Shopify stays the source of truth for the RULES (admin.ts getDiscountCodeRules);
-// this collection is the source of truth for the COUNT:
-//   `coupon_redemptions/{CODE}:{orderName}` — one per code per order. The composite
-//   doc id + create() makes recording idempotent, which matters because three
-//   independent paths finalize the same order (return page, webhook, reconciler).
+// the Neon `coupon_redemptions` table is the source of truth for the COUNT: one row
+// per code per order. The (code, order_name) primary key + ON CONFLICT DO NOTHING
+// makes recording idempotent, which matters because three independent paths finalize
+// the same order (return page, webhook, reconciler).
 //
-// Admin SDK only (service account); never readable from the browser.
+// Server only; never readable from the browser.
 // The global store is deliberately excluded — its hosted checkout redeems and
 // counts codes itself, so ledgering it too would exhaust codes twice as fast.
-import { adminDb } from './firebaseAdmin';
+import { q } from './db';
 import { getDiscountCodeRules } from './shopify/admin';
-
-const COLLECTION = 'coupon_redemptions';
 
 export interface Redemption {
   code: string;
@@ -42,73 +40,44 @@ export const normPhone = (p: string | null | undefined): string | null => {
   return digits.length >= 10 ? digits.slice(-10) : digits || null;
 };
 
-// Record one redemption. Best-effort and idempotent: a duplicate create() throws
-// ALREADY_EXISTS, which is the success case for a webhook/return-page race. A lost
-// ledger row must never fail an order that the buyer has already paid for.
+// Record one redemption. Best-effort and idempotent: a duplicate is the success case
+// for a webhook/return-page race. A lost ledger row must never fail an order that the
+// buyer has already paid for.
 export async function recordRedemption(r: Redemption): Promise<void> {
-  const db = adminDb();
-  if (!db) {
-    console.error('[coupons] no Firestore — redemption not recorded', r.code, r.orderName);
-    return;
-  }
   const code = normCode(r.code);
   if (!code || !r.orderName) return;
-  try {
-    await db.collection(COLLECTION).doc(`${code}:${r.orderName}`).create({
-      code,
-      orderName: r.orderName,
-      orderId: r.orderId ?? null,
-      email: normEmail(r.email),
-      phone: normPhone(r.phone),
-      amount: r.amount,
-      at: new Date().toISOString(),
-    });
-  } catch {
-    // Already claimed by another finalize path, or a write error — either way the
-    // order stands. Nothing to retry.
-  }
+  const rows = await q(
+    `INSERT INTO coupon_redemptions (code, order_name, order_id, email, phone, amount)
+     VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (code, order_name) DO NOTHING`,
+    [code, r.orderName, r.orderId ?? null, normEmail(r.email), normPhone(r.phone), r.amount],
+  );
+  if (!rows) console.error('[coupons] redemption not recorded', code, r.orderName);
 }
 
-// How many times we've redeemed this code. Returns 0 when Firestore is unavailable
-// so an outage lets coupons through rather than blocking every sale — the same
-// degradation the rest of the Firestore-backed code uses.
+// How many times we've redeemed this code. Returns 0 when the database is unavailable
+// so an outage lets coupons through rather than blocking every sale.
 export async function countRedemptions(code: string): Promise<number> {
-  const db = adminDb();
-  if (!db) return 0;
-  try {
-    const snap = await db.collection(COLLECTION).where('code', '==', normCode(code)).count().get();
-    return snap.data().count;
-  } catch (e) {
-    console.error('[coupons] countRedemptions failed:', e);
-    return 0;
-  }
+  const rows = await q<{ n: string }>('SELECT count(*)::text AS n FROM coupon_redemptions WHERE code = $1', [normCode(code)]);
+  return rows ? Number(rows[0]?.n ?? 0) : 0;
 }
 
 // Has THIS buyer used the code before? Email or phone matching is enough — a fresh
 // email still trips on the phone number, which checkout collects either way.
-// Two queries rather than one OR so each uses a simple composite index.
 export async function customerHasRedeemed(
   code: string,
   email: string | null,
   phone: string | null,
 ): Promise<boolean> {
-  const db = adminDb();
-  if (!db) return false;
   const c = normCode(code);
   const e = normEmail(email);
   const p = normPhone(phone);
   if (!c || (!e && !p)) return false;
-  try {
-    const checks = [
-      e ? db.collection(COLLECTION).where('code', '==', c).where('email', '==', e).limit(1).get() : null,
-      p ? db.collection(COLLECTION).where('code', '==', c).where('phone', '==', p).limit(1).get() : null,
-    ].filter(Boolean) as Array<Promise<FirebaseFirestore.QuerySnapshot>>;
-    const results = await Promise.all(checks);
-    return results.some((snap) => !snap.empty);
-  } catch (e2) {
-    console.error('[coupons] customerHasRedeemed failed:', e2);
-    return false;
-  }
+  const rows = await q(
+    `SELECT 1 FROM coupon_redemptions
+      WHERE code = $1 AND (($2::text IS NOT NULL AND email = $2) OR ($3::text IS NOT NULL AND phone = $3)) LIMIT 1`,
+    [c, e, p],
+  );
+  return Boolean(rows?.length);
 }
 
 // ── The gate ───────────────────────────────────────────────────────────────────

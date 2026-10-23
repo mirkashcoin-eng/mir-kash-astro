@@ -5,8 +5,7 @@
 // connections never leak. Schema changes go through scripts/migrate.mjs on the
 // DIRECT string (DATABASE_URL_UNPOOLED), never through this pool.
 //
-// Degrades to null when DATABASE_URL isn't set, like adminDb() — analytics must
-// never take the shop down.
+// Degrades to null when DATABASE_URL isn't set — analytics must never take the shop down.
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
 
@@ -41,12 +40,19 @@ export async function q<T extends QueryResultRow = QueryResultRow>(
 ): Promise<T[] | null> {
   const pool = pg();
   if (!pool) return null;
-  try {
-    const r = await pool.query<T>(sql, params);
-    return r.rows;
-  } catch (e) {
-    console.error('[db] query failed:', e);
-    return null;
+  // A cold Neon compute can miss the 5 s connect window once. That failure happens before
+  // the query is sent, so one retry is safe even for writes, and it keeps checks like the
+  // Team access lookup from failing closed on a wake-up.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const r = await pool.query<T>(sql, params);
+      return r.rows;
+    } catch (e) {
+      const connectTimeout = e instanceof Error && /timeout exceeded when trying to connect|connection timeout/i.test(e.message);
+      if (connectTimeout && attempt === 0) continue;
+      console.error('[db] query failed:', e);
+      return null;
+    }
   }
 }
 

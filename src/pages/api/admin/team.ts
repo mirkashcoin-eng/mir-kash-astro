@@ -13,7 +13,7 @@ const json = (obj: unknown, status = 200) =>
 
 const isRole = (v: unknown): v is AdminRole => v === 'full' || v === 'affiliate';
 
-// Founders-only endpoint (root ADMIN_EMAILS, or a Firestore 'full' grant — both
+// Founders-only endpoint (root ADMIN_EMAILS, or a 'full' grant in Team access — both
 // count as founders here). Verifies the caller once and hands back their email,
 // so a granted action can be attributed in the audit trail.
 async function foundersOnly(request: Request): Promise<string | null> {
@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (adminEmails().includes(email)) return json({ error: 'That email is already a founder' }, 400);
 
   const res = await upsertAdminUser(email, body.role, caller, (body.label || '').trim() || undefined);
-  if (res === 'unavailable') return json({ error: 'Firestore service account not configured' }, 503);
+  if (res === 'unavailable') return json({ error: 'Database is not configured' }, 503);
   return json({ ok: true });
 };
 
@@ -62,6 +62,6 @@ export const DELETE: APIRoute = async ({ request }) => {
   if (!email) return json({ error: 'email is required' }, 400);
 
   const res = await removeAdminUser(email);
-  if (res === 'unavailable') return json({ error: 'Firestore service account not configured' }, 503);
+  if (res === 'unavailable') return json({ error: 'Database is not configured' }, 503);
   return json({ ok: true });
 };

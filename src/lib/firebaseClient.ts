@@ -1,5 +1,5 @@
-// Browser-side Firebase for customer accounts (Google sign-in) + Firestore
-// (saved-address profile + checkout lead capture). Reuses the existing Firebase
+// Browser-side Firebase Auth for customer accounts (Google sign-in). Saved-address
+// profiles are stored in Neon via /api/account/profile. Reuses the existing Firebase
 // project. Degrades to no-ops until PUBLIC_FIREBASE_* are configured.
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
@@ -9,7 +9,6 @@ import {
   setPersistence, browserLocalPersistence,
   type Auth, type User,
 } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 
 const cfg = {
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
@@ -20,7 +19,6 @@ const cfg = {
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
-let db: Firestore | undefined;
 // Resolves once persistence is configured. Awaited before any sign-in so a session
 // can never be created under the default before browserLocalPersistence lands.
 let persistenceReady: Promise<void> = Promise.resolve();
@@ -42,7 +40,6 @@ function init() {
       console.warn('[firebase] persistent session unavailable — sign-in will not survive a refresh', e);
     });
   }
-  if (!db) db = getFirestore(app);
   return true;
 }
 
@@ -139,17 +136,30 @@ export async function signOut(): Promise<void> {
   if (init()) await fbSignOut(auth!);
 }
 
+// Saved details live in Neon, behind /api/account/profile; the ID token says whose they are.
+async function profileFetch(init: RequestInit): Promise<Response | null> {
+  const token = await getIdToken();
+  if (!token) return null;
+  return fetch('/api/account/profile', {
+    ...init,
+    headers: { ...(init.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+  });
+}
+
 export async function loadProfile(uid: string): Promise<Profile | null> {
-  if (!init()) return null;
-  const snap = await getDoc(doc(db!, 'profiles', uid));
-  return snap.exists() ? ({ id: uid, ...snap.data() } as Profile) : null;
+  try {
+    const res = await profileFetch({ method: 'GET' });
+    if (!res || !res.ok) return null;
+    const { profile } = await res.json();
+    return profile ? ({ ...profile, id: uid } as Profile) : null;
+  } catch { return null; }
 }
 
 export async function saveProfile(p: Profile): Promise<boolean> {
-  if (!init()) return false;
   try {
-    await setDoc(doc(db!, 'profiles', p.id), { ...p, updated_at: serverTimestamp() }, { merge: true });
-    return true;
+    const { id: _id, ...fields } = p;
+    const res = await profileFetch({ method: 'PUT', body: JSON.stringify(fields) });
+    return Boolean(res && res.ok);
   } catch { return false; }
 }
 

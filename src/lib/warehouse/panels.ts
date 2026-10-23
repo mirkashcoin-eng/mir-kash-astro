@@ -1,5 +1,5 @@
 // The Try at Home view's counter panels (page funnel, phone banner test, booking prompt,
-// cart "Before you go"), read from Neon instead of the Firestore analytics_daily counters.
+// cart "Before you go"), read from Neon (they used to come from the Firestore analytics_daily counters).
 //
 // Two sources are merged day by day:
 //   - legacy_daily (source 'analytics_daily'): the Firestore counters copied over by
@@ -98,7 +98,7 @@ export interface TryAtHomePanels {
   cartExit: CartExitStats;
 }
 
-/** The four counter panels from Neon, or null so the caller can fall back to Firestore. */
+/** The four counter panels from Neon, or null when the database is unreachable. */
 export async function getTryAtHomePanels(): Promise<TryAtHomePanels | null> {
   const docs = await neonDayDocs(LOOKBACK_DAYS);
   if (!docs) return null;
