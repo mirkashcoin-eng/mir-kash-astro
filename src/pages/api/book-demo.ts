@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createDemoBooking } from '~/lib/shopify/admin';
+import { createDemoBooking, findOpenDemoBooking } from '~/lib/shopify/admin';
 import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
 
@@ -70,19 +70,25 @@ export const POST: APIRoute = async (ctx) => {
   // suburb we don't list and confirmed it's in the Mumbai area.
   if (country !== 'IN') return json({ error: 'Try at Home is only available in Mumbai — please book a Private Viewing instead.' }, 400);
 
+  // Someone sending the same request again (src/lib/repeat-booking.ts) still gets a draft,
+  // so the team sees their latest date and bags, but Meta already counted them: the new
+  // draft carries the first booking's event id and no second Schedule is sent.
+  const repeatOf = await findOpenDemoBooking(`+91${phone}`);
+
   const fbp = cookies.get('_fbp')?.value;
   const fbc = cookies.get('_fbc')?.value;
   const result = await createDemoBooking({
     bags, date, slot, name, email: email || undefined, phone: `+91${phone}`, address, area, zip: pin, city,
-    meta: { fbp, fbc, eventId: fbEventId },
+    meta: { fbp, fbc, eventId: repeatOf?.eventId || fbEventId },
     abVariant,
+    repeatOf: repeatOf?.name,
   });
 
   // Meta Conversions API — server-side mirror of the browser Schedule pixel fired by
   // BookDemo.astro on success. Shares fbEventId with it so Meta dedupes the two. This is
   // the event the Try at Home campaign optimises for, so it carries every match key the
-  // form collects. Only sent once the booking really exists.
-  if (result) {
+  // form collects. Only sent once the booking really exists, and only for a new booking.
+  if (result && !repeatOf) {
     let ip: string | undefined;
     try { ip = ctx.clientAddress; } catch { /* unsupported on this adapter/route */ }
     const [firstName, ...rest] = name.split(/\s+/);
@@ -115,6 +121,6 @@ export const POST: APIRoute = async (ctx) => {
   }
 
   return result
-    ? json({ ok: true })
+    ? json({ ok: true, ...(repeatOf ? { repeat: true } : {}) })
     : json({ error: 'Something went wrong booking your demo. Please try again or email hello@mirkash.com.' }, 502);
 };

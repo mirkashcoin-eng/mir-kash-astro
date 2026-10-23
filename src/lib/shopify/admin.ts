@@ -5,6 +5,7 @@
 import type { Money } from '~/types/shopify';
 import { contentId, sendMetaEvent } from '~/lib/meta-capi';
 import { SITE_ORIGIN } from '~/lib/markets';
+import { findRepeatOf, REPEAT_WINDOW_MS, type PastBooking } from '~/lib/repeat-booking';
 
 const ADMIN_API_VERSION = '2025-01';
 
@@ -665,6 +666,8 @@ export async function createDemoBooking(args: {
   meta?: { fbp?: string; fbc?: string; eventId?: string };
   /** Phone banner test version the visitor saw (src/lib/ab-test.ts), when counted. */
   abVariant?: 'A' | 'B';
+  /** The earlier draft this request repeats (see findOpenDemoBooking), e.g. "#D145". */
+  repeatOf?: string;
 }): Promise<DraftOrderResult | null> {
   const city = args.city?.trim() || 'Mumbai';
   const parts = args.name.trim().split(/\s+/);
@@ -691,6 +694,7 @@ export async function createDemoBooking(args: {
       ...(args.meta?.fbc ? [{ key: 'meta_fbc', value: args.meta.fbc }] : []),
       ...(args.meta?.eventId ? [{ key: 'meta_event_id', value: args.meta.eventId }] : []),
       ...(args.abVariant ? [{ key: 'ab_variant', value: args.abVariant }] : []),
+      ...(args.repeatOf ? [{ key: 'repeat_of', value: args.repeatOf }] : []),
     ],
     lineItems: args.bags.map((b) => ({ variantId: b.variantId, quantity: 1 })),
     shippingAddress: {
@@ -716,6 +720,39 @@ export async function createDemoBooking(args: {
     return null;
   }
   return shape(data?.draftOrderCreate?.draftOrder);
+}
+
+const RECENT_DEMO_BOOKINGS = /* GraphQL */ `
+  query RecentDemoBookings($query: String!) {
+    draftOrders(first: 100, query: $query, sortKey: UPDATED_AT, reverse: true) {
+      edges { node { name createdAt phone tags customAttributes { key value } } }
+    }
+  }
+`;
+
+// The open home-demo booking this phone already made in the last 7 days, if any (rule in
+// src/lib/repeat-booking.ts). Null when there's none or Shopify can't be read, so a
+// lookup failure never blocks a booking; it just counts as new.
+export async function findOpenDemoBooking(phone: string): Promise<PastBooking | null> {
+  // A day of slack on the search; findRepeatOf applies the exact window.
+  const since = new Date(Date.now() - REPEAT_WINDOW_MS - 86_400_000).toISOString().slice(0, 10);
+  const data = await runAdminQuery<{
+    draftOrders: { edges: Array<{ node: {
+      name: string; createdAt: string; phone: string | null; tags: string[];
+      customAttributes: Array<{ key: string; value: string }>;
+    } }> };
+  }>(RECENT_DEMO_BOOKINGS, { query: `tag:home-demo AND created_at:>=${since}` });
+  const past = (data?.draftOrders?.edges ?? []).map(({ node }) => {
+    const attr = (k: string) => node.customAttributes.find((a) => a.key === k)?.value ?? '';
+    return {
+      name: node.name,
+      createdAt: node.createdAt,
+      phone: node.phone,
+      completed: demoStatus(node.tags ?? [], attr('demo_status')) === 'completed',
+      eventId: attr('meta_event_id') || null,
+    };
+  });
+  return findRepeatOf(past, phone, Date.now());
 }
 
 // ── Private Viewing booking (global, video call) ────────────────────────────────

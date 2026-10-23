@@ -919,9 +919,10 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
         if (!r.ok || !r.data.ok) throw new Error((r.data && r.data.error) || 'Could not book your Try at Home.');
         countStep('th_booked');
         // Meta: the Try at Home campaign optimises for this. Fired only after the booking
-        // exists, never on submit, so failed or rejected bookings don't count.
+        // exists, never on submit, so failed or rejected bookings don't count. A repeat of
+        // a booking Meta already counted isn't sent again (see /api/book-demo).
         try {
-          if (typeof window.fbq === 'function') {
+          if (!r.data.repeat && typeof window.fbq === 'function') {
             window.fbq('track', 'Schedule', {
               content_name: 'Try at Home', content_type: 'product',
               content_ids: bagList.map((b) => contentId(b.variantId)), num_items: bagList.length,
