@@ -143,6 +143,7 @@ interface RawDraftOrder {
     title: string; quantity: number;
     image: { url: string } | null;
     originalUnitPriceSet: { shopMoney: Money } | null;
+    variant: { id: string } | null;
   } }> };
 }
 
@@ -160,10 +161,9 @@ function shape(d: RawDraftOrder | null | undefined): DraftOrderResult | null {
       quantity: e.node.quantity,
       image: e.node.image?.url ?? null,
       price: e.node.originalUnitPriceSet?.shopMoney ?? null,
-      // `variant { id }` needs the read_products scope, which the app doesn't have — asking
-      // for it fails draftOrderCreate outright ("Payment could not be started"). Purchase
-      // events fall back to the title until that scope is granted.
-      variantId: null,
+      // `variant { id }` needs the app's read_products scope. Without it Shopify rejects the
+      // whole draftOrderCreate and the buyer sees "Payment could not be started".
+      variantId: e.node.variant?.id ?? null,
     })),
     phone: d.phone ?? null,
     email: d.email ?? null,
@@ -191,6 +191,7 @@ const DRAFT_FIELDS = /* GraphQL */ `
     title quantity
     image { url }
     originalUnitPriceSet { shopMoney { amount currencyCode } }
+    variant { id }
   } } }
 `;
 
