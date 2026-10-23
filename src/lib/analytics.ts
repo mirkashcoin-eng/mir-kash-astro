@@ -174,7 +174,7 @@ async function recentDayDocs(days: number): Promise<DayDoc[] | null> {
   }
 }
 
-export const TRY_AT_HOME_EVENTS = ['th_view', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
+export const TRY_AT_HOME_EVENTS = ['th_view', 'th_quickview', 'th_pick', 'th_datetime', 'th_details', 'th_phone', 'th_submit', 'th_booked'] as const;
 export type TryAtHomeEvent = (typeof TRY_AT_HOME_EVENTS)[number];
 
 export async function recordTryAtHomeEvent(name: string, fromAd: boolean, ab = ''): Promise<void> {

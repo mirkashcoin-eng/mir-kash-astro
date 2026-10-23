@@ -6,6 +6,7 @@ import { getAllProducts } from '~/lib/shopify/queries';
 import { shopifyImage } from '~/lib/shopifyImage';
 import { flagEmoji } from '~/lib/countries';
 import { parseBags } from '~/lib/cart-exit';
+import { adPreselect } from '~/lib/ad-pieces';
 import '~/styles/booking-wizard.css';
 
 // Phone banner test version, assigned in src/pages/try-at-home.astro (see src/lib/ab-test.ts).
@@ -16,6 +17,8 @@ const noPhoneBanner = abVariant === 'B';
 const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 const products = await getAllProducts('india', 'IN', 48);
+// Not bags, so never part of a home visit (charms already skip the Try at Home prompt).
+const NOT_FOR_VISITS = new Set(['tassel-charm', 'passport-cover']);
 
 // One card per colour, split the same way as Shop All (ShopAll.astro): only the
 // consolidated listings, which carry custom.size_order and colour-tagged photo alt
@@ -27,6 +30,7 @@ type Bag = {
 };
 const bags: Bag[] = [];
 products.forEach((p, pi) => {
+  if (NOT_FOR_VISITS.has(p.handle)) return;
   const imgs = (p.images?.edges ?? []).map((e) => e.node);
   const size = Number(p.sizeOrder?.value) || 99;
   // Shopify's plain `description` strips the tags without inserting any
@@ -70,11 +74,14 @@ bags.sort((a, b) => a.size - b.size || a.order - b.order);
 // Decided here rather than in the browser so the chosen piece is already first in
 // the grid when the page paints. ?color picks the colour of the ?bag piece; without
 // it, or when that colour is sold out, the first colour still available is used.
+// A Meta Try at Home ad link without its own ?bag gets the piece the ad showed
+// (src/lib/ad-pieces.ts).
 const q = Astro.url.searchParams;
-const bagParam = (q.get('bag') ?? '').trim().toLowerCase();
-const wantColour = (q.get('color') ?? q.get('colour') ?? '').trim().toLowerCase();
+const fromAd = adPreselect(q);
+const bagParam = (fromAd?.bag ?? q.get('bag') ?? '').trim().toLowerCase();
+const wantColour = (fromAd?.color ?? q.get('color') ?? q.get('colour') ?? '').trim().toLowerCase();
 const preselected: Bag[] = [];
-for (const handle of parseBags(q.get('bags'), q.get('bag'))) {
+for (const handle of parseBags(q.get('bags'), bagParam)) {
   const options = bags.filter((b) => b.handle === handle);
   const pick = (handle === bagParam && wantColour && options.find((b) => b.colour.toLowerCase() === wantColour)) || options[0];
   if (pick && !preselected.includes(pick) && preselected.length < 6) preselected.push(pick);
@@ -144,7 +151,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
           <div class="bd-intro__text">
             <p class="bd-intro__eyebrow">Try at Home &middot; By private appointment</p>
             <h1 class="bd-intro__h">Up to six pieces of your choosing, at home.</h1>
-            <p class="bd-intro__sub">Choose the pieces you would like to see. A client advisor will bring them to your home and show you each one in person, so you can decide in your own space and your own light. Complimentary, and without obligation.</p>
+            <p class="bd-intro__sub">Choose the pieces you would like to see. A style advisor will bring them to your home and show you each one in person, so you can decide in your own space and your own light. Complimentary, and without obligation.</p>
           </div>
         </header>
         {selectionLine && <p class="bd-intro__sel">{selectionLine}</p>}
@@ -193,6 +200,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
         <div id="bwBannerSlot"></div>
         <div class="bd-sec__head"><h2 class="bd-sec__t">Your details</h2></div>
         <p class="bd-recap" id="detailsRecap"></p>
+        <p class="bd-side__note">A Mir Kash style advisor will bring your pieces. We'll confirm the time with you on WhatsApp. No pressure to buy.</p>
         <div class="bd-fields">
           <label class="bd-field"><span>Full name</span><input class="bd-input" id="f-name" type="text" autocomplete="name" /></label>
           <label class="bd-field bd-field--phone">
@@ -219,7 +227,6 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
             <label class="bd-field"><span>Country</span><div class="bw-combo"><input class="bd-input" id="f-country" type="text" value="India" spellcheck="false" /><div class="bw-combo__list" hidden></div></div></label>
           </div>
         </div>
-        <p class="bd-side__note">No pressure to buy. Confirm now, decide at home.</p>
       </div>
     </section>
 
@@ -384,7 +391,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   .bd-phone__isd { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--rule); background: var(--cream); color: var(--depth); font-size: 14px; white-space: nowrap; flex-shrink: 0; }
   .bd-phone__num { flex: 1; min-width: 0; }
 
-  .bd-side__note { font-size: 12px; color: #9a938a; line-height: 1.6; margin: 20px 0 0; }
+  /* Who comes and what happens next, read before the fields */
+  .bd-side__note { font-size: 12.5px; color: var(--mid); line-height: 1.6; margin: -10px 0 18px; }
 
   /* What's being booked, one line above the fields */
   .bd-recap { margin: 0 0 22px; padding: 12px 16px; background: var(--cream); border: 1px solid var(--rule); font-size: 13.5px; line-height: 1.5; color: var(--depth); }
@@ -483,12 +491,12 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     .bd-input { border: none; padding: 3px 0 8px; font-size: 16px; }
     .bd-phone { gap: 0; align-items: center; }
     .bd-phone__isd { padding: 0 10px 0 0; margin: 3px 10px 8px 0; border: none; border-right: 1px solid var(--rule); background: none; font-size: 15px; }
-    .bd-side__note { margin-top: 12px; }
+    .bd-side__note { margin: -6px 0 10px; font-size: 12px; line-height: 1.5; }
   }
-  /* Shorter phones: the reassurance line gives way. */
+  /* Shorter phones: tighter spacing, but the reassurance line stays. */
   @media (max-width: 620px) and (max-height: 620px) {
     .bd-stepwrap { padding-top: 10px; padding-bottom: 4px; }
-    .bd-side__note { display: none; }
+    .bd-side__note { margin: -4px 0 8px; }
     [data-step="details"] .bd-sec__head { display: none; }
     .bd-fields { gap: 6px; }
     .bd-recap { margin-bottom: 10px; }
@@ -565,6 +573,8 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
     else {
       if (selectedBags.size >= 6) { showMax(); return false; }
       selectedBags.set(vid, BAGS[vid]?.label || 'Bag'); if (tile) tile.classList.add('sel');
+      // pre: the piece came selected from the link (an ad, a prompt, the cart), not a tap.
+      countStep('th_pick', preselecting ? { pre: '1' } : undefined);
     }
     // The card button carries a visible label now, so its pressed state has to
     // be exposed too — the label alone reads the same either way to a screen reader.
@@ -582,11 +592,14 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
 
   // ── Preselect from ?bag / ?color / ?bags: the server picked the colours and put
   // them first in the grid (see the frontmatter); this only selects them. ──
+  let preselecting = false;
   function preselectFromQuery() {
+    preselecting = true;
     document.querySelectorAll<HTMLElement>('.bd-bag[data-preselect]').forEach((tile) => {
       if (selectedBags.size >= 6) return; // page limit — don't trip the "already 6" toast
       if (!selectedBags.has(tile.dataset.vid!)) toggleBag(tile.dataset.vid!);
     });
+    preselecting = false;
   }
 
   // ── Quick-view modal ──
@@ -594,6 +607,7 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   function openModal(vid: string) {
     const b = BAGS[vid]; if (!b) return;
     modalVid = vid;
+    countStep('th_quickview');
     $('mv-title').textContent = b.title;
     $('mv-colour').textContent = b.colour; $('mv-colour').hidden = !b.colour;
     // Shop-authored HTML from Shopify, same trust level as the PDP's set:html.
@@ -966,10 +980,10 @@ const receiptPlaceholderItems = Array.from({ length: RECEIPT_MAX_BAGS }, () => (
   const funnelDay = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   let funnel: FunnelRecord = freshRecord(null, funnelDay, isAdVisit(location.search));
   try { funnel = freshRecord(JSON.parse(localStorage.getItem(FUNNEL_KEY) || 'null'), funnelDay, isAdVisit(location.search)); } catch { /* storage unavailable or corrupt — count from this page only */ }
-  function countStep(step: string) {
+  function countStep(step: string, extra?: Record<string, string>) {
     if (!claimStep(funnel, step)) return;
     try { localStorage.setItem(FUNNEL_KEY, JSON.stringify(funnel)); } catch { /* storage unavailable */ }
-    if (window.mkTrack) window.mkTrack(step, { src: funnel.ad ? 'ad' : undefined, ab: abTag || undefined });
+    if (window.mkTrack) window.mkTrack(step, { src: funnel.ad ? 'ad' : undefined, ab: abTag || undefined, ...extra });
   }
 
   // ── Boot ──

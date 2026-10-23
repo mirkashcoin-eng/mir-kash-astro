@@ -326,6 +326,8 @@ export function initOps() {
     // two rows is the drop-off at that step.
     var TAH_STEPS = [
       ['th_view', 'Opened the page'],
+      ['th_quickview', 'Opened a piece'],
+      ['th_pick', 'Selected a piece'],
       ['th_datetime', 'Chose pieces'],
       ['th_details', 'Chose day and time'],
       ['th_phone', 'Entered phone'],
